@@ -48,9 +48,8 @@
 //! full design, and `Interp::pool_registry`/`eval_run` (`lib.rs`) for how
 //! a job actually gets routed to one.
 
-use crate::{e, EvalError, Interp, MethodEntry, Rng, Value, R};
+use crate::{e, EvalError, Interp, Rng, Value, R};
 use rayon::prelude::*;
-use std::collections::HashMap;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex as StdMutex};
 
@@ -424,8 +423,8 @@ impl PoolHandle {
 /// job-execution semantics can't drift between them.
 fn run_one_job(
     job: &Job,
-    env: &HashMap<String, Value>,
-    methods: &HashMap<String, Vec<MethodEntry>>,
+    env: &crate::VarMap,
+    methods: &crate::MethodMap,
     seed: u64,
 ) -> R<Value> {
     let mut worker = Interp::new();
@@ -474,8 +473,8 @@ fn run_one_job(
 pub(crate) fn run_jobs_on_pool(
     jobs: Vec<Job>,
     pool: &PoolHandle,
-    env: HashMap<String, Value>,
-    methods: HashMap<String, Vec<MethodEntry>>,
+    env: crate::VarMap,
+    methods: crate::MethodMap,
     seeds: Vec<u64>,
 ) -> R<Vec<Value>> {
     if jobs.is_empty() {
@@ -713,8 +712,8 @@ enum NoLane {
 fn run_on_lane(
     lane: &Lane<'_>,
     job: &Job,
-    env: &HashMap<String, Value>,
-    methods: &HashMap<String, Vec<MethodEntry>>,
+    env: &crate::VarMap,
+    methods: &crate::MethodMap,
     seed: u64,
 ) -> R<Value> {
     match lane {
@@ -915,8 +914,8 @@ fn claim_least_busy<'a>(pools: &'a [Arc<PoolHandle>], on: &str) -> &'a Arc<PoolH
 pub(crate) fn run_jobs_auto(
     jobs: Vec<Job>,
     pools: Vec<Arc<PoolHandle>>,
-    env: HashMap<String, Value>,
-    methods: HashMap<String, Vec<MethodEntry>>,
+    env: crate::VarMap,
+    methods: crate::MethodMap,
     seeds: Vec<u64>,
 ) -> R<Vec<Value>> {
     if jobs.is_empty() {

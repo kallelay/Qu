@@ -1,0 +1,590 @@
+# Behaviour battery for the interpreter-overhead work (lane claude/interp-overhead).
+# Every line it prints was produced by the binary BEFORE the change and must be
+# produced unchanged after it (tests/interp_overhead.rs compares them).
+rs = ()
+
+# ---- 1. value semantics / aliasing ----
+a = (1, 2)
+b = a
+a = append(a, 3)
+rs = append(rs, "alias list: {length(a)} {length(b)}")
+v = [1, 2, 3]
+w = v
+v[0] = 99
+for i = 0 to 2
+    v[i] = v[i] + 1
+end for
+rs = append(rs, "alias vec: {v[0]} {v[1]} {w[0]} {w[1]}")
+function grow(n)
+    l = ()
+    keep = l
+    for i = 1 to n
+        l = append(l, i)
+    end for
+    return length(l) * 10 + length(keep)
+end function
+rs = append(rs, "grow: {grow(5)} {grow(3)}")
+function copy_then_write(src)
+    mine = src
+    mine[0] = -5
+    return mine[0] * 100 + src[0]
+end function
+orig = [1, 2, 3]
+rs = append(rs, "cow: {copy_then_write(orig)} {orig[0]}")
+d1 = dict()
+d1 = set(d1, "a", 1)
+d2 = d1
+d1 = set(d1, "b", 2)
+rs = append(rs, "alias dict: {length(keys(d1))} {length(keys(d2))}")
+s1 = "ab"
+s2 = s1
+s1 = s1 + "cd" + str(1)
+rs = append(rs, "alias str: {s1} {s2}")
+
+# ---- 2. frames: locals do not leak between calls ----
+function setter()
+    leaked_tmp = 123
+    return leaked_tmp
+end function
+function reader()
+    x = "defined"
+    try
+        x = leaked_tmp
+    catch e
+        x = "undefined"
+    end
+    return x
+end function
+rs = append(rs, "leak: {setter()} {reader()} {setter()} {reader()}")
+function dflt(a, b = a * 2)
+    return a + b
+end function
+rs = append(rs, "default: {dflt(1)} {dflt(1, 5)} {dflt(2)}")
+function many(a, b)
+    c = a + b
+    d = c * 2
+    e1 = d - a
+    f1 = e1 + b
+    g = f1 * 0.5
+    h = g + c
+    return h + d
+end function
+tot = 0
+for i = 1 to 50
+    tot = tot + many(i, 2)
+end for
+rs = append(rs, "many: {tot}")
+function arity(a, b)
+    return a + b
+end function
+try
+    arity(1)
+catch e
+    rs = append(rs, "arity: {e.message}")
+end
+rs = append(rs, "after arity: {arity(1, 2)}")
+
+# ---- 3. recursion ----
+function fib(n)
+    if n < 2
+        return n
+    end if
+    return fib(n - 1) + fib(n - 2)
+end function
+rs = append(rs, "fib: {fib(15)}")
+function deep(n)
+    return deep(n + 1)
+end function
+try
+    deep(0)
+catch e
+    rs = append(rs, "deep: {e.message}")
+end
+rs = append(rs, "after deep: {fib(10)} {setter()} {reader()}")
+
+# ---- 4. errors raised inside called functions ----
+function inner2()
+    y = undefined_zzz
+end function
+function mid2()
+    inner2()
+end function
+function outer2()
+    mid2()
+end function
+try
+    outer2()
+catch e
+    rs = append(rs, "err: {e.stack} | line {e.line} | {e.message}")
+    tr = e.trace
+    rs = append(rs, "trace: {tr}")
+end
+function risky(x)
+    if x > 2
+        error("too big: {x}")
+    end if
+    return x
+end function
+function wrap(x)
+    r = "none"
+    try
+        r = risky(x)
+    catch e
+        r = "caught " + e.message + " via " + e.stack
+    end
+    return r
+end function
+rs = append(rs, "wrap: {wrap(1)} / {wrap(5)}")
+rs = append(rs, "after wrap: {risky(1)}")
+
+# ---- 5. ref aliases and global ----
+x = 1
+ref y = x
+y = 5
+rs = append(rs, "ref: {x} {y}")
+x = 7
+rs = append(rs, "ref2: {x} {y}")
+function refuser()
+    p = 1
+    ref q = p
+    q = 9
+    p = p + 1
+    return "{p} {q}"
+end function
+rs = append(rs, "ref frame: {refuser()} {refuser()}")
+gcount = 0
+function bump()
+    global gcount
+    gcount = gcount + 1
+    loc = gcount
+    return loc
+end function
+b1 = bump()
+b2 = bump()
+rs = append(rs, "global: {gcount} {b1} {b2} {bump()} {gcount}")
+shadow_me = 10
+function localwrite()
+    shadow_me = 20
+    return shadow_me
+end function
+rs = append(rs, "local write: {localwrite()} {shadow_me}")
+function inner_loop()
+    for i = 0 to 9
+    end for
+    return i
+end function
+seen = ()
+for i = 0 to 2
+    vv = inner_loop()
+    seen = append(seen, str(i * 100 + vv))
+end for
+j2 = join(seen, ",")
+rs = append(rs, "loop var: {j2}")
+
+# ---- 6. string interpolation ----
+function interp_a(n)
+    return "a{n}"
+end function
+function interp_b(n)
+    return "b{n}"
+end function
+parts = ()
+for i = 1 to 3
+    parts = append(parts, "k{i}:{i * 2}:{interp_a(i)}{interp_b(i + 1)}")
+end for
+j3 = join(parts, ",")
+rs = append(rs, "interp: {j3}")
+rs = append(rs, "braces: {{literal}} {1 + 1} \t| tab")
+function same_text_a()
+    n = 11
+    return "n={n}"
+end function
+function same_text_b()
+    n = 22
+    return "n={n}"
+end function
+rs = append(rs, "same text: {same_text_a()} {same_text_b()} {same_text_a()}")
+bad_count = 0
+last_bad = ""
+for i = 1 to 2
+    try
+        sbad = "x{1 +}"
+    catch e
+        bad_count = bad_count + 1
+        last_bad = e.message
+    end
+end
+rs = append(rs, "bad interp: {bad_count} {last_bad}")
+rs = append(rs, "plain: " + "no braces here" + " " + "and\\more")
+
+# ---- 7. record fields ----
+rec = {a = 1, b = "two", c = [1, 2, 3]}
+rs = append(rs, "rec: {rec.a} {rec.b} {rec.c[1]}")
+function recfn()
+    rec = {a = 100}
+    return rec.a
+end function
+rs = append(rs, "rec frame: {recfn()} {rec.a}")
+try
+    q = rec.zzz
+catch e
+    rs = append(rs, "rec miss: {e.message}")
+end
+n5 = 5
+try
+    q = n5.field
+catch e
+    rs = append(rs, "num field: {e.message}")
+end
+try
+    q = nope.field
+catch e
+    rs = append(rs, "undef field: {e.message}")
+end
+rec = {a = 2, b = "x", c = 0}
+rs = append(rs, "rec2: {rec.a} {rec.b}")
+inner_rec = {p = {q = 5}}
+rs = append(rs, "nested: {inner_rec.p.q}")
+function rec_loop(n)
+    r = {a = 1, b = 2}
+    s = 0
+    for i = 1 to n
+        s = s + r.a + r.b
+    end for
+    return s
+end function
+rs = append(rs, "rec loop: {rec_loop(100)}")
+
+# ---- 8. length / str edge cases ----
+l1 = length("hello")
+l2 = length([1, 2, 3])
+l3 = length((1, 2))
+l4 = length(5)
+l5 = length(zeros(3, 2))
+l6 = numel([1, 2])
+rs = append(rs, "len: {l1} {l2} {l3} {l4} {l5} {l6}")
+t1 = str(3.5)
+t2 = str([1, 2])
+t3 = str("x")
+t4 = str(true)
+t5 = str(7)
+rs = append(rs, "str: {t1} {t2} {t3} {t4} {t5}")
+try
+    q = length()
+catch e
+    rs = append(rs, "length(): {e.message}")
+end
+try
+    q = length(1, 2)
+catch e
+    rs = append(rs, "length(1,2): {e.message}")
+end
+try
+    q = str()
+catch e
+    rs = append(rs, "str(): {e.message}")
+end
+try
+    ql = length(5 V)
+    rs = append(rs, "length(5 V): {ql}")
+catch e
+    rs = append(rs, "length(5 V) err: {e.message}")
+end
+try
+    qs = str(5 V)
+    rs = append(rs, "str(5 V): {qs}")
+catch e
+    rs = append(rs, "str(5 V) err: {e.message}")
+end
+
+# ---- 9. string building ----
+t = ""
+for i = 1 to 3
+    t = t + "ab" + str(i)
+end for
+acc = 0
+for i = 1 to 4
+    acc = acc + i
+end for
+rs = append(rs, "build: {t} {acc}")
+nn = 5
+try
+    nn = nn + "x"
+    rs = append(rs, "num + str: {nn}")
+catch e
+    rs = append(rs, "num + str err: {e.message}")
+end
+tt = "pre"
+for i = 1 to 2
+    tt = tt + "-" + str(i) + upper("z")
+end for
+rs = append(rs, "build2: {tt}")
+
+# ---- 10. dict / list / matrix loops ----
+d = dict()
+for i = 0 to 20
+    d = set(d, "k{i}", i * i)
+end for
+ds = 0
+for i = 0 to 20
+    ds = ds + get(d, "k{i}")
+end for
+rs = append(rs, "dict: {ds} {length(keys(d))}")
+M = zeros(3, 3)
+for i = 0 to 2
+    for j = 0 to 2
+        M[i, j] = i * 10 + j
+    end for
+end for
+M2 = M
+M[1, 1] = -1
+rs = append(rs, "matrix: {M[1, 1]} {M2[1, 1]} {M[2, 2]}")
+ll = ()
+for i = 0 to 9
+    ll = append(ll, i * 2)
+end for
+ls = 0
+for i = 0 to 9
+    ls = ls + ll[i]
+end for
+rs = append(rs, "list: {ls} {length(ll)}")
+
+# ---- 11. lambdas, higher-order, memoize ----
+function make_adder(k)
+    return (x) := x + k
+end function
+add3 = make_adder(3)
+add5 = make_adder(5)
+rs = append(rs, "lambda: {add3(1)} {add5(1)} {add3(10)}")
+function sq(x)
+    return x * x
+end function
+mapped = map([1, 2, 3], "sq")
+rs = append(rs, "map: {mapped[0]} {mapped[1]} {mapped[2]}")
+memoize function slowdbl(n)
+    return n * 2
+end function
+rs = append(rs, "memo: {slowdbl(4)} {slowdbl(4)} {slowdbl(5)}")
+function typed_sum(a, b)
+    return a + b
+end function
+function typed_sum(a, b, c)
+    return a + b + c
+end function
+rs = append(rs, "overload: {typed_sum(1, 2)} {typed_sum(1, 2, 3)}")
+
+# ---- 11b. number-number operators ----
+nx = 7
+ny = 2
+rs = append(rs, "arith: {nx + ny} {nx - ny} {nx * ny} {nx / ny} {nx ^ ny} {nx mod ny} {-nx}")
+rs = append(rs, "cmp: {nx < ny} {nx > ny} {nx <= ny} {nx >= ny} {nx == ny} {nx != ny} {nx == 7}")
+nz = 0
+nnan = nz / nz
+rs = append(rs, "edge: {1 / nz} {-1 / nz} {nnan == nnan} {nnan != nnan} {nnan < 1} {nz * (1 / nz)}")
+rs = append(rs, "mixed: {true + 1} {2 * true} {nx > true} {1 + 2 * 3 - 4 / 8}")
+sa = "a" + 1
+sb = 2 + "b"
+rs = append(rs, "str mix: {sa} {sb}")
+try
+    bad_op = nx + [1, 2, 3]
+    rs = append(rs, "vec mix: {bad_op[2]}")
+catch e
+    rs = append(rs, "vec mix err: {e.message}")
+end
+try
+    bad_op2 = [1, 2] + [1, 2, 3]
+catch e
+    rs = append(rs, "vec len err: {e.message}")
+end
+
+# ---- 11c. vector element writes ----
+ev = zeros(5)
+for i = 0 to 4
+    ev[i] = i * i
+end for
+ev2 = ev
+ev[2] = -1
+rs = append(rs, "vec write: {ev[0]} {ev[2]} {ev[4]} {ev2[2]}")
+ev[end] = 99
+ev[0] += 5
+rs = append(rs, "vec end/compound: {ev[4]} {ev[0]}")
+try
+    ev[7] = 1
+catch e
+    rs = append(rs, "vec oob: {e.message}")
+end
+rs = append(rs, "after oob: {ev[1]} {length(ev)}")
+try
+    ev[1] = "text"
+catch e
+    rs = append(rs, "vec text: {e.message}")
+end
+try
+    ev[1] = [1, 2]
+catch e
+    rs = append(rs, "vec many: {e.message}")
+end
+try
+    ev[1.5] = 3
+catch e
+    rs = append(rs, "vec frac: {e.message}")
+end
+try
+    ev[-1] = 3
+catch e
+    rs = append(rs, "vec neg: {e.message}")
+end
+ev[1:2] = [7, 8]
+ev[ev > 50] = 0
+rs = append(rs, "vec slice/mask: {ev[1]} {ev[2]} {ev[4]}")
+sig = signal([1, 2, 3, 4], 100)
+sig[1] = 20
+rs = append(rs, "signal write: {sig[0]} {sig[1]} {length(sig)}")
+function fill(n)
+    f = zeros(n)
+    for i = 0 to n - 1
+        f[i] = i + 1
+    end for
+    g = f
+    f[0] = 100
+    return "{f[0]} {g[0]} {f[n - 1]}"
+end function
+rs = append(rs, "fill: {fill(4)} {fill(3)}")
+
+# ---- 11d. arithmetic helper functions (compiled tier on plain calls) ----
+function add1(a)
+    return a + 1
+end function
+function poly(x, c)
+    t = x * x
+    u = t * c
+    v = u - x
+    return v / 2 + t
+end function
+function sq_root(x)
+    return sqrt(x)
+end function
+function cond_local(a)
+    if a > 1
+        t = 5
+    end if
+    return t
+end function
+function reads_global(a)
+    return a + gk
+end function
+function is_big(a)
+    return a > 10
+end function
+function divz(a)
+    return 1 / a
+end function
+function selfref(a)
+    a = a + 1
+    a = a * 2
+    return a
+end function
+gk = 100
+rs = append(rs, "plain calls: {add1(1)} {poly(3, 2)} {divz(0)} {divz(4)} {selfref(3)} {reads_global(1)}")
+rs = append(rs, "sqrt neg: {sq_root(4)} {sq_root(-4)}")
+rs = append(rs, "bool ret: {is_big(11)} {is_big(3)}")
+rs = append(rs, "cond local: {cond_local(5)}")
+try
+    cl = cond_local(0)
+    rs = append(rs, "cond local 0: {cl}")
+catch e
+    rs = append(rs, "cond local err: {e.message}")
+end
+rs = append(rs, "vec arg: {add1([1, 2, 3])[1]} {add1(true)} ")
+try
+    ar = add1(1, 2)
+catch e
+    rs = append(rs, "arith arity: {e.message}")
+end
+try
+    ar = add1()
+catch e
+    rs = append(rs, "arith arity0: {e.message}")
+end
+function redef(a)
+    return a + 1
+end function
+r1 = redef(1)
+function redef(a)
+    return a + 100
+end function
+r2 = redef(1)
+rs = append(rs, "redef: {r1} {r2}")
+function uses_poly(n)
+    s = 0
+    for i = 1 to n
+        s = s + poly(i, 2)
+    end for
+    return s
+end function
+rs = append(rs, "loop of plain calls: {uses_poly(20)}")
+function undefined_local(a)
+    b = a + zz_unset
+    return b
+end function
+try
+    ul = undefined_local(1)
+catch e
+    rs = append(rs, "undefined in body: {e.message} | {e.stack}")
+end
+
+# ---- 11e. get / has_key / dict reads ----
+dd = dict()
+dd = set(dd, "x", 10)
+dd = set(dd, "y", 20)
+recd = {p = 1, q = 2}
+g1 = get(dd, "x")
+g2 = get(dd, "zz", -1)
+g3 = get(recd, "q")
+g4 = has_key(dd, "y")
+g5 = has_key(dd, "nope")
+g6 = has_key(recd, "p")
+rs = append(rs, "get: {g1} {g2} {g3} {g4} {g5} {g6}")
+try
+    gx = get(5, 1)
+catch e
+    rs = append(rs, "get err: {e.message}")
+end
+try
+    gx = get(dd)
+catch e
+    rs = append(rs, "get 1-arg err: {e.message}")
+end
+try
+    gx = has_key(dd)
+catch e
+    rs = append(rs, "has_key 1-arg err: {e.message}")
+end
+function dget(k)
+    return get(dd, k)
+end function
+dg1 = dget("x")
+dg2 = dget("y")
+rs = append(rs, "get in fn: {dg1} {dg2}")
+gsum = 0
+for i = 0 to 9
+    gsum = gsum + get(dd, "x")
+end for
+rs = append(rs, "get loop: {gsum}")
+
+# ---- 12. a user function shadowing a builtin (LAST: it changes later lines) ----
+rs = append(rs, "builtin: {length([1, 2, 3])} {str(5)}")
+function length(x)
+    return 4242
+end function
+function str(x)
+    return "S"
+end function
+rs = append(rs, "shadowed: {length([1, 2, 3])} {str(5)}")
+function get(d, k)
+    return "mine"
+end function
+rs = append(rs, "shadowed get: {get(d, 1)}")
+
+report = join(rs, "\n")
+print(report)

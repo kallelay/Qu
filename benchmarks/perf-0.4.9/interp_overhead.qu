@@ -1,0 +1,155 @@
+# Interpreter-overhead micro-benchmarks (lane claude/interp-overhead).
+# Each workload prints "BENCH <name> <seconds>". Top-level loops and loops
+# inside functions are both covered because they hit different frames.
+
+function rep(name, dt)
+    print("BENCH {name} {dt}")
+end function
+
+function add1(a)
+    return a + 1
+end function
+
+function big15(a, b)
+    x = a + 1
+    y = b * 2
+    z = x + y
+    w = z - a
+    v = w * 0.5
+    u = v + x
+    t = u - y
+    s = t + z
+    r = s * 0.25
+    q = r + w
+    p = q - v
+    o = p + u
+    n = o * 0.75
+    m = n + t
+    return m + s
+end function
+
+function ucall_loop(n)
+    s = 0.0
+    for i = 1 to n
+        s = add1(s)
+    end for
+    return s
+end function
+
+function big_loop(n)
+    s = 0.0
+    for i = 1 to n
+        s = s + big15(i, 2)
+    end for
+    return s
+end function
+
+function scalar_loop(n)
+    s = 0.0
+    for i = 1 to n
+        s = s + i * 0.5
+    end for
+    return s
+end function
+
+function rec_loop(n)
+    rec = {a = 1, b = 2}
+    s = 0
+    for i = 1 to n
+        s = s + rec.b + rec.a
+    end for
+    return s
+end function
+
+function list_loop(n)
+    l = ()
+    for i = 0 to n - 1
+        l = append(l, i)
+    end for
+    s = 0
+    for i = 0 to n - 1
+        s = s + l[i]
+    end for
+    return s + length(l)
+end function
+
+function concat_loop(n)
+    t = ""
+    for i = 1 to n
+        t = t + "ab"
+    end for
+    return length(t)
+end function
+
+function join_loop(n)
+    parts = ()
+    for i = 1 to n
+        parts = append(parts, "item" + str(i))
+    end for
+    return length(join(parts, ","))
+end function
+
+function mat_loop(n)
+    M = zeros(n, n)
+    for i = 0 to n - 1
+        for j = 0 to n - 1
+            M[i, j] = i + j
+        end for
+    end for
+    return M[n - 1, n - 1]
+end function
+
+function dict_loop(n)
+    d = dict()
+    for i = 0 to n - 1
+        d = set(d, "k{i}", i)
+    end for
+    s = 0
+    for i = 0 to n - 1
+        s = s + get(d, "k{i}")
+    end for
+    return s
+end function
+
+tic()
+s = scalar_loop(1000000)
+rep("scalar_loop_1e6", toc())
+tic()
+s = ucall_loop(1000000)
+rep("ucall_1line_1e6", toc())
+tic()
+s = big_loop(100000)
+rep("ucall_15stmt_1e5", toc())
+tic()
+s = rec_loop(1000000)
+rep("record_field_1e6", toc())
+tic()
+s = list_loop(1000000)
+rep("list_append_index_1e6", toc())
+tic()
+s = concat_loop(200000)
+rep("str_concat_2e5", toc())
+tic()
+s = join_loop(100000)
+rep("str_build_join_1e5", toc())
+tic()
+s = mat_loop(1000)
+rep("mat_assign_1e6", toc())
+tic()
+s = dict_loop(100000)
+rep("dict_set_get_1e5", toc())
+
+# same loops at top level (global env, no frame)
+tic()
+s = 0
+rec = {a = 1, b = 2}
+for i = 1 to 1000000
+    s = s + rec.b + rec.a
+end for
+rep("top_record_field_1e6", toc())
+tic()
+s = 0.0
+for i = 1 to 1000000
+    s = s + i * 0.5
+end for
+rep("top_scalar_loop_1e6", toc())

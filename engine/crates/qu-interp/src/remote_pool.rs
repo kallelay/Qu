@@ -77,7 +77,6 @@
 //! this job's error, no silent fallback to local" was chosen over the
 //! alternative.
 
-use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Write};
 use std::net::{TcpListener, TcpStream, ToSocketAddrs};
 use std::time::Duration;
@@ -85,7 +84,7 @@ use std::time::Duration;
 use serde_json::json;
 
 use crate::queue_pool::Job;
-use crate::{json_to_value, value_to_json, EvalError, Interp, MethodEntry, Value, R};
+use crate::{json_to_value, value_to_json, EvalError, Interp, Value, R};
 
 /// How long a client will wait to establish the TCP connection itself
 /// before giving up — deliberately short (this is meant to fail fast on a
@@ -259,8 +258,8 @@ pub fn serve_on_listener(interp: &mut Interp, listener: TcpListener, allow: Vec<
 fn handle_connection(
     stream: TcpStream,
     allow: &[String],
-    env: &HashMap<String, Value>,
-    methods: &HashMap<String, Vec<MethodEntry>>,
+    env: &crate::VarMap,
+    methods: &crate::MethodMap,
 ) -> R<()> {
     stream.set_read_timeout(Some(IO_TIMEOUT)).ok();
     stream.set_write_timeout(Some(IO_TIMEOUT)).ok();
@@ -305,8 +304,8 @@ fn handle_connection(
 fn handle_request(
     line: &str,
     allow: &[String],
-    env: &HashMap<String, Value>,
-    methods: &HashMap<String, Vec<MethodEntry>>,
+    env: &crate::VarMap,
+    methods: &crate::MethodMap,
 ) -> R<Value> {
     let parsed: serde_json::Value = serde_json::from_str(line.trim()).map_err(|err| EvalError {
         msg: format!("listen_pool: malformed request (not valid JSON): {err}"),

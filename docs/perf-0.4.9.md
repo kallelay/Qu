@@ -340,3 +340,113 @@ The remaining per-operation cost (~2 us) is the interpreter loop and the string
 concatenation for the key, not the dict. Tests: `tests/dict_scale.rs` (aliases never see an
 in-place update, a user-defined `set` is respected, key order, number-key normalisation,
 records keep their type) and the unit tests in `dict_data.rs`.
+
+## Addendum: interpreter overhead (lane `claude/interp-overhead`)
+
+Method: no sampling profiler is installed on the box, so the costs were found by
+A/B micro-benchmarks (`benchmarks/perf-0.4.9/interp_overhead.qu`, one statement kind at
+a time) and by reading the hot paths. Numbers are paired before/after, 9 alternating
+pairs, medians (`paired.sh old new 9 interp interp_overhead.qu`; the box was heavily
+loaded, so the ratio is the claim, not the absolute seconds). "Before" is the engine at
+`3bc756e9`.
+
+| workload | before s | after s | after/before |
+|---|---|---|---|
+| scalar loop 1e6 (in a function) | 0.030 | 0.022 | 0.75 |
+| scalar loop 1e6 (top level) | 0.026 | 0.023 | 0.88 |
+| 1e6 calls of a 1-line function | 0.969 | 0.326 | 0.34 |
+| 1e5 calls of a ~15-statement function | 0.625 | 0.061 | 0.10 |
+| record field read loop 1e6 | 0.688 | 0.192 | 0.28 |
+| record field read loop 1e6 (top level) | 0.596 | 0.208 | 0.35 |
+| list append + index loop 1e6 | 0.977 | 0.367 | 0.38 |
+| string `+` loop 2e5 | 0.110 | 0.055 | 0.51 |
+| build 1e5 strings + `join` | 0.175 | 0.093 | 0.53 |
+| `M[i,j] = x` loop 1e6 | 0.571 | 0.298 | 0.52 |
+| dict set + get 1e5 | 0.475 | 0.220 | 0.46 |
+
+What the time was (before): a plain `x = y` in a non-fast loop cost ~0.14 us, ~50 ns of it
+`HashMap::insert(name.to_string(), v)` allocating a key `String` that `insert` dropped
+because the key already existed. A builtin call such as `length(x)` cost ~0.6 us because
+`dispatch_builtin` is one `match` on a string with ~700 arms tested in order (an arm 7,000
+lines down pays for every arm above it). `get(d, "k{i}")` re-parsed `{i}` on every
+evaluation.
+
+What changed (behaviour-preserving; pinned by `tests/interp_overhead.rs` and a 95-line
+battery whose expected output was produced by the pre-change binary):
+
+1. Variable writes overwrite an existing slot in place (no key allocation); frame tables,
+   frame key strings and argument vectors are recycled; call-stack name buffers are reused
+   (the error snapshot slices the live part).
+2. A small fast hasher (`fxhash.rs`) for variable and function tables: 4 ns vs 8 ns per
+   short-name lookup in isolation. (A first draft that looped over bytes was slower than
+   SipHash, 13 ns, and was rewritten.)
+3. 22 hot one-line builtin arms (`length`, `str`, `get`, `set`, `keys`, `abs`, `sqrt`, `sin`,
+   ...) moved to the top of the match verbatim; `length`/`str`/`get`/`has_key` also skip the
+   generic builtin prologue when no keyword, unit, tensor, module, sandbox, dry-run or
+   history machinery could matter.
+4. `rec.x` reads the field in place; number-number `+ - * / < > <= >= == !=` skip the
+   `binop` type cascade; `v[i] = x` avoids three heap allocations; string literals without
+   `{ } \ $` skip a `Vec<char>` copy; parsed `{expr}` interpolation bodies are cached;
+   `s = s + x` no longer allocates to learn it is numeric.
+5. Straight-line arithmetic functions (`name = <arith>` ... `return <arith>`, every name
+   defined before use), called with plain numbers, run on the existing register tier. Nothing
+   wider: that tier yields `0` for a local assigned on only some paths (the interpreter
+   errors or reads a global) and cannot match `sign` or complex results. Skipped under
+   `--profile` and `type explicit`.
+
+Not done, and why:
+
+- Slot-resolved frames. A variable operation is now ~5 ns and a statement does 3-4, so slots
+  save at most ~15% of a ~100 ns statement; the rewrite touches `ref`, `global`, lambdas,
+  worker snapshots and ~60 sites.
+- The remaining ~100 ns per statement is spread over the very large `exec`/`eval` functions
+  (prologue, result moves, refcounts). Splitting cold arms out to shrink their frames is the
+  next experiment; not attempted blind, without a profiler.
+- The compiled tier for conditionals and math builtins (semantic differences above).
+- Other deep builtin arms: only one-line arms were moved. The real fix is a name-to-handler table.
+
+## Addendum: blocked `qr`, `svd`, `eig` (paired, 2026-10-16)
+
+Old = master before the blocked decompositions (`1e5c1be1^1`); new = master at `0e6a76d2`
+(which also carries the interpreter-overhead work, irrelevant at these sizes: the time is in
+the kernels). NumPy 2.4.5, `OPENBLAS_NUM_THREADS=1`. 5 rounds, the order of old/new/NumPy
+rotating each round so box load cancels; the median of each is reported and "spread" is
+(max-min)/median. 16 cores, `benchmarks/perf-0.4.9/paired_linalg.sh`, raw runs in
+`benchmarks/perf-0.4.9/results/linalg/`.
+
+| workload | old Qu ms | spread | new Qu ms | spread | NumPy 1-thread ms | new/old | new/NumPy |
+|---|---|---|---|---|---|---|---|
+| qr_100 | 0.49 | 41% | 0.44 | 28% | 0.35 | 0.91 | 1.27 |
+| svd_100 | 1.40 | 25% | 1.30 | 5% | 1.03 | 0.93 | 1.26 |
+| eig_sym_100 | 0.91 | 26% | 0.79 | 7% | 0.60 | 0.87 | 1.32 |
+| eig_gen_100 | 2.53 | 26% | 0.99 | 8% | 2.98 | 0.39 | 0.33 |
+| qr_200 | 2.07 | 60% | 1.50 | 31% | 1.07 | 0.73 | 1.40 |
+| svd_200 | 11.57 | 87% | 7.12 | 28% | 3.56 | 0.62 | 2.00 |
+| eig_sym_200 | 5.42 | 115% | 3.60 | 17% | 2.14 | 0.67 | 1.68 |
+| eig_gen_200 | 20.42 | 40% | 5.60 | 14% | 11.42 | 0.27 | 0.49 |
+| qr_500 | 26.44 | 64% | 8.99 | 38% | 7.20 | 0.34 | 1.25 |
+| svd_500 | 135.28 | 23% | 50.34 | 30% | 29.01 | 0.37 | 1.74 |
+| eig_sym_500 | 78.54 | 24% | 25.00 | 50% | 14.84 | 0.32 | 1.68 |
+| eig_gen_500 | 266.62 | 11% | 75.90 | 52% | 77.37 | 0.28 | 0.98 |
+| qr_1000 | 234.18 | 18% | 46.79 | 25% | 42.87 | 0.20 | 1.09 |
+| svd_1000 | 1234.88 | 11% | 257.16 | 10% | 190.46 | 0.21 | 1.35 |
+| eig_sym_1000 | 533.31 | 12% | 125.29 | 12% | 92.74 | 0.23 | 1.35 |
+| eig_gen_1000 | 2127.36 | 10% | 576.75 | 4% | 427.62 | 0.27 | 1.35 |
+
+Reading it honestly:
+
+- At 1000x1000 the four decompositions are 3.7-5x faster (qr 4.9x, svd 4.8x, eig_sym 4.3x,
+  eig_gen 3.7x) and within 1.1-1.35x of single-thread NumPy.
+- At 500 they are 2.7-3.5x faster, 1.0-1.7x NumPy; general `eig` already matches NumPy
+  (0.98) and beats it at 100-200 (0.33, 0.49).
+- At 100 the symmetric/QR/SVD paths are unchanged within noise: the old spreads there are
+  25-41%, larger than the 7-13% difference, so no claim is made. The cutoffs (QR from 144,
+  SVD and symmetric eig from 128, general eig from 32) keep small matrices on the old
+  kernels on purpose.
+- Spreads are large on this shared box (the old binary at 200: 60-115%); the 1000 rows,
+  with 4-18% spread, are the reliable ones.
+- Two behaviours changed with the general (non-symmetric) eigenvalue path: it stops after a
+  bounded number of Schur iterations instead of looping, and the ORDER of the returned
+  eigenvalues can differ from earlier versions for some matrices. Sort before comparing.
+  Accuracy is covered by `qu-core/tests/dense_decomp.rs` and
+  `qu-interp/tests/linalg_blocked.rs`.

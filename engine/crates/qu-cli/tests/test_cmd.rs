@@ -95,7 +95,7 @@ fn each_file_gets_a_fresh_interpreter() {
 #[test]
 fn a_hanging_test_times_out_and_the_run_continues() {
     let d = scratch("timeout");
-    let src = "function test_hang()\n  x = 0\n  while true\n    x = x + 1\n  end\nend function\n\
+    let src = "function test_hang()\n  x = 0\n  while true\n    x = x + sum(0:9999)\n  end\nend function\n\
                function test_after()\n  y = 1\nend function\n";
     std::fs::write(d.join("h.qu"), src).unwrap();
     let t = std::time::Instant::now();

@@ -379,6 +379,12 @@ pub mod dprof;
 pub mod integrate;
 mod diff_ops;
 pub mod dict_data;
+mod fxhash;
+pub(crate) use fxhash::FastMap;
+/// Variable tables (globals, call frames, worker snapshots): fast hasher, see `fxhash`.
+pub(crate) type VarMap = FastMap<String, Value>;
+/// User-function overload tables.
+pub(crate) type MethodMap = FastMap<String, Vec<MethodEntry>>;
 mod numfmt_ops;
 
 /// Shared native/WASM numerical semantics. Interpreter builtins migrate to
@@ -4017,7 +4023,7 @@ const DEPRECATED: &[(&str, &str, &str)] = &[
 
 pub struct Interp {
     /// Global / top-level scope.
-    env: HashMap<String, Value>,
+    env: VarMap,
     /// Call stack of function-local scopes (§ interpreter performance,
     /// 2026-08-23). Empty at top level; a user-function call
     /// (`call_user`/`call_block_fn`) pushes one fresh frame for its
@@ -4030,21 +4036,32 @@ pub struct Interp {
     /// leak an outer call's locals into a nested call at a different
     /// recursion depth (the same name reused two frames deep would
     /// collide) — real per-frame scopes fix both the cost and the bug.
-    frames: Vec<HashMap<String, Value>>,
+    frames: Vec<VarMap>,
+    /// Emptied frame tables kept for reuse (see `push_call_frame`).
+    frame_pool: Vec<VarMap>,
+    /// Spare (empty) key strings from popped frames, so binding a local in
+    /// a call reuses a buffer instead of allocating one (see `intern_key`).
+    key_pool: Vec<String>,
+    /// Spare argument vectors from user-function calls (see
+    /// `bind_params_into_current_frame`).
+    argv_pool: Vec<Vec<Value>>,
+    /// Parsed `{expr}` bodies of string interpolations, by source text (see
+    /// `format_interp`).
+    interp_cache: FastMap<String, Arc<Expr>>,
     /// `ref` alias groups rooted in a call frame's local scope, kept in
     /// lockstep with `frames` (same length, pushed/popped together — see
     /// `push_call_frame`/`pop_call_frame`) so `frame_refs[i]` always
     /// describes exactly the ref-aliased names local to `frames[i]`. See
     /// `AliasGroup`'s doc comment for the overall `ref` design.
-    frame_refs: Vec<HashMap<String, Arc<StdMutex<AliasGroup>>>>,
+    frame_refs: Vec<FastMap<String, Arc<StdMutex<AliasGroup>>>>,
     /// Names each call frame has declared `global`, kept in lockstep with
     /// `frames`. A name in here is written straight through to `env`
     /// instead of binding locally -- the opt-in half of the scoping rule
     /// (see `var_set`).
-    frame_globals: Vec<std::collections::HashSet<String>>,
+    frame_globals: Vec<fxhash::FastSet<String>>,
     /// `ref` alias groups rooted in the global scope (`env`). See
     /// `AliasGroup`'s doc comment.
-    global_refs: HashMap<String, Arc<StdMutex<AliasGroup>>>,
+    global_refs: FastMap<String, Arc<StdMutex<AliasGroup>>>,
     /// User-defined function overload sets (§ multiple dispatch phase 1,
     /// 2026-08-27, `docs/design/multiple-dispatch.md` §2) — replaces the
     /// old separate `funcs`/`block_funcs: HashMap<String, (Vec<String>,
@@ -4061,7 +4078,7 @@ pub struct Interp {
     /// all-untyped entry, i.e. every function defined before this feature
     /// existed — short-circuits via `dispatch_cache`/`DispatchPlan::
     /// Trivial` below (§7) with no behavior or performance change.
-    methods: HashMap<String, Vec<MethodEntry>>,
+    methods: MethodMap,
     /// Lambdas that had to be given a name, keyed by that name.
     ///
     /// Roughly thirty builtins -- `map`, `filter`, `fzero`, `integrate`,
@@ -4076,7 +4093,7 @@ pub struct Interp {
     ///
     /// Separate from `methods` because a lambda carries captured values,
     /// which a `MethodEntry` has nowhere to put.
-    lambdas: HashMap<String, Arc<FuncValue>>,
+    lambdas: FastMap<String, Arc<FuncValue>>,
     /// Counter behind the synthetic names above, so two lambdas made at
     /// the same place in the source but capturing different values stay
     /// separate callables.
@@ -4123,7 +4140,7 @@ pub struct Interp {
     /// Invalidated (`.remove(name)`) alongside `compiled_funcs` on every
     /// redefinition (`upsert_method`), since adding/replacing an overload
     /// can change whether the set is still trivial.
-    dispatch_cache: HashMap<String, DispatchPlan>,
+    dispatch_cache: FastMap<String, DispatchPlan>,
     /// Declared `enum Name ... end` types (§ enum, 2026-08-24): type name
     /// -> ordered variant names. Populated by executing `Stmt::EnumDef`,
     /// the same "definitions live in their own side table, not `env`"
@@ -4142,7 +4159,7 @@ pub struct Interp {
     /// more than one possible body, so "the compiled version of this name"
     /// isn't well-defined, and always runs the ordinary `call_user`/
     /// `call_block_fn` path instead. See `try_run_compiled`.
-    compiled_funcs: HashMap<String, Option<CompiledFn>>,
+    compiled_funcs: FastMap<String, Option<CompiledFn>>,
     /// § function memoization (2026-08-31): cache for a `memoize function`
     /// body's return value, keyed by `(function name, per-argument
     /// MemoKey)`. Populated/read only from `apply_seeded`, only for a
@@ -4353,6 +4370,8 @@ pub struct Interp {
     /// Used only to build `try/catch`'s exception record's `stack` field
     /// (spec §18.B); not consulted anywhere else.
     call_stack: Vec<String>,
+    /// How many entries of `call_stack` are live (see `call_tracked`).
+    call_depth: usize,
     /// A snapshot of `call_stack` taken the moment an `Err` is first seen
     /// propagating out of a user-function call — i.e. the stack *at the
     /// point of failure*, before the unwind through `?` pops frames back
@@ -6243,6 +6262,10 @@ fn dispatch_method<'a>(name: &str, entries: &'a [MethodEntry], argv: &[Value]) -
 /// have been relying on the old silent-drop (nothing meaningfully could
 /// be). Scoped to ONLY resolved user-function calls — `call_builtin`
 /// still receives `style` exactly as before, completely unaffected.
+fn argv_all_num(args: &[Value]) -> bool {
+    args.iter().all(|a| matches!(a, Value::Num(_)))
+}
+
 fn reject_named_args_for_user_fn(name: &str, style: &[(String, Value)]) -> R<()> {
     if let Some((k, _)) = style.first() {
         return e(format!(
@@ -6264,16 +6287,93 @@ struct CompiledFn {
     n_params: usize,
     locals: Vec<String>,
     body: Vec<FastStmt>,
+    /// True when the body is straight-line arithmetic that the interpreter
+    /// itself would compute to the identical `f64` and that cannot fail:
+    /// see `straight_line_arithmetic`. Only such a function is run through
+    /// the compiled tier by an ORDINARY call (`f(x)` in a script). The
+    /// wider set the tier accepts (conditionals, math builtins, reading a
+    /// name that was only assigned on some path) differs from the
+    /// interpreter on edge cases -- `sqrt(-1)` is complex there and NaN
+    /// here, an unassigned local is an error there and 0 here -- which is
+    /// tolerable for the higher-order callers that have always used it and
+    /// not for a plain call.
+    plain_call_ok: bool,
+}
+
+/// `x + 1`, `a * b - 2`, `-x ^ 2`, ... over numbers and names already
+/// bound: the expressions on which `eval` of `Expr::Binary` / `Expr::Unary`
+/// on two plain numbers and the compiled tier's `FastExpr` are the same
+/// IEEE operation (`binop` on two `Num`s is `map2` with the same closure,
+/// and `^` is `powf` in both).
+fn pure_arith_expr(ex: &Expr, defined: &[String]) -> bool {
+    match ex {
+        Expr::Int(_) | Expr::Float(_) => true,
+        Expr::Name(n) => defined.contains(n),
+        Expr::Unary { op, rhs } => (op == "-" || op == "+") && pure_arith_expr(rhs, defined),
+        Expr::Binary { op, lhs, rhs } => {
+            fast_binop_fn(op).is_some() && pure_arith_expr(lhs, defined) && pure_arith_expr(rhs, defined)
+        }
+        _ => false,
+    }
+}
+
+/// A body of plain `name = <arithmetic>` statements ending in one `return
+/// <arithmetic>`, where every name read was a parameter or assigned
+/// earlier -- so no "not defined" error and no read of a global is
+/// possible -- and the parameters are distinct.
+fn straight_line_arithmetic(params: &[String], body: &[Stmt]) -> bool {
+    let mut defined: Vec<String> = Vec::with_capacity(params.len());
+    for p in params {
+        if defined.contains(p) {
+            return false;
+        }
+        defined.push(p.clone());
+    }
+    let mut returned = false;
+    for st in body {
+        if returned {
+            return false;
+        }
+        match st {
+            Stmt::SourceLine(_) => {}
+            Stmt::Assign { name, op, rhs, in_place } => {
+                if !op.is_empty() || *in_place || !pure_arith_expr(rhs, &defined) {
+                    return false;
+                }
+                if !defined.contains(name) {
+                    defined.push(name.clone());
+                }
+            }
+            Stmt::Return(ex) => {
+                if !pure_arith_expr(ex, &defined) {
+                    return false;
+                }
+                returned = true;
+            }
+            _ => return false,
+        }
+    }
+    returned
 }
 
 impl CompiledFn {
     fn run(&self, args: &[f64]) -> Option<f64> {
-        let mut regs = vec![0.0; self.locals.len()];
+        // Registers live on the stack for any function of ordinary size (no
+        // heap allocation per call); a larger one falls back to a `Vec`.
+        let n = self.locals.len();
+        let mut stack = [0.0f64; 32];
+        let mut heap;
+        let regs: &mut [f64] = if n <= 32 {
+            &mut stack[..n]
+        } else {
+            heap = vec![0.0; n];
+            &mut heap
+        };
         regs[..self.n_params].copy_from_slice(args);
         // A `CompiledFn` body never has an array register -- its own
         // gatekeeper (`collect_fn_locals`) refuses to compile a body that
         // indexes anything -- so this is always empty.
-        match run_fast_stmts(&self.body, &mut regs, &mut []) {
+        match run_fast_stmts(&self.body, regs, &mut []) {
             FastFlow::Return(v) => Some(v),
             FastFlow::Continue => None,
         }
@@ -6285,10 +6385,20 @@ impl CompiledFn {
 fn try_compile_expr_fn(params: &[String], body: &Expr) -> Option<CompiledFn> {
     let locals = params.to_vec();
     let expr = compile_fast_expr(body, &locals, &[])?;
+    let plain = {
+        let mut distinct = true;
+        for (i, p) in params.iter().enumerate() {
+            if params[..i].contains(p) {
+                distinct = false;
+            }
+        }
+        distinct && pure_arith_expr(body, params)
+    };
     Some(CompiledFn {
         n_params: params.len(),
         locals,
         body: vec![FastStmt::Return(expr)],
+        plain_call_ok: plain,
     })
 }
 
@@ -6299,10 +6409,12 @@ fn try_compile_block_fn(params: &[String], body: &[Stmt]) -> Option<CompiledFn> 
         return None;
     }
     let compiled = compile_fast_stmts(body, &locals)?;
+    let plain = straight_line_arithmetic(params, body);
     Some(CompiledFn {
         n_params: params.len(),
         locals,
         body: compiled,
+        plain_call_ok: plain,
     })
 }
 
@@ -6314,7 +6426,7 @@ impl Default for Interp {
 
 impl Interp {
     pub fn new() -> Self {
-        let mut env = HashMap::new();
+        let mut env = VarMap::default();
         env.insert("pi".into(), Value::Num(std::f64::consts::PI));
         env.insert("tau".into(), Value::Num(std::f64::consts::TAU));
         env.insert("e".into(), Value::Num(std::f64::consts::E));
@@ -6353,6 +6465,10 @@ impl Interp {
             env,
             reports: Vec::new(),
             frames: Vec::new(),
+            frame_pool: Vec::new(),
+            key_pool: Vec::new(),
+            argv_pool: Vec::new(),
+            interp_cache: FastMap::default(),
             imported: std::collections::HashSet::new(),
             bundled_sources: HashMap::new(),
             bundle_root: None,
@@ -6362,13 +6478,13 @@ impl Interp {
             import_dirs: Vec::new(),
             frame_refs: Vec::new(),
             frame_globals: Vec::new(),
-            global_refs: HashMap::new(),
-            methods: HashMap::new(),
-            lambdas: HashMap::new(),
+            global_refs: FastMap::default(),
+            methods: FastMap::default(),
+            lambdas: FastMap::default(),
             lambda_seq: 0,
-            dispatch_cache: HashMap::new(),
+            dispatch_cache: FastMap::default(),
             enums: HashMap::new(),
-            compiled_funcs: HashMap::new(),
+            compiled_funcs: FastMap::default(),
             memo_cache: HashMap::new(),
             ret: None,
             loop_signal: None,
@@ -6402,6 +6518,7 @@ impl Interp {
             timers: Vec::new(),
             watches: Vec::new(),
             call_stack: Vec::new(),
+            call_depth: 0,
             pending_error_stack: None,
             call_lines: Vec::new(),
             script_name: String::new(),
@@ -6500,6 +6617,19 @@ impl Interp {
 
     // ---- variable resolution: active call frame first, then globals ----
     // (§ interpreter performance, 2026-08-23 — see `frames` field doc comment)
+
+    /// An owned copy of `name` for use as a frame key, taken from the spare
+    /// buffers of frames that have returned when there is one.
+    #[inline]
+    fn intern_key(&mut self, name: &str) -> String {
+        match self.key_pool.pop() {
+            Some(mut k) => {
+                k.push_str(name);
+                k
+            }
+            None => name.to_string(),
+        }
+    }
 
     fn var_get(&self, name: &str) -> Option<&Value> {
         if let Some(frame) = self.frames.last() {
@@ -6624,18 +6754,32 @@ impl Interp {
         }
         let idx = self.frames.len() - 1;
         // Route through `var_set` once the name is present in the frame,
-        // so a `ref` alias group covering it still sees the write.
-        if self.frames[idx].contains_key(name) {
-            self.var_set(name, v);
-        } else {
-            self.frames[idx].insert(name.to_string(), v);
+        // so a `ref` alias group covering it still sees the write. When no
+        // name in this frame is `ref`-aliased (every script that never uses
+        // `ref`) the write goes straight into the existing slot: one hash,
+        // no key allocation.
+        match self.frames[idx].get_mut(name) {
+            Some(slot) if self.frame_refs[idx].is_empty() => *slot = v,
+            Some(_) => self.var_set(name, v),
+            None => {
+                let k = self.intern_key(name);
+                self.frames[idx].insert(k, v);
+            }
         }
     }
 
     fn var_set(&mut self, name: &str, v: Value) {
-        let scope = if let Some(frame) = self.frames.last() {
-            if frame.contains_key(name) {
-                Scope::Frame(self.frames.len() - 1)
+        let scope = if let Some(fidx) = self.frames.len().checked_sub(1) {
+            if let Some(slot) = self.frames[fidx].get_mut(name) {
+                // Existing local, and nothing in this frame is `ref`-aliased
+                // (the overwhelmingly common case): overwrite in place. One
+                // hash, and no `String` key allocated just to be dropped by
+                // `insert` because the key already exists.
+                if self.frame_refs[fidx].is_empty() {
+                    *slot = v;
+                    return;
+                }
+                Scope::Frame(fidx)
             } else if self
                 .frame_globals
                 .last()
@@ -6663,7 +6807,8 @@ impl Interp {
                 // enclosing scope, write locally, and say `global` when you
                 // mean otherwise. `ref` parameters remain the way to hand a
                 // function something it is meant to modify.
-                self.frames.last_mut().unwrap().insert(name.to_string(), v);
+                let k = self.intern_key(name);
+                self.frames.last_mut().unwrap().insert(k, v);
                 return;
             }
         } else {
@@ -6677,12 +6822,19 @@ impl Interp {
 
         match group {
             None => match scope {
-                Scope::Frame(idx) => {
-                    self.frames[idx].insert(name.to_string(), v);
-                }
-                Scope::Global => {
-                    self.env.insert(name.to_string(), v);
-                }
+                Scope::Frame(idx) => match self.frames[idx].get_mut(name) {
+                    Some(slot) => *slot = v,
+                    None => {
+                        let k = self.intern_key(name);
+                        self.frames[idx].insert(k, v);
+                    }
+                },
+                Scope::Global => match self.env.get_mut(name) {
+                    Some(slot) => *slot = v,
+                    None => {
+                        self.env.insert(name.to_string(), v);
+                    }
+                },
             },
             Some(group) => {
                 let members = {
@@ -6724,6 +6876,11 @@ impl Interp {
     /// genuinely `Arc`-shared (not `ref`-aliased) value: prefer the always-
     /// correct path whenever the fast path's precondition doesn't hold.
     fn is_ref_aliased(&self, name: &str) -> bool {
+        // No `ref` anywhere (every script that never says `ref`): both
+        // alias tables are empty, so skip the name lookups entirely.
+        if self.global_refs.is_empty() && self.frame_refs.last().is_none_or(|m| m.is_empty()) {
+            return false;
+        }
         if let Some(frame) = self.frames.last() {
             if frame.contains_key(name) {
                 return self.frame_refs.last().is_some_and(|m| m.contains_key(name));
@@ -6932,7 +7089,7 @@ impl Interp {
     /// (`spawn`/`pmap`/`parallel for`), which starts from a flat env with
     /// no call frame of its own, so it needs everything the spawning
     /// script could see flattened into one map.
-    fn visible_env_snapshot(&self) -> HashMap<String, Value> {
+    fn visible_env_snapshot(&self) -> VarMap {
         match self.frames.last() {
             None => self.env.clone(),
             Some(frame) => {
@@ -7064,7 +7221,13 @@ impl Interp {
                     return e("interrupted");
                 }
             }
-            self.exec(s)?;
+            // A line marker only records the line number; handling it here
+            // saves a trip through the (very large) `exec` for every
+            // statement. The `return`/loop-signal checks below still run.
+            match s {
+                Stmt::SourceLine(n) => self.current_line = *n,
+                _ => self.exec(s)?,
+            }
             if self.ret.is_some() {
                 break; // a `return` unwinds the enclosing function body
             }
@@ -7210,9 +7373,9 @@ impl Interp {
         let chunk_size = seq.len().div_ceil(lanes * 4).max(1);
         let order: Vec<usize> = (0..seq.len()).collect();
 
-        let results: Vec<R<(usize, usize, HashMap<String, Value>, Vec<Vec<Value>>)>> = order
+        let results: Vec<R<(usize, usize, VarMap, Vec<Vec<Value>>)>> = order
             .par_chunks(chunk_size)
-            .map(|idxs| -> R<(usize, usize, HashMap<String, Value>, Vec<Vec<Value>>)> {
+            .map(|idxs| -> R<(usize, usize, VarMap, Vec<Vec<Value>>)> {
                 let mut worker = Interp::new();
                 worker.env = pre_loop_env.clone();
                 worker.methods = methods_snapshot.clone();
@@ -7397,8 +7560,8 @@ impl Interp {
 
     fn merge_parallel_iteration(
         &mut self,
-        pre_loop: &HashMap<String, Value>,
-        worker_env: HashMap<String, Value>,
+        pre_loop: &VarMap,
+        worker_env: VarMap,
         iter_index: usize,
         loop_var: &str,
         // How many iterations this environment accumulated. Iterations run
@@ -9531,6 +9694,26 @@ impl Interp {
                     let _dp = dprof::region(dprof::p::BIN_OPERANDS);
                     self.eval(rhs)
                 }?;
+                // Two plain numbers: the answer `binop` reaches after its
+                // string / unit / complex / matrix / signal tests all say
+                // no. `map2` on two `Num`s is `Num(g(x, y))` and `compare`
+                // on two `Num`s is `Bool(cmp_pred(..))`, so this is the
+                // same value computed without moving both operands through
+                // that cascade. Every other operator and type pair takes the
+                // general path below.
+                if let (Value::Num(x), Value::Num(y)) = (&a, &b) {
+                    let (x, y) = (*x, *y);
+                    match op.as_str() {
+                        "+" => return Ok(Value::Num(x + y)),
+                        "-" => return Ok(Value::Num(x - y)),
+                        "*" => return Ok(Value::Num(x * y)),
+                        "/" => return Ok(Value::Num(x / y)),
+                        "<" | ">" | "<=" | ">=" | "==" | "!=" => {
+                            return Ok(Value::Bool(cmp_pred(op, x, y)))
+                        }
+                        _ => {}
+                    }
+                }
                 if matches!(a, Value::Tensor(_)) || matches!(b, Value::Tensor(_)) {
                     self.tensor_binop(op, a, b)
                 } else if is_operator_overload_candidate(&a) || is_operator_overload_candidate(&b) {
@@ -9570,6 +9753,19 @@ impl Interp {
             }
             Expr::Index { value, indices } => self.eval_index(value, indices),
             Expr::Field { value, name } => {
+                // `rec.x` where `rec` is a plain variable holding a record
+                // with that field: read the field in place instead of
+                // cloning the record's `Arc` (an atomic increment and
+                // decrement) just to look one entry up. A missing variable,
+                // a different type or a missing field takes the general path
+                // below, so every error message is unchanged.
+                if let Expr::Name(var) = value.as_ref() {
+                    if let Some(Value::Record(fields)) = self.var_get(var) {
+                        if let Some((_, fv)) = fields.iter().find(|(k, _)| k == name) {
+                            return Ok(fv.clone());
+                        }
+                    }
+                }
                 let v = self.eval(value)?;
                 self.eval_field(v, name)
             }
@@ -10471,7 +10667,13 @@ impl Interp {
     /// deterministic (a `HashMap`'s iteration order isn't).
     fn eval_call_args(&mut self, args: &[Arg]) -> R<(Vec<Value>, Option<u64>, Option<usize>, Vec<(String, Value)>)> {
         let _dp = dprof::region(dprof::p::CALL_ARGS);
-        let mut argv = Vec::new();
+        let mut argv = match self.argv_pool.pop() {
+            Some(mut v) => {
+                v.reserve(args.len());
+                v
+            }
+            None => Vec::with_capacity(args.len()),
+        };
         let mut seed: Option<u64> = None;
         let mut axis: Option<usize> = None;
         let mut style: Vec<(String, Value)> = Vec::new();
@@ -10591,18 +10793,6 @@ impl Interp {
     /// the one thing that changes -- `s` is read after the terms instead of
     /// before -- cannot be observed. Anything else takes the ordinary path.
     fn try_selfrebind_concat(&mut self, name: &str, rhs: &Expr) -> R<Option<()>> {
-        let mut terms: Vec<&Expr> = Vec::new();
-        let mut cur = rhs;
-        loop {
-            match cur {
-                Expr::Binary { op, lhs, rhs: r } if op == "+" => {
-                    terms.push(r.as_ref());
-                    cur = lhs.as_ref();
-                }
-                Expr::Name(n) if n == name && !terms.is_empty() => break,
-                _ => return Ok(None),
-            }
-        }
         // Syntactic pre-filter, before any variable lookup: string building
         // almost always has a visibly textual term (a literal or `str(...)`),
         // and a numeric accumulator (`acc = acc + x`) -- the far commoner
@@ -10612,8 +10802,38 @@ impl Interp {
             Expr::Call { callee, .. } => matches!(callee.as_ref(), Expr::Name(f) if matches!(f.as_str(), "str" | "upper" | "lower" | "trim" | "chr" | "join")),
             _ => false,
         };
-        if !terms.iter().any(textual) {
-            return Ok(None);
+        // First pass: shape and the textual test, without allocating (a
+        // numeric accumulator is turned away here and must not pay even a
+        // `Vec` allocation to learn that).
+        {
+            let mut cur = rhs;
+            let mut n_terms = 0usize;
+            let mut any_textual = false;
+            loop {
+                match cur {
+                    Expr::Binary { op, lhs, rhs: r } if op == "+" => {
+                        any_textual |= textual(&r.as_ref());
+                        n_terms += 1;
+                        cur = lhs.as_ref();
+                    }
+                    Expr::Name(n) if n == name && n_terms > 0 => break,
+                    _ => return Ok(None),
+                }
+            }
+            if !any_textual {
+                return Ok(None);
+            }
+        }
+        let mut terms: Vec<&Expr> = Vec::new();
+        let mut cur = rhs;
+        loop {
+            match cur {
+                Expr::Binary { op, lhs, rhs: r } if op == "+" => {
+                    terms.push(r.as_ref());
+                    cur = lhs.as_ref();
+                }
+                _ => break,
+            }
         }
         if !matches!(self.var_get(name), Some(Value::Str(_))) {
             return Ok(None);
@@ -11035,10 +11255,47 @@ impl Interp {
         // `x[end] = v` / `x[last] = v` / `x[middle] = v` (§ index aliases,
         // scoped 2026-08-26) work here for free, since `resolve_sel` is
         // where the index-length context (`index_len_stack`) gets pushed.
-        let positions: Vec<usize> = sel_to_vec(self.resolve_sel(&indices[0], len)?);
+        let sel = self.resolve_sel(&indices[0], len)?;
+        // `v[i] = x` with plain `=` and a number on the right: the hot shape
+        // of every element-wise fill loop. Same order as the general path
+        // (index, then right-hand side) and the same `indexed_assign` call,
+        // with one-element stack arrays instead of the position and
+        // replacement vectors (three heap allocations per element written).
+        let mut pre_rhs: Option<Value> = None;
+        if let (Sel::Scalar(i), true) = (&sel, op.is_empty()) {
+            let i = *i;
+            let rhs_v = self.eval(rhs)?;
+            if let Value::Num(x) = rhs_v {
+                let taken = self
+                    .var_take(name)
+                    .ok_or_else(|| EvalError { msg: format!("`{name}` is not defined") })?;
+                let (result, mutate_result) = match taken {
+                    Value::Vec(mut xs) => {
+                        let r = numeric::selection::indexed_assign(Arc::make_mut(&mut xs).as_mut_slice(), &[i], &[x]);
+                        (Value::Vec(xs), r)
+                    }
+                    Value::Signal(mut xs, fs, m) => {
+                        let r = numeric::selection::indexed_assign(Arc::make_mut(&mut xs).as_mut_slice(), &[i], &[x]);
+                        (Value::Signal(xs, fs, m), r)
+                    }
+                    other => {
+                        self.var_set(name, other);
+                        return e(format!("`{name}` changed type during index-assignment"));
+                    }
+                };
+                self.var_set(name, result);
+                mutate_result.map_err(|se| EvalError { msg: se.to_string() })?;
+                return Ok(());
+            }
+            pre_rhs = Some(rhs_v);
+        }
+        let positions: Vec<usize> = sel_to_vec(sel);
 
         // build the replacement values (scalar broadcasts; vector must match)
-        let rhs_v = self.eval(rhs)?;
+        let rhs_v = match pre_rhs {
+            Some(v) => v,
+            None => self.eval(rhs)?,
+        };
         let repl_base: Vec<f64> = match &rhs_v {
             Value::Vec(v) => {
                 if v.len() != positions.len() {
@@ -16165,7 +16422,17 @@ pub fn bundle_key(root: &std::path::Path, full: &std::path::Path) -> Option<Stri
     /// (the overwhelmingly common case, profiling off) so this costs one
     /// bool check normally.
     fn call_tracked(&mut self, f: &str, run: impl FnOnce(&mut Self) -> R<Value>) -> R<Value> {
-        self.call_stack.push(f.to_string());
+        // `call_stack[..call_depth]` is the live stack; the `String`s above
+        // `call_depth` are spare buffers kept so a call does not allocate a
+        // fresh name on entry and free it on exit (the stack is read only
+        // on the error path below, which slices to the live part).
+        if let Some(slot) = self.call_stack.get_mut(self.call_depth) {
+            slot.clear();
+            slot.push_str(f);
+        } else {
+            self.call_stack.push(f.to_string());
+        }
+        self.call_depth += 1;
         let call_site_line = self.current_line;
         self.call_lines.push(call_site_line);
         let start = self.profiling.then(std::time::Instant::now);
@@ -16181,11 +16448,10 @@ pub fn bundle_key(root: &std::path::Path, full: &std::path::Path) -> Option<Stri
         }
         if let Err(e) = &result {
             if self.pending_error_stack.is_none() {
-                self.pending_error_stack = Some(self.call_stack.clone());
+                self.pending_error_stack = Some(self.call_stack[..self.call_depth].to_vec());
             }
             if self.last_error_site.is_none() {
-                let frames = self
-                    .call_stack
+                let frames = self.call_stack[..self.call_depth]
                     .iter()
                     .cloned()
                     .zip(self.call_lines.iter().copied())
@@ -16199,7 +16465,7 @@ pub fn bundle_key(root: &std::path::Path, full: &std::path::Path) -> Option<Stri
             // in a `catch` keeps pointing at the failing line.)
             self.current_line = call_site_line;
         }
-        self.call_stack.pop();
+        self.call_depth -= 1;
         self.call_lines.pop();
         result
     }
@@ -16274,6 +16540,13 @@ pub fn bundle_key(root: &std::path::Path, full: &std::path::Path) -> Option<Stri
     /// function is even consulted: for the common case the sequence below
     /// is byte-for-byte what it was before this feature existed.
     fn try_run_compiled(&mut self, name: &str, argv: &[Value]) -> Option<R<Value>> {
+        self.try_run_compiled_with(name, argv, false)
+    }
+
+    /// `plain_only`: this is an ORDINARY call from script code, so only a
+    /// function whose compiled form is exactly the interpreter's answer
+    /// (`CompiledFn::plain_call_ok`) may take the fast tier.
+    fn try_run_compiled_with(&mut self, name: &str, argv: &[Value], plain_only: bool) -> Option<R<Value>> {
         if !matches!(self.dispatch_plan(name), DispatchPlan::Trivial(_)) {
             return None;
         }
@@ -16291,17 +16564,27 @@ pub fn bundle_key(root: &std::path::Path, full: &std::path::Path) -> Option<Stri
             self.compiled_funcs.insert(name.to_string(), compiled);
         }
         let cf = self.compiled_funcs.get(name)?.as_ref()?;
+        if plain_only && !cf.plain_call_ok {
+            return None;
+        }
         if argv.len() != cf.n_params {
             return None; // let the slow path produce the real arity error
         }
-        let mut args = Vec::with_capacity(argv.len());
-        for v in argv {
+        let mut buf = [0.0f64; 8];
+        let mut heap;
+        let args: &mut [f64] = if argv.len() <= 8 {
+            &mut buf[..argv.len()]
+        } else {
+            heap = vec![0.0; argv.len()];
+            &mut heap
+        };
+        for (slot, v) in args.iter_mut().zip(argv) {
             match v {
-                Value::Num(x) => args.push(*x),
+                Value::Num(x) => *slot = *x,
                 _ => return None, // non-numeric argument this call: fall back
             }
         }
-        Some(Ok(match cf.run(&args) {
+        Some(Ok(match cf.run(args) {
             Some(x) => Value::Num(x),
             None => Value::Nothing,
         }))
@@ -16476,9 +16759,16 @@ pub fn bundle_key(root: &std::path::Path, full: &std::path::Path) -> Option<Stri
                 "maximum recursion depth exceeded ({MAX_CALL_DEPTH} nested calls)"
             ));
         }
-        self.frames.push(HashMap::with_capacity(capacity));
-        self.frame_refs.push(HashMap::new());
-        self.frame_globals.push(std::collections::HashSet::new());
+        // A recycled table keeps the capacity an earlier call grew it to, so
+        // a function with many locals stops re-growing (allocate, rehash,
+        // free) on every call.
+        let table = self
+            .frame_pool
+            .pop()
+            .unwrap_or_else(|| VarMap::with_capacity_and_hasher(capacity.max(8), Default::default()));
+        self.frames.push(table);
+        self.frame_refs.push(FastMap::default());
+        self.frame_globals.push(Default::default());
         Ok(())
     }
 
@@ -16548,7 +16838,20 @@ pub fn bundle_key(root: &std::path::Path, full: &std::path::Path) -> Option<Stri
                 }
             }
         }
-        self.frames.pop();
+        if let Some(mut table) = self.frames.pop() {
+            // Values are dropped here, exactly where they were before; only
+            // the (empty) table is kept for the next call. A table that grew
+            // large is not worth holding on to.
+            for (mut k, _v) in table.drain() {
+                if self.key_pool.len() < 512 && k.capacity() <= 64 {
+                    k.clear();
+                    self.key_pool.push(k);
+                }
+            }
+            if table.capacity() <= 256 && self.frame_pool.len() < 64 {
+                self.frame_pool.push(table);
+            }
+        }
     }
 
     /// Binds `argv` positionally against `params` and pushes exactly one
@@ -16620,19 +16923,32 @@ pub fn bundle_key(root: &std::path::Path, full: &std::path::Path) -> Option<Stri
     /// Does NOT pop on failure: the caller pushed the frame and is the only
     /// one that knows what else it put there, so unwinding stays with it.
     fn bind_params_into_current_frame(&mut self, params: &[Param], argv: Vec<Value>) -> R<()> {
-        let mut argv = argv.into_iter();
-        for p in params {
-            let v = match argv.next() {
-                Some(v) => v,
-                None => {
-                    let default = p
-                        .default
-                        .as_ref()
-                        .expect("arity check above guarantees a default here");
-                    self.eval(default)?
-                }
-            };
-            self.frames.last_mut().unwrap().insert(p.name.clone(), v);
+        let mut argv = argv;
+        {
+            let mut it = argv.drain(..);
+            for p in params {
+                let v = match it.next() {
+                    Some(v) => v,
+                    None => {
+                        let default = p
+                            .default
+                            .as_ref()
+                            .expect("arity check above guarantees a default here");
+                        self.eval(default)?
+                    }
+                };
+                let k = match self.key_pool.pop() {
+                    Some(mut k) => {
+                        k.push_str(&p.name);
+                        k
+                    }
+                    None => p.name.clone(),
+                };
+                self.frames.last_mut().unwrap().insert(k, v);
+            }
+        }
+        if argv.capacity() <= 16 && self.argv_pool.len() < 32 {
+            self.argv_pool.push(argv);
         }
         Ok(())
     }
@@ -16692,10 +17008,62 @@ pub fn bundle_key(root: &std::path::Path, full: &std::path::Path) -> Option<Stri
                 // for a `memoize function` entry. See that method's own doc
                 // comment for why this same check must live on BOTH this
                 // path and `apply_seeded`'s.
+                // A straight-line arithmetic function called with plain
+                // numbers runs on the compiled tier (registers, no frame):
+                // the call cannot fail, so it has no error trace to keep,
+                // and it is skipped under `--profile` (which times calls)
+                // and `type explicit` (which makes a new local a
+                // declaration error) so those stay exactly as they were.
+                if !entry.memoize && !self.profiling && !self.explicit_types && argv_all_num(&args) {
+                    if let Some(result) = self.try_run_compiled_with(f, &args, true) {
+                        return result;
+                    }
+                }
                 return self.run_entry_maybe_memoized(f, entry, args);
             }
             Some(Err(err)) => return Err(err),
             None => {}
+        }
+        // `length(x)` / `str(x)` are called in the hot position of loops, and
+        // the general builtin path (unit unwrapping, the keyword/argument
+        // read trackers, the sandbox and file-history checks) is most of
+        // their cost. Both are pure functions of one plain value, so when
+        // none of that machinery could have an opinion -- no keyword
+        // arguments, no import-opened names, no sandbox/dry-run/history, and
+        // an argument that is neither a unit quantity nor a tensor (the two
+        // kinds the general path unwraps first) -- compute the answer with
+        // the very functions the general arms call. Anything else falls
+        // through unchanged.
+        if (1..=3).contains(&args.len())
+            && style.is_empty()
+            && seed.is_none()
+            && axis.is_none()
+            && self.open_modules.is_empty()
+            && !self.sandboxed
+            && !self.dry_run
+            && !self.file_history
+            && !args.iter().any(|a| matches!(a, Value::Quantity(_, _) | Value::Tensor(_)))
+        {
+            match (f, args.len()) {
+                ("length" | "numel" | "len", 1) => return Ok(Value::Num(value_len(&args[0]) as f64)),
+                ("str", 1) => return Ok(Value::Str(display_value(&args[0]))),
+                // These two read their arguments through `arg0`, which
+                // records the read in the innermost argument tracker -- so
+                // give them a tracker of their own, as the general path
+                // does, rather than let the note land on an enclosing
+                // builtin's. (`get`/`has_key` take `arg_all`, i.e. "reads
+                // everything", so the extra-argument check can never fire
+                // for them and is not repeated here.)
+                ("get", 2 | 3) => {
+                    let _reads = ArgFrame::push();
+                    return collections::dict_get(&args);
+                }
+                ("has_key", 2) => {
+                    let _reads = ArgFrame::push();
+                    return collections::dict_has_key(&args);
+                }
+                _ => {}
+            }
         }
         // Past this point `f` is confirmed to name no user function at
         // all, so the two fallback arms below call `call_builtin` directly
@@ -16746,7 +17114,7 @@ pub fn bundle_key(root: &std::path::Path, full: &std::path::Path) -> Option<Stri
             // the tell: a note that an instance was fixed is not evidence
             // the class was. See `AXIS_HONOURING` below for the guard that
             // makes the next omission loud instead of plausible.
-            f if AXIS_HONOURING.contains(&f) && axis.is_some() => {
+            f if axis.is_some() && AXIS_HONOURING.contains(&f) => {
                 if let Some(Value::Mat(m)) = args.first() {
                     // `quantile`/`argquantile` take a second positional
                     // argument (`q`) that `sum`/`std`/... do not have --
@@ -17352,7 +17720,7 @@ pub fn bundle_key(root: &std::path::Path, full: &std::path::Path) -> Option<Stri
         // Refused BEFORE stripping: see `UNIT_REFUSING`. Stripping first
         // hands the serializer plain numbers and loses the unit to a file,
         // which is the one loss that outlives the expression.
-        if UNIT_REFUSING.contains(&f) {
+        if args.iter().any(|a| matches!(a, Value::Quantity(_, _))) && UNIT_REFUSING.contains(&f) {
             if let Some(Value::Quantity(_, tag)) =
                 args.iter().find(|a| matches!(a, Value::Quantity(_, _)))
             {
@@ -17528,10 +17896,41 @@ pub fn bundle_key(root: &std::path::Path, full: &std::path::Path) -> Option<Stri
                 return self.tensor_row_reduce(f, args.into_iter().next().unwrap());
             }
         }
-        if !TENSOR_AWARE.contains(&f) && args.iter().any(|a| matches!(a, Value::Tensor(_))) {
+        if args.iter().any(|a| matches!(a, Value::Tensor(_))) && !TENSOR_AWARE.contains(&f) {
             args = args.into_iter().map(|a| untensor(a).0).collect();
         }
         match f {
+            // HOT ARMS FIRST. A `match` on a string tests its arms in order, so
+            // a builtin whose arm sits N thousand lines down this match pays
+            // for every arm above it on every call (measured: `length` and
+            // `str` cost 0.6-0.9 us per call from this alone). The arms below
+            // are the builtins that scripts call inside loops, moved up here
+            // VERBATIM. Moving a one-line arm cannot change what it does, as
+            // long as no earlier arm could also match its name -- which holds
+            // because every pattern is a distinct literal (a test pins the
+            // behaviour of each).
+            "dict" => collections::dict_new(arg_all(&args)),
+            "get" => collections::dict_get(arg_all(&args)),
+            "set" => collections::dict_set(arg_all(&args)),
+            "keys" => collections::dict_keys(arg_all(&args)),
+            "values" => collections::dict_values(arg_all(&args)),
+            "items" => collections::dict_items(arg_all(&args)),
+            "has_key" => collections::dict_has_key(arg_all(&args)),
+            "first" => collections::seq_first(arg_all(&args)),
+            "last" => collections::seq_last(arg_all(&args)),
+            "length" | "numel" | "len" => Ok(Value::Num(value_len(arg0(&args)?) as f64)),
+            "abs" | "magnitude" => complex_map_to_real(arg0(&args)?, |c| c.magnitude(), f64::abs),
+            "sqrt" => map1_complex(arg0(&args)?.clone(), f64::sqrt, Complex64::sqrt),
+            "floor" => e1(f64::floor, arg0(&args)?),
+            "ceil" => e1(f64::ceil, arg0(&args)?),
+            "str" => Ok(Value::Str(display_value(arg0(&args)?))),
+            "sin" => map1_complex(arg0(&args)?.clone(), f64::sin, Complex64::sin),
+            "cos" => map1_complex(arg0(&args)?.clone(), f64::cos, Complex64::cos),
+            "tan" => map1_complex(arg0(&args)?.clone(), f64::tan, Complex64::tan),
+            "exp" => map1_complex(arg0(&args)?.clone(), f64::exp, Complex64::exp),
+            "ones" => Ok(make_filled(&args, 1.0)),
+            "upper" | "ucase" | "toupper" => Ok(Value::Str(str_arg(&args, 0)?.to_uppercase())),
+            "lower" | "lcase" | "tolower" => Ok(Value::Str(str_arg(&args, 0)?.to_lowercase())),
             // `param(v)`/`track(v)` (§38 autodiff): wraps a plain `Num`/
             // `Mat` (or promotes a `Vec`, matching `to_matrix`'s own
             // Vec-as-column convention, so a param's shape is always
@@ -21843,11 +22242,6 @@ self.eval_grad(loss, wrt)
             "zip" => collections::zip_values(arg_all(&args)),
             "map" => collections::map_serial(self, arg_all(&args)),
             "apply" => collections::apply_named(self, arg_all(&args)),
-            "dict" => collections::dict_new(arg_all(&args)),
-            "get" => collections::dict_get(arg_all(&args)),
-            "set" => collections::dict_set(arg_all(&args)),
-            "keys" => collections::dict_keys(arg_all(&args)),
-            "values" => collections::dict_values(arg_all(&args)),
             // `import xlsx` reaches these as `xlsx.read(...)`; the `xlsx::`
             // prefix is what `Expr::Field` on a `Value::Module` rewrites the
             // call to, so none of these names exist unqualified and none is
@@ -21953,13 +22347,9 @@ self.eval_grad(loss, wrt)
             "svg::rect" | "svg::circle" | "svg::line" | "svg::path" | "svg::text" => {
                 svg_io::svg_call(f, arg_all(&args), &style)
             }
-            "items" => collections::dict_items(arg_all(&args)),
-            "has_key" => collections::dict_has_key(arg_all(&args)),
             // Sequence operations. `Value::List` is what `split`, `zip`,
             // `keys`/`values` and a tuple literal return, and it had almost
             // no surface at all -- see the module's own "sequences" note.
-            "first" => collections::seq_first(arg_all(&args)),
-            "last" => collections::seq_last(arg_all(&args)),
             "take" => collections::seq_take(arg_all(&args)),
             "distinct" => collections::seq_distinct(arg_all(&args)),
             "flatten" => collections::seq_flatten(arg_all(&args)),
@@ -22739,9 +23129,6 @@ self.eval_grad(loss, wrt)
             // non-finite components there, matching the float semantics
             // the rest of the runtime uses (`sqrt(-1)` doesn't error
             // either).
-            "sin" => map1_complex(arg0(&args)?.clone(), f64::sin, Complex64::sin),
-            "cos" => map1_complex(arg0(&args)?.clone(), f64::cos, Complex64::cos),
-            "tan" => map1_complex(arg0(&args)?.clone(), f64::tan, Complex64::tan),
             "asin" => map1_complex(arg0(&args)?.clone(), f64::asin, Complex64::asin),
             "acos" => map1_complex(arg0(&args)?.clone(), f64::acos, Complex64::acos),
             "atan" => map1_complex(arg0(&args)?.clone(), f64::atan, Complex64::atan),
@@ -22841,7 +23228,6 @@ self.eval_grad(loss, wrt)
                 self.exit_code = Some(code);
                 e(format!("exit({code})"))
             }
-            "exp" => map1_complex(arg0(&args)?.clone(), f64::exp, Complex64::exp),
             // `sigmoid(x) = 1 / (1 + exp(-x))` -- the logistic function,
             // used untracked here and via `tensor_math1` (see
             // `TENSOR_MATH1` above) when tracked. Complex-aware via the
@@ -22881,7 +23267,6 @@ self.eval_grad(loss, wrt)
                 f64::log2,
                 |z: Complex64| z.ln().scale(1.0 / 2f64.ln()),
             ),
-            "sqrt" => map1_complex(arg0(&args)?.clone(), f64::sqrt, Complex64::sqrt),
             // `cbrt(x)`: unlike `x^(1/3)` (or Rust's own `x.powf(1.0/3.0)`,
             // which is `NaN` for negative `x` -- there is no real branch cut
             // to pick a real cube root from a fractional power), `f64::cbrt`
@@ -22982,7 +23367,6 @@ self.eval_grad(loss, wrt)
                     other.type_name()
                 )),
             },
-            "abs" | "magnitude" => complex_map_to_real(arg0(&args)?, |c| c.magnitude(), f64::abs),
             "angle" | "arg" | "phase" => complex_map_to_real(
                 arg0(&args)?,
                 |c| c.arg(),
@@ -23009,8 +23393,6 @@ self.eval_grad(loss, wrt)
                 Value::CVec(xs) => Ok(Value::CVec(Arc::new(xs.iter().map(|c| c.conj()).collect()))),
                 other => Ok(other.clone()),
             },
-            "floor" => e1(f64::floor, arg0(&args)?),
-            "ceil" => e1(f64::ceil, arg0(&args)?),
             // `round(x)` to a whole number; `round(x, digits)` to that
             // many decimals. Half away from zero, the arithmetic
             // convention, not banker's rounding -- a measurement rounded
@@ -24279,7 +24661,6 @@ self.eval_grad(loss, wrt)
                 fields.push(("issues".into(), Value::List(Arc::new(issues))));
                 Ok(Value::Record(Arc::new(fields)))
             }
-            "length" | "numel" | "len" => Ok(Value::Num(value_len(arg0(&args)?) as f64)),
             "norm" => {
                 // A complex matrix norms by magnitude, which is the
                 // Frobenius norm numpy returns for a matrix by default.
@@ -24372,7 +24753,6 @@ self.eval_grad(loss, wrt)
                 }
                 _ => Ok(make_filled(&args, 0.0)),
             },
-            "ones" => Ok(make_filled(&args, 1.0)),
             "eye" | "identity" => {
                 let n = arg_get(&args, 0).and_then(|v| v.as_num().ok()).unwrap_or(0.0) as usize;
                 Ok(Value::Mat(Arc::new(Matrix::eye(n))))
@@ -29246,7 +29626,6 @@ self.eval_grad(loss, wrt)
             // as a string. Exists mainly so loop bodies can build per-iteration
             // labels (`"s" + str(i+1)`) — see the `+` string-concat case in
             // `binop` below, which this pairs with.
-            "str" => Ok(Value::Str(display_value(arg0(&args)?))),
             // ---- string utilities (§ collections/strings, 2026-08-24) ----
             // All index/length arguments below are 0-based (matching every
             // other index in this codebase) and unicode-aware: built on
@@ -29413,8 +29792,6 @@ self.eval_grad(loss, wrt)
             // `ucase`/`lcase` are BASIC's names and `toupper`/`tolower` are
             // C's. Both are what a hand reaches for before it reaches for
             // the documentation, and an alias costs a line.
-            "upper" | "ucase" | "toupper" => Ok(Value::Str(str_arg(&args, 0)?.to_uppercase())),
-            "lower" | "lcase" | "tolower" => Ok(Value::Str(str_arg(&args, 0)?.to_lowercase())),
             // `compare(a, b, [ignore_case])` — -1, 0 or 1, so it can drive
             // a sort directly. Case-insensitive comparison is the reason
             // this exists: `lower(a) == lower(b)` allocates two strings to
@@ -41968,6 +42345,13 @@ self.eval_grad(loss, wrt)
     }
 
     fn interpolate(&mut self, raw: &str) -> R<String> {
+        // Nothing below changes a string that has no backslash, no `$` and no
+        // brace: every character is copied through. That is almost every
+        // string literal, and it is evaluated once per pass of a loop, so it
+        // skips the `Vec<char>` copy the general path makes.
+        if !raw.bytes().any(|b| matches!(b, b'\\' | b'$' | b'{' | b'}')) {
+            return Ok(raw.to_string());
+        }
         // unescape simple escapes and expand {expr[:spec]} at brace depth 0
         let chars: Vec<char> = raw.chars().collect();
         let mut out = String::new();
@@ -42224,9 +42608,25 @@ self.eval_grad(loss, wrt)
     fn format_interp(&mut self, inner: &str) -> R<String> {
         // split expr and optional :spec at top-level ':'
         let (expr_src, spec) = split_spec(inner);
-        let ex = parse_expr(expr_src.trim()).map_err(|pe| EvalError {
-            msg: pe.to_string(),
-        })?;
+        // The same `{...}` is evaluated again on every pass of a loop, and
+        // parsing it each time cost more than evaluating it. The parse is a
+        // pure function of the text, so a parsed expression is kept by its
+        // source; a parse error is not cached (it is reported afresh, with
+        // the same message, each time it is reached).
+        let key = expr_src.trim();
+        let ex = match self.interp_cache.get(key) {
+            Some(ex) => Arc::clone(ex),
+            None => {
+                let parsed = Arc::new(parse_expr(key).map_err(|pe| EvalError {
+                    msg: pe.to_string(),
+                })?);
+                if self.interp_cache.len() >= 4096 {
+                    self.interp_cache.clear();
+                }
+                self.interp_cache.insert(key.to_string(), Arc::clone(&parsed));
+                parsed
+            }
+        };
         let v = self.eval(&ex)?;
         Ok(format_spec(&v, spec.as_deref()))
     }

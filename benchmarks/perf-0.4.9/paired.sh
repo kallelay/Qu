@@ -4,13 +4,14 @@
 # reads, with the "new" binary in the qu_ files and the "old" one in py_ and
 # py1_ (so agg.qu's "Qu/Py" column is new/old: < 1 means the change is faster).
 #
-#   benchmarks/perf-0.4.9/paired.sh old.exe new.exe [reps=5] [tag=paired]
+#   benchmarks/perf-0.4.9/paired.sh old.exe new.exe [reps=5] [tag=paired] [files="bench.qu bench_sparse.qu"]
+#   e.g. the interpreter-overhead set:  paired.sh old.exe new.exe 7 interp interp_overhead.qu
 set -u
 here="$(cd "$(dirname "$0")" && pwd)"
-old="$1"; new="$2"; reps="${3:-5}"; tag="${4:-paired}"
+old="$1"; new="$2"; reps="${3:-5}"; tag="${4:-paired}"; files="${5:-bench.qu bench_sparse.qu}"
 out="$here/results/$tag"
 mkdir -p "$out"
-one() { { "$1" run "$here/bench.qu" 2>&1; "$1" run "$here/bench_sparse.qu" 2>&1; } | grep -E "^(BENCH|qu:)"; }
+one() { { for f in $files; do "$1" run "$here/$f" 2>&1; done; } | grep -E "^(BENCH|qu:)"; }
 for k in $(seq 1 "$reps"); do
   if [ $((k % 2)) -eq 1 ]; then
     one "$new" > "$out/qu_$k.txt"; one "$old" > "$out/py_$k.txt"

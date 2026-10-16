@@ -30,7 +30,9 @@ fn write_script(name: &str, src: &str) -> PathBuf {
 
 #[test]
 fn max_time_kills_a_real_infinite_loop_with_a_clear_message() {
-    let path = write_script("infinite_loop.qu", "x = 0\nwhile true\n  x = x + 1\nend\n");
+    // The body does real work: a bare `x = x + 1` now reaches the 10M-iteration
+    // safety stop in well under the 1 s limit, so the watchdog never got to fire.
+    let path = write_script("infinite_loop.qu", "x = 0\nwhile true\n  x = x + sum(0:9999)\nend\n");
     let start = Instant::now();
     let out = Command::new(qu_bin())
         .args(["run", path.to_str().unwrap(), "--max-time", "1"])
