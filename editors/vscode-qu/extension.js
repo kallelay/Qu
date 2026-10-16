@@ -1,5 +1,5 @@
 // Qu Language extension — run support + inline diagnostics.
-// Qu editor plugin 0.2.0
+// Qu editor plugin 0.2.1
 //
 // Plain CommonJS, no build step: `package.json` points `main` straight at
 // this file, so there's nothing to compile/bundle for either the "copy the

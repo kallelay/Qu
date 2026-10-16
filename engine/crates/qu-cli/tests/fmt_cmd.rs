@@ -146,6 +146,61 @@ fn check_exits_1_and_lists_files_that_would_change() {
 }
 
 #[test]
+fn angle_brackets_are_spaced_only_as_comparisons() {
+    let (code, out) = fmt_stdin("if a>3 and b<c\n  x = 1\nend if\nf(x: model<\"filter\">) := x\ng(r: record<Circle>) := r\nz = a>=b\n");
+    assert_eq!(code, 0, "{out}");
+    assert!(out.contains("if a > 3 and b < c"), "{out}");
+    assert!(out.contains("model<\"filter\">"), "type refinement must be untouched:\n{out}");
+    assert!(out.contains("record<Circle>"), "{out}");
+    assert!(out.contains("z = a >= b"), "{out}");
+    let (_, again) = fmt_stdin(&out);
+    assert_eq!(out, again, "idempotent");
+}
+
+#[test]
+fn directory_walk_skips_symlink_cycles() {
+    let d = scratch("symcycle");
+    std::fs::create_dir_all(d.join("sub")).unwrap();
+    std::fs::write(d.join("sub/a.qu"), "x=1\n").unwrap();
+    // sub/loop -> .. (a cycle). Needs privilege on Windows: skip if refused.
+    #[cfg(unix)]
+    let made = std::os::unix::fs::symlink(&d, d.join("sub/loop")).is_ok();
+    #[cfg(windows)]
+    let made = std::os::windows::fs::symlink_dir(&d, d.join("sub/loop")).is_ok();
+    #[cfg(not(any(unix, windows)))]
+    let made = false;
+    if !made {
+        eprintln!("skipping: cannot create a symlink here");
+        let _ = std::fs::remove_dir_all(&d);
+        return;
+    }
+    let mut child = Command::new(qu_bin())
+        .current_dir(&d)
+        .args(["fmt", "--check", "."])
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .unwrap();
+    let t = std::time::Instant::now();
+    let status = loop {
+        if let Some(s) = child.try_wait().unwrap() {
+            break s;
+        }
+        if t.elapsed().as_secs() > 60 {
+            let _ = child.kill();
+            panic!("qu fmt looped on a symlink cycle");
+        }
+        std::thread::sleep(std::time::Duration::from_millis(20));
+    };
+    assert_eq!(status.code(), Some(1), "x=1 needs formatting, exactly once");
+    #[cfg(unix)]
+    let _ = std::fs::remove_file(d.join("sub/loop"));
+    #[cfg(windows)]
+    let _ = std::fs::remove_dir(d.join("sub/loop"));
+    let _ = std::fs::remove_dir_all(&d);
+}
+
+#[test]
 fn stdin_mode_formats() {
     let (code, out) = fmt_stdin("x=f(a,b)\n");
     assert_eq!(code, 0);

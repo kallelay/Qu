@@ -145,6 +145,17 @@ struct Lexer<'a> {
     line: u32,
     col: u32,
     line_start: usize,
+    /// Set by a string lexer that ran off the end of the input without
+    /// finding its closing quote; read (and cleared) by `lex_checked`.
+    unterminated: bool,
+}
+
+/// A lexical problem that does not stop tokenising (see [`lex_checked`]).
+#[derive(Clone, Debug, PartialEq)]
+pub struct LexError {
+    pub msg: String,
+    /// Where the offending token STARTS (line/col are the opening position).
+    pub span: Span,
 }
 
 impl<'a> Lexer<'a> {
@@ -156,6 +167,7 @@ impl<'a> Lexer<'a> {
             line: 1,
             col: 1,
             line_start: 0,
+            unterminated: false,
         }
     }
 
@@ -228,8 +240,16 @@ fn suppress_newline_after(t: &Tok) -> bool {
 /// Tokenize `src` into a vector ending in [`Tok::Eof`]. Never fails; lexical
 /// problems surface as [`Tok::Unknown`] tokens.
 pub fn lex(src: &str) -> Vec<Token> {
+    lex_checked(src).0
+}
+
+/// Like [`lex`], but also reports lexical errors (currently: strings that
+/// are never closed). The token stream is identical to `lex`'s, so tools
+/// that must round-trip source (the formatter) are unaffected.
+pub fn lex_checked(src: &str) -> (Vec<Token>, Vec<LexError>) {
     let mut lx = Lexer::new(src);
     let mut out: Vec<Token> = Vec::new();
+    let mut errors: Vec<LexError> = Vec::new();
 
     // Track the last non-newline token to decide on continuations.
     let mut last_significant: Option<Tok> = None;
@@ -317,12 +337,24 @@ pub fn lex(src: &str) -> Vec<Token> {
             lx.bump(); // the three opening quotes
             let start = lx.byte_pos();
             let mut end = start;
+            let mut closed = false;
             while let Some(ch) = lx.peek() {
                 if ch == '"' && lx.peek2() == Some('"') && lx.peek3() == Some('"') {
+                    // Longest match, as in Python: in a run of n >= 3
+                    // quotes the first n-3 belong to the content, so
+                    // `r"""say "hi""""` ends in a literal `"`.
+                    let mut run = 3;
+                    while lx.chars.get(lx.i + run).map(|&(_, c)| c) == Some('"') {
+                        run += 1;
+                    }
+                    for _ in 0..run - 3 {
+                        lx.bump();
+                    }
                     end = lx.byte_pos();
                     lx.bump();
                     lx.bump();
                     lx.bump();
+                    closed = true;
                     break;
                 }
                 lx.bump();
@@ -330,6 +362,12 @@ pub fn lex(src: &str) -> Vec<Token> {
             }
             let tok = Tok::RawStr(lx.rest_str(start, end));
             let span = lx.span(sb, sl, sc);
+            if !closed {
+                errors.push(LexError {
+                    msg: format!("unterminated raw string starting at line {sl}:{sc} (missing closing \"\"\")"),
+                    span,
+                });
+            }
             last_significant = Some(tok.clone());
             out.push(Token { tok, span });
             continue;
@@ -339,6 +377,12 @@ pub fn lex(src: &str) -> Vec<Token> {
             lx.bump(); // the `r`
             let tok = lex_raw_string(&mut lx);
             let span = lx.span(sb, sl, sc);
+            if std::mem::take(&mut lx.unterminated) {
+                errors.push(LexError {
+                    msg: format!("unterminated raw string starting at line {sl}:{sc} (missing closing \")"),
+                    span,
+                });
+            }
             last_significant = Some(tok.clone());
             out.push(Token { tok, span });
             continue;
@@ -358,6 +402,12 @@ pub fn lex(src: &str) -> Vec<Token> {
             }
             let tok = lex_string(&mut lx, c);
             let span = lx.span(sb, sl, sc);
+            if std::mem::take(&mut lx.unterminated) {
+                errors.push(LexError {
+                    msg: format!("unterminated string starting at line {sl}:{sc} (missing closing {c})"),
+                    span,
+                });
+            }
             last_significant = Some(tok.clone());
             out.push(Token { tok, span });
             continue;
@@ -405,7 +455,7 @@ pub fn lex(src: &str) -> Vec<Token> {
         tok: Tok::Eof,
         span: lx.span(lx.byte_pos(), lx.line, lx.col),
     });
-    out
+    (out, errors)
 }
 
 /// Does the last token end an expression (so a following `'` is transpose)?
@@ -541,6 +591,7 @@ fn lex_string(lx: &mut Lexer, quote: char) -> Tok {
     lx.bump(); // opening quote
     let start = lx.byte_pos();
     let mut end = start;
+    let mut closed = false;
     while let Some(c) = lx.peek() {
         if c == '\\' {
             lx.bump();
@@ -551,11 +602,13 @@ fn lex_string(lx: &mut Lexer, quote: char) -> Tok {
         if c == quote {
             end = lx.byte_pos();
             lx.bump();
+            closed = true;
             break;
         }
         lx.bump();
         end = lx.byte_pos();
     }
+    lx.unterminated = !closed;
     Tok::Str(lx.rest_str(start, end))
 }
 
@@ -571,15 +624,18 @@ fn lex_raw_string(lx: &mut Lexer) -> Tok {
     lx.bump(); // opening quote
     let start = lx.byte_pos();
     let mut end = start;
+    let mut closed = false;
     while let Some(c) = lx.peek() {
         if c == '"' {
             end = lx.byte_pos();
             lx.bump();
+            closed = true;
             break;
         }
         lx.bump();
         end = lx.byte_pos();
     }
+    lx.unterminated = !closed;
     Tok::RawStr(lx.rest_str(start, end))
 }
 
@@ -746,6 +802,31 @@ mod triple_raw_tests {
     fn triple_quoted_raw_string_holds_quotes_and_braces() {
         let toks: Vec<Tok> = lex("r\"\"\"{\"a\":1}\"\"\"").into_iter().map(|t| t.tok).collect();
         assert_eq!(toks[0], Tok::RawStr("{\"a\":1}".into()));
+    }
+
+    #[test]
+    fn unterminated_raw_triple_string_is_reported_at_its_opening() {
+        let (_, errs) = lex_checked("x = 1\ny = r\"\"\"abc\nmore\n");
+        assert_eq!(errs.len(), 1, "{errs:?}");
+        assert!(errs[0].msg.contains("unterminated raw string starting at line 2:5"), "{:?}", errs[0]);
+        assert_eq!((errs[0].span.line, errs[0].span.col), (2, 5));
+    }
+
+    #[test]
+    fn unterminated_ordinary_and_single_raw_strings_are_reported() {
+        let (_, e1) = lex_checked("s = \"abc\n");
+        assert!(e1[0].msg.contains("unterminated string starting at line 1:5"), "{e1:?}");
+        let (_, e2) = lex_checked("s = r\"abc\n");
+        assert!(e2[0].msg.contains("unterminated raw string starting at line 1:5"), "{e2:?}");
+        let (_, ok) = lex_checked("s = \"abc\"\nt = r\"x\"\nu = r\"\"\"y\"\"\"\n");
+        assert!(ok.is_empty(), "{ok:?}");
+    }
+
+    #[test]
+    fn triple_raw_string_may_end_in_a_quote_longest_match() {
+        let (toks, errs) = lex_checked("r\"\"\"say \"hi\"\"\"\"");
+        assert!(errs.is_empty(), "{errs:?}");
+        assert_eq!(toks[0].tok, Tok::RawStr("say \"hi\"".into()));
     }
 
     #[test]

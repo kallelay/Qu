@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>diff_lines — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>diff_lines</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/collections-strings.html">Collections & strings</a></p>
+<pre class="fnsig">result = <code>diff_lines(a, b, [changed_only=false])</code></pre>
+<p class="fnnote">Input: a, b, changed_only &middot; Output: result</p>
+<h2>What it is</h2>
+<p>A line diff of two texts. <code>a</code> and <code>b</code> are each a <code>List</code> of strings, or one string that is split into lines (CRLF or LF).</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = diff_lines(a, b, [changed_only=false])</code></td><td><div class="ioitem"><code>a</code> <span class="iotype">List or string</span><span class="iodesc"><code>a</code> and <code>b</code> are each a <code>List</code> of strings, or one string that is split into lines (CRLF or LF).</span></div>
+<div class="ioitem"><code>b</code> <span class="iotype">List or string</span><span class="iodesc"><code>a</code> and <code>b</code> are each a <code>List</code> of strings, or one string that is split into lines (CRLF or LF).</span></div>
+<div class="ioitem"><code>changed_only</code> <span class="iotype">optional (default <code>false</code>)</span><span class="iodesc"><code>changed_only=true</code> leaves out the <code>"equal"</code> lines.</span></div>
+</td><td><div class="ioitem"><code>op</code> <span class="iotype">&mdash;</span><span class="iodesc"><code>"equal"</code>, <code>"insert"</code> or <code>"delete"</code></span></div>
+<div class="ioitem"><code>old</code> <span class="iotype">number</span><span class="iodesc">the 1-based line number in <code>a</code>, or <code>none</code> for an insert</span></div>
+<div class="ioitem"><code>new</code> <span class="iotype">number</span><span class="iodesc">the 1-based line number in <code>b</code>, or <code>none</code> for a delete</span></div>
+</td><td>Returns a <code>List</code> of <code>Record</code>s, one per line of the merged result, in order: <code>op</code> (<code>"equal"</code>, <code>"insert"</code> or <code>"delete"</code>), <code>old</code> (the 1-based line number in <code>a</code>, or <code>none</code> for an insert), <code>new</code> (the 1-based line number in <code>b</code>, or <code>none</code> for a delete) and <code>text</code>. <code>changed_only=true</code> leaves out the <code>"equal"</code> lines. A longest-common-subsequence diff after trimming the shared head and tail, so a few edits in a long file are cheap; a huge, wholly different pair is refused with a clear error rather than exhausting memory. <code>pdf.text_diff</code> is the page-by-page version for PDFs, and <code>diff</code> is the numeric one.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">No documentation example calls this form yet. The <a href="../docs/collections-strings.html">Collections & strings</a> chapter is where one belongs.</p>
+<h2>How it works</h2>
+<p><code>diff_lines(a, b, [changed_only=])</code> -- a line diff of two texts (diff_ops.rs).</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.3.0 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

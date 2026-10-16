@@ -965,13 +965,31 @@ pub struct Parser {
     /// Active `with <module> ... end` scopes, innermost last. Purely a
     /// parse-time stack — see `with_stmt`'s doc comment for what it's for.
     with_module_stack: Vec<String>,
+    /// OR-ed into every `Stmt::SourceLine` this parser emits, in the bits
+    /// above `LINE_BITS`: it names the source FILE the line belongs to
+    /// (0 = the main script). See `parse_tagged`.
+    line_tag: u32,
+}
+
+/// Number of low bits of a `Stmt::SourceLine` value that hold the line
+/// number; the bits above hold a file tag (see `parse_tagged`).
+pub const LINE_BITS: u32 = 20;
+
+/// Parse like [`parse`], but stamp every `SourceLine` marker with `file_tag`
+/// (shifted above `LINE_BITS`) so the interpreter can tell which file a
+/// running line belongs to. Used for `import`ed modules.
+pub fn parse_tagged(src: &str, file_tag: u32) -> PResult<Program> {
+    let (toks, errs) = qu_lexer::lex_checked(src);
+    if let Some(e) = errs.into_iter().next() {
+        return Err(ParseError { msg: e.msg, span: e.span });
+    }
+    let mut p = Parser { toks, i: 0, with_module_stack: Vec::new(), line_tag: file_tag << LINE_BITS };
+    p.program()
 }
 
 /// Parse a whole program from source text.
 pub fn parse(src: &str) -> PResult<Program> {
-    let toks = lex(src);
-    let mut p = Parser { toks, i: 0, with_module_stack: Vec::new() };
-    p.program()
+    parse_tagged(src, 0)
 }
 
 /// Parse a single expression (used for `{...}` string interpolation). Ranges
@@ -988,7 +1006,7 @@ pub fn parse(src: &str) -> PResult<Program> {
 /// the interpolation bug write-up in IMPL.md for the full repro.
 pub fn parse_expr(src: &str) -> PResult<Expr> {
     let toks = lex(src);
-    let mut p = Parser { toks, i: 0, with_module_stack: Vec::new() };
+    let mut p = Parser { toks, i: 0, with_module_stack: Vec::new(), line_tag: 0 };
     p.skip_terms();
     let e = p.range_expr()?;
     p.skip_terms();
@@ -1179,7 +1197,7 @@ impl Parser {
         let mut stmts = Vec::new();
         self.skip_terms();
         while !matches!(self.peek(), Tok::Eof) {
-            stmts.push(Stmt::SourceLine(self.span().line));
+            stmts.push(Stmt::SourceLine(self.span().line | self.line_tag));
             stmts.push(self.statement()?);
             self.expect_stmt_end(&[])?;
             self.skip_terms();
@@ -1213,7 +1231,7 @@ impl Parser {
                     break;
                 }
             }
-            out.push(Stmt::SourceLine(self.span().line));
+            out.push(Stmt::SourceLine(self.span().line | self.line_tag));
             out.push(self.statement()?);
             self.expect_stmt_end(stops)?;
             self.skip_terms();

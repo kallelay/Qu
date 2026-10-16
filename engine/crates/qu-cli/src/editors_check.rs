@@ -267,12 +267,24 @@ pub fn sublime_syntax_check(text: &str) -> Result<String, String> {
 // ---------------------------------------------------------------- word extraction
 
 fn alt_words(re: &str) -> Vec<String> {
-    let (Some(a), Some(b)) = (re.find('('), re.rfind(')')) else { return Vec::new() };
-    if b <= a {
-        return Vec::new();
+    // Every parenthesised group whose body is a plain word alternation
+    // (`(a|b|c)` / `(?:a|b)`). Groups that hold regex syntax -- lookaheads
+    // like `(?=\s+for\b)`, `(?!...)` -- are not word lists and are skipped,
+    // which is what lets a contextual keyword carry a context guard.
+    let mut out = Vec::new();
+    let mut from = 0;
+    while let Some(off) = re[from..].find('(') {
+        let a = from + off;
+        let Some(len) = re[a..].find(')') else { break };
+        let b = a + len;
+        let inner = re[a + 1..b].trim_start_matches("?:");
+        let words: Vec<&str> = inner.split('|').collect();
+        if !inner.is_empty() && words.iter().all(|w| !w.is_empty() && w.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')) {
+            out.extend(words.into_iter().map(String::from));
+        }
+        from = b + 1;
     }
-    let inner = re[a + 1..b].trim_start_matches("?:");
-    inner.split('|').filter(|w| !w.is_empty() && w.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')).map(String::from).collect()
+    out
 }
 
 pub struct Extracted {
@@ -372,6 +384,13 @@ pub struct Drift {
     pub word_count: usize,
 }
 
+/// Words that are both a builtin function name and a genuine contextual
+/// keyword of the parser (qu-syntax): `after` (timer statement head),
+/// `parallel` (`parallel for`), `select` (`select case`), `type` (`type
+/// implicit|explicit`) and `where` (paren-less prefix form). Every other
+/// builtin name must NOT be coloured as a keyword.
+pub const CONTEXTUAL_KEYWORDS: &[&str] = &["after", "parallel", "select", "type", "where"];
+
 pub fn drift_of(grammar: &'static str, ex: &Extracted) -> Drift {
     let kw: BTreeSet<&str> = qu_lexer::KEYWORDS.iter().copied().collect();
     let builtins: BTreeSet<&str> = qu_interp::BUILTIN_NAMES.iter().copied().collect();
@@ -382,7 +401,13 @@ pub fn drift_of(grammar: &'static str, ex: &Extracted) -> Drift {
         if kw.contains(w.as_str()) {
             continue;
         }
-        if builtins.contains(w.as_str()) {
+        if CONTEXTUAL_KEYWORDS.contains(&w.as_str()) {
+            // A builtin-function name that the parser ALSO treats as a
+            // keyword in one position (`select case`, `parallel for`,
+            // `type implicit`, timers `after`, prefix `where`). The grammars
+            // anchor these to that position; see CONTEXTUAL_KEYWORDS.
+            contextual_extra.push(w.clone());
+        } else if builtins.contains(w.as_str()) {
             builtin_as_keyword.push(w.clone());
         } else {
             contextual_extra.push(w.clone());

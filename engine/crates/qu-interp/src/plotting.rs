@@ -10079,7 +10079,23 @@ fn write_tikz_op(out: &mut String, op: &DrawOp, bold_above: f64) {
 fn tikz_escape(s: &str) -> String {
     let mut out = String::new();
     let mut in_math = false;
+    // A run of Unicode superscript characters (`10⁻⁴⁵`, from `sci()` or typed
+    // by hand) becomes `$^{-45}$`. Left as characters it fails under pdfLaTeX
+    // ("Unicode character ⁻ (U+207B) not set up") and silently loses the
+    // exponent under XeLaTeX/LuaLaTeX ("Missing character"), because the
+    // text fonts have no superscript glyphs. Math mode always has them.
+    let mut sup = String::new();
     for c in s.chars() {
+        if !in_math {
+            if let Some(a) = superscript_ascii(c) {
+                sup.push(a);
+                continue;
+            }
+        }
+        if !sup.is_empty() {
+            let _ = write!(out, "$^{{{sup}}}$");
+            sup.clear();
+        }
         if c == '$' {
             in_math = !in_math;
             out.push('$');
@@ -10098,7 +10114,30 @@ fn tikz_escape(s: &str) -> String {
             other => out.push(other),
         }
     }
+    if !sup.is_empty() {
+        let _ = write!(out, "$^{{{sup}}}$");
+    }
     out
+}
+
+/// The ASCII character a Unicode superscript digit or sign stands for.
+fn superscript_ascii(c: char) -> Option<char> {
+    Some(match c {
+        '\u{2070}' => '0',
+        '\u{b9}' => '1',
+        '\u{b2}' => '2',
+        '\u{b3}' => '3',
+        '\u{2074}' => '4',
+        '\u{2075}' => '5',
+        '\u{2076}' => '6',
+        '\u{2077}' => '7',
+        '\u{2078}' => '8',
+        '\u{2079}' => '9',
+        '\u{207a}' => '+',
+        '\u{207b}' => '-',
+        '\u{207c}' => '=',
+        _ => return None,
+    })
 }
 
 // ---------------------------------------------------------------- PDF export
@@ -14471,6 +14510,23 @@ mod tests {
         let out = render_math_svg("Freq $f_0$ (Hz)", 12.0);
         assert!(out.starts_with("<tspan>Freq </tspan>") || out.contains("Freq "), "got: {out}");
         assert!(out.contains("(Hz)"), "got: {out}");
+    }
+
+    #[test]
+    fn tikz_escape_turns_unicode_superscripts_into_latex_math() {
+        // Found by compiling the export: pdfLaTeX stops with "Unicode character
+        // U+207B not set up", XeLaTeX/LuaLaTeX drop the exponent ("Missing
+        // character"). Math mode has the glyphs in every engine.
+        let out = tikz_escape("Rate 1.23 \u{d7} 10\u{207b}\u{2074}\u{2075} per second");
+        assert!(out.contains("10$^{-45}$ per second"), "got: {out}");
+        let out = tikz_escape("N = 6.022 \u{d7} 10\u{b2}\u{b3} atoms");
+        assert!(out.contains("10$^{23}$ atoms"), "got: {out}");
+        // a run at the very end is flushed too
+        assert!(tikz_escape("x\u{b2}").ends_with("$^{2}$"));
+        // inside an existing math span nothing is rewritten
+        assert_eq!(tikz_escape("$a\u{b2}$"), "$a\u{b2}$");
+        // plain text without superscripts is untouched
+        assert_eq!(tikz_escape("plain text"), "plain text");
     }
 
     #[test]

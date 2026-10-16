@@ -1,0 +1,58 @@
+# Aggregates results/<tag>/{old,new,np}_<k>.txt written by paired_linalg.sh.
+# Usage: qu run agg_linalg.qu -- <results dir>
+# Per workload: medians over the rounds (and the min-max spread as a percentage
+# of the median), the new/old ratio (< 1: the blocked kernels are faster) and
+# new/NumPy-single-thread (<= 1.5 is the target). Times in milliseconds.
+dir = argv()[0]
+reps = to_int(trim(read_all_text("{dir}/reps.txt")))
+
+function load(prefix, k)
+    out = dict()
+    txt = read_all_text("{dir}/{prefix}_{k}.txt")
+    for ln in lines(txt)
+        p = split(ln, " ")
+        if len(p) == 3
+            out = set(out, p[1], to_float(p[2]))
+        end if
+    end for
+    return out
+end function
+
+function col(runs, nm)
+    v = []
+    for k = 0 to len(runs) - 1
+        if has_key(runs[k], nm)
+            v = append(v, get(runs[k], nm))
+        end if
+    end for
+    return v
+end function
+
+function spread(v)
+    return 100 * (max(v) - min(v)) / median(v)
+end function
+
+olds = ()
+news = ()
+nps = ()
+for k = 1 to reps
+    olds = append(olds, load("old", k))
+    news = append(news, load("new", k))
+    nps = append(nps, load("np", k))
+end for
+
+print("| workload | old Qu ms | spread | new Qu ms | spread | NumPy 1-thread ms | new/old | new/NumPy |")
+print("|---|---|---|---|---|---|---|---|")
+for nm in keys(news[0])
+    ov = col(olds, nm)
+    nv = col(news, nm)
+    pv = col(nps, nm)
+    om = 1000 * median(ov)
+    nm_ = 1000 * median(nv)
+    if len(pv) > 0
+        pm = 1000 * median(pv)
+        print("| {nm} | {om:.2f} | {spread(ov):.0f}% | {nm_:.2f} | {spread(nv):.0f}% | {pm:.2f} | {nm_ / om:.2f} | {nm_ / pm:.2f} |")
+    else
+        print("| {nm} | {om:.2f} | {spread(ov):.0f}% | {nm_:.2f} | {spread(nv):.0f}% | n/a | {nm_ / om:.2f} | |")
+    end if
+end for

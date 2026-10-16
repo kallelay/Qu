@@ -82,6 +82,38 @@ fn drift_every_grammar_covers_every_lexer_keyword() {
 }
 
 #[test]
+fn no_grammar_colours_a_builtin_function_name_as_a_keyword() {
+    for d in drift_reports() {
+        assert!(
+            d.builtin_as_keyword.is_empty(),
+            "{}: builtin functions coloured as keywords: {:?}",
+            d.grammar,
+            d.builtin_as_keyword
+        );
+        // Only the genuine contextual keywords may be extra, and none of the
+        // ones the audit removed (read, set, fit, input, ...).
+        for w in ["read", "set", "fit", "input", "error", "warn", "swap", "spawn", "param", "signal", "table", "simulate", "animate", "circuit", "compile", "spectrum"] {
+            assert!(!d.contextual_extra.contains(&w.to_string()), "{}: `{w}` is still highlighted", d.grammar);
+        }
+    }
+}
+
+#[test]
+fn builtin_as_keyword_detection_can_fail() {
+    let vim = VIM_FILES.iter().find(|a| a.rel == "syntax/qu.vim").unwrap().data.replace("syn keyword quKeyword assert", "syn keyword quKeyword read assert");
+    let d = drift_of("vim-with-read", &vim_words(&vim));
+    assert_eq!(d.builtin_as_keyword, vec!["read".to_string()]);
+}
+
+#[test]
+fn contextual_keywords_are_anchored_in_regex_grammars() {
+    let tm = VSCODE_FILES.iter().find(|a| a.rel == "syntaxes/qu.tmLanguage.json").unwrap().data;
+    assert!(tm.contains("^\\\\s*\\\\b(select)\\\\b(?=\\\\s+case"), "select must be anchored to `select case` at statement head");
+    let sub = SUBLIME_FILES[0].data;
+    assert!(sub.contains("^\\s*\\b(select)\\b(?=\\s+case"));
+}
+
+#[test]
 fn drift_every_grammar_has_exactly_the_lexer_units() {
     for d in drift_reports() {
         assert!(d.unit_missing.is_empty(), "{}: units missing {:?}", d.grammar, d.unit_missing);
@@ -405,6 +437,24 @@ fn detect_nothing_in_an_empty_sandbox_still_reports_default_targets() {
     assert_eq!(nvim.targets[0].dir, t.p().join("AppData/Local/nvim"));
     let vim = detect(&env, Editor::Vim);
     assert_eq!(vim.targets[0].dir, t.p().join("home/vimfiles"));
+}
+
+#[test]
+fn a_unix_layer_vim_on_windows_reads_dot_vim_not_vimfiles() {
+    // Found by running Git for Windows' bundled Vim headless: it reads
+    // ~/.vim, so a plugin installed into ~/vimfiles was never loaded.
+    for exe in [
+        r"C:\Program Files\Git\usr\bin\vim.exe",
+        r"C:\msys64\usr\bin\vim.exe",
+        r"C:\cygwin64\bin\..\usr\bin\vim.exe",
+        "C:/tools/msys2/usr/bin/vim.exe",
+    ] {
+        assert!(is_unix_layer_vim(Some(Path::new(exe))), "{exe}");
+    }
+    for exe in [r"C:\Program Files\Vim\vim91\vim.exe", r"C:\Users\x\AppData\Local\Programs\Vim\gvim.exe"] {
+        assert!(!is_unix_layer_vim(Some(Path::new(exe))), "{exe}");
+    }
+    assert!(!is_unix_layer_vim(None));
 }
 
 #[test]

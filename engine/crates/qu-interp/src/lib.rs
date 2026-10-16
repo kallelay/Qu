@@ -15,7 +15,9 @@
 //! explicit `seed=` argument (or a fixed default), so runs reproduce exactly --
 //! the reliability discipline the language asks for.
 
-use qu_syntax::{parse, parse_expr, Arg, Expr, Idx, FnBody, ImportSource, Param, Program, ReduceOp, Reduction, Stmt, TypeTag, TYPE_TAGS};
+use qu_syntax::LINE_BITS;
+const LINE_MASK: u32 = (1u32 << LINE_BITS) - 1;
+use qu_syntax::{parse,parse_expr, Arg, Expr, Idx, FnBody, ImportSource, Param, Program, ReduceOp, Reduction, Stmt, TypeTag, TYPE_TAGS};
 use rayon::prelude::*;
 use std::borrow::Cow;
 use std::collections::HashMap;
@@ -4386,6 +4388,10 @@ pub struct Interp {
     /// (never observably wrong: a `try` catching an error necessarily
     /// means at least one statement executed).
     current_line: u32,
+    /// Display names of imported source files; `SourceLine` values carry
+    /// `index + 1` above `LINE_BITS` (0 = the main script). See
+    /// `parse_tagged`.
+    file_tags: Vec<String>,
     /// The reverse-mode autodiff tape (see `TapeEntry`'s own doc comment)
     /// — grows for as long as tracked `Value::Tensor` operations keep
     /// happening; `grad(...)` reads it, doesn't clear it. A training loop
@@ -6401,6 +6407,7 @@ impl Interp {
             script_name: String::new(),
             last_error_site: None,
             current_line: 0,
+            file_tags: Vec::new(),
             tape: Vec::new(),
             workers: HashMap::new(),
             next_worker_id: 0,
@@ -6940,6 +6947,11 @@ impl Interp {
 
     /// Parse and run a whole program, returning captured output.
     pub fn run(&mut self, src: &str) -> R<()> {
+        self.run_tagged(src, 0)
+    }
+
+    /// `run` for an imported file: its `SourceLine` markers carry `tag`.
+    fn run_tagged(&mut self, src: &str, tag: u32) -> R<()> {
         // A run re-declares its UI from scratch (see `ui_widgets`): the
         // immediate-mode model means the widget list IS the output of
         // running the script, so carrying the previous run's declarations
@@ -6956,7 +6968,7 @@ impl Interp {
         }
         self.source.push_str(src);
 
-        let prog: Program = parse(src).map_err(|pe| EvalError {
+        let prog: Program = qu_syntax::parse_tagged(src, tag).map_err(|pe| EvalError {
             msg: pe.to_string(),
         })?;
         self.exec_block(&prog.stmts)
@@ -7833,8 +7845,8 @@ impl Interp {
                                 ("message".to_string(), Value::Str(err.msg.clone())),
                                 ("type".to_string(), Value::Str(classify_error_kind(&err.msg).to_string())),
                                 ("class".to_string(), Value::Str("error".to_string())),
-                                ("line".to_string(), Value::Num(self.current_line as f64)),
-                                ("file".to_string(), Value::Str(self.script_name.clone())),
+                                ("line".to_string(), Value::Num((self.current_line & LINE_MASK) as f64)),
+                                ("file".to_string(), Value::Str(self.file_of(self.current_line))),
                                 ("trace".to_string(), Value::Str(trace_text.clone())),
                                 (
                                     "stack".to_string(),
@@ -15825,8 +15837,23 @@ pub fn bundle_key(root: &std::path::Path, full: &std::path::Path) -> Option<Stri
                         .parent()
                         .map(|d| d.to_path_buf())
                         .unwrap_or_else(|| std::path::PathBuf::from("."));
+                    // Name shown in traces: the bundled name, else the path
+                    // relative to the main script's directory.
+                    let display = match &bundled {
+                        Some(k) => k.clone(),
+                        None => {
+                            let rel = self
+                                .import_dirs
+                                .first()
+                                .and_then(|base| full.strip_prefix(base).ok())
+                                .unwrap_or(full);
+                            rel.to_string_lossy().replace('\\', "/")
+                        }
+                    };
+                    self.file_tags.push(display);
+                    let tag = self.file_tags.len() as u32;
                     self.import_dirs.push(dir);
-                    let ran = self.run(&src);
+                    let ran = self.run_tagged(&src, tag);
                     self.import_dirs.pop();
                     ran?;
                     if let Some(ns) = alias {
@@ -16183,11 +16210,28 @@ pub fn bundle_key(root: &std::path::Path, full: &std::path::Path) -> Option<Stri
     /// carry their own position). `file` is the script's name, shown as
     /// `file:line`; line numbers inside an imported module are that
     /// module's, so for those the file name can be wrong.
+    /// The file name for a tagged `SourceLine` value (main script when untagged).
+    fn file_of(&self, tagged: u32) -> String {
+        match (tagged >> LINE_BITS) as usize {
+            0 => self.script_name.clone(),
+            t => self.file_tags.get(t - 1).cloned().unwrap_or_else(|| self.script_name.clone()),
+        }
+    }
+
     pub fn error_trace(&self, msg: &str, file: &str) -> Option<String> {
         if msg.contains("parse error at ") {
             return None;
         }
-        let at = |line: u32| if file.is_empty() { format!("line {line}") } else { format!("{file}:{line}") };
+        let at = |tagged: u32| {
+            let line = tagged & LINE_MASK;
+            let tag = (tagged >> LINE_BITS) as usize;
+            let name: &str = if tag == 0 {
+                file
+            } else {
+                self.file_tags.get(tag - 1).map(|s| s.as_str()).unwrap_or(file)
+            };
+            if name.is_empty() { format!("line {line}") } else { format!("{name}:{line}") }
+        };
         let mut out = String::new();
         match &self.last_error_site {
             Some((m, line, frames)) if m == msg && !frames.is_empty() => {

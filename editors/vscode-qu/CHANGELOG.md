@@ -1,5 +1,15 @@
 # Changelog (Qu editor plugins)
 
+## 0.2.1
+
+- Grammar: builtin function names (`read`, `set`, `fit`, `input`, `error`,
+  `warn`, `swap`, `spawn`, `simulate`, `animate`, `circuit`, `compile`,
+  `spectrum`, `param`, `signal`, `table`) are no longer coloured as keywords,
+  so `read(x)` is a call. The words the parser really treats as contextual
+  keywords (`after`, `parallel`, `select`, `type`, `where`) are coloured only
+  in their keyword position in the TextMate, Sublime and Vim grammars; the
+  Notepad++ UDL cannot anchor a word to a position, so it leaves them plain.
+
 ## 0.2.0
 
 - New: `qu editors install|status|check|uninstall|detect` installs and verifies

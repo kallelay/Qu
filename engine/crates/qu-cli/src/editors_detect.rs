@@ -913,8 +913,19 @@ fn sublime_targets(env: &Env, exe: Option<&Path>, flatpak: bool) -> (Vec<Target>
     (out, false)
 }
 
-fn vim_targets(env: &Env, ed: Editor) -> Vec<Target> {
+/// True for a Vim built for a Unix-like layer on Windows (Git for Windows,
+/// MSYS2, Cygwin: `...\usr\bin\vim.exe`). Those read `~/.vim`, NOT the native
+/// Windows `~/vimfiles`: the plugin installed into `vimfiles` was invisible to
+/// the Vim bundled with Git for Windows (found by running that Vim headless).
+pub(crate) fn is_unix_layer_vim(exe: Option<&Path>) -> bool {
+    let Some(exe) = exe else { return false };
+    let norm = exe.to_string_lossy().replace('\\', "/").to_ascii_lowercase();
+    norm.contains("/usr/bin/") || norm.contains("/msys") || norm.contains("/cygwin")
+}
+
+fn vim_targets(env: &Env, ed: Editor, exe: Option<&Path>) -> Vec<Target> {
     let dir = match (ed, env.platform) {
+        (Editor::Vim, Platform::Windows) if is_unix_layer_vim(exe) => env.home.join(".vim"),
         (Editor::Vim, Platform::Windows) => env.home.join("vimfiles"),
         (Editor::Vim, _) => env.home.join(".vim"),
         (_, Platform::Windows) => env.localappdata.join("nvim"),
@@ -979,7 +990,7 @@ pub fn detect(env: &Env, ed: Editor) -> Detection {
         e if e.is_vscode_family() => vscode_family_targets(env, e, exe_for_layout.as_deref(), flatpak),
         Editor::NotepadPp => notepadpp_targets(env, exe_for_layout.as_deref()),
         Editor::Sublime => sublime_targets(env, exe_for_layout.as_deref(), flatpak),
-        Editor::Vim | Editor::Nvim => (vim_targets(env, ed), false),
+        Editor::Vim | Editor::Nvim => (vim_targets(env, ed, exe_for_layout.as_deref()), false),
         _ => (jupyter_targets(env), false),
     };
 

@@ -29,17 +29,21 @@
 <main class="docmain">
 <h1>crc32</h1>
 <nav class="onthispage"></nav>
-<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a></p>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/collections-strings.html">Collections & strings</a></p>
+<pre class="fnsig">result = <code>crc32(data)</code></pre>
+<p class="fnnote">Input: data &middot; Output: result</p>
 <h2>What it is</h2>
-<p>No chapter describes this one yet. It exists -- the name comes from the interpreter's own table -- but the prose has not been written. That is a gap in the documentation, not in the engine.</p>
+<p><code>data</code> is a string or a byte buffer.</p>
 <h2>Overloads</h2>
 <p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
 <div class="tablewrap"><table class="iotable">
 <tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
-<tr><td class="iocode"><code></code></td><td><span class="ionone">no input</span></td><td><span class="ionone">not documented yet</span></td><td>&mdash;</td></tr>
+<tr><td class="iocode"><code>result = crc32(data)</code></td><td><div class="ioitem"><code>data</code> <span class="iotype">string</span><span class="iogap">not documented yet</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">number</span></div>
+</td><td>Returns the standard CRC-32 (IEEE 802.3, reflected, initial value and final XOR <code>0xFFFFFFFF</code>) as a number: <code>crc32("123456789")</code> is <code>3421780262</code>, i.e. <code>0xCBF43926</code>. For other widths or polynomials see <code>crc</code>, which is a plain bitwise polynomial division.</td></tr>
 </table></div>
 <h3>Examples</h3>
-<p class="fnnote">No documentation example calls this form yet.</p>
+<p class="fnnote">No documentation example calls this form yet. The <a href="../docs/collections-strings.html">Collections & strings</a> chapter is where one belongs.</p>
 </main>
 </div>
 <footer><div class="wrap">

@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>sci — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>sci</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/collections-strings.html">Collections & strings</a></p>
+<pre class="fnsig">result = <code>sci(x, [digits=3], [style="unicode"])</code></pre>
+<p class="fnnote">Input: x, digits, style &middot; Output: result</p>
+<h2>What it is</h2>
+<p><code>x</code> is a number; <code>digits</code> (a whole number 1 to 20, default 3) counts significant digits; <code>style</code> is <code>"unicode"</code> (<code>1.23 × 10⁻⁴⁵</code>, for plot titles and labels), <code>"tex"</code> (<code>1.23 \times 10^{-45}</code>, for LaTeX/MathJax) or <code>"ascii"</code> (<code>1.23 x 10^-45</code>), or <code>"math"</code> (<code>$1.23\times10^{-45}$</code>: the <code>$...$</code> math markup, which plots render as a raised exponent in SVG and PDF and hand to LaTeX as real math in TikZ -- the best choice for any title or label that may be exported to TikZ/LaTeX).</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = sci(x, [digits=3], [style="unicode"])</code></td><td><div class="ioitem"><code>x</code> <span class="iotype">number</span><span class="iodesc"><code>x</code> is a number.</span></div>
+<div class="ioitem"><code>digits</code> <span class="iotype">number, optional (default <code>3</code>)</span><span class="iodesc"><code>digits</code> (a whole number 1 to 20, default 3) counts significant digits.</span></div>
+<div class="ioitem"><code>style</code> <span class="iotype">optional (default <code>"unicode"</code>)</span><span class="iodesc"><code>style</code> is <code>"unicode"</code> (<code>1.23 × 10⁻⁴⁵</code>, for plot titles and labels), <code>"tex"</code> (<code>1.23 \times 10^{-45}</code>, for LaTeX/MathJax) or <code>"ascii"</code> (<code>1.23 x 10^-45</code>), or <code>"math"</code> (<code>$1.23\times10^{-45}$</code>: the <code>$...$</code> math markup, which plots render as a raised exponent in SVG and PDF and hand to LaTeX as real math in TikZ -- the best choice for any title or label that may be exported to TikZ/LaTeX).</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">Str or string</span></div>
+</td><td>Returns a <code>Str</code>. A value whose exponent is 0 prints as the bare mantissa (<code>1.50</code>), and a value that rounds up into the next power of ten carries into the exponent (<code>9.999e4</code> at 2 digits is <code>1.0 × 10⁵</code>, never <code>10.0 × 10⁴</code>). <code>NaN</code> and <code>Inf</code> print as such. The same notation is available inside strings as <code>"{x:.2sci}"</code> and <code>"{x:.2tex}"</code>.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">No documentation example calls this form yet. The <a href="../docs/collections-strings.html">Collections & strings</a> chapter is where one belongs.</p>
+<h2>How it works</h2>
+<p>Scientific notation and printf-style formatting (numfmt_ops.rs): <code>sci(x, [digits=3], [style=])</code> -&gt; "1.23 × 10⁻⁴⁵", <code>sprintf(fmt, ...)</code> -&gt; string, <code>printf(fmt, ...)</code> -&gt; printed with no newline added.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.3.0 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

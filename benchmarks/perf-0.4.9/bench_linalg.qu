@@ -1,0 +1,26 @@
+# qr / svd / eig benchmark set (Qu side), added with the blocked decompositions
+# of 0.4.10. One process = one replicate; every workload prints
+# "BENCH <name> <seconds>" (wall clock via tic/toc, data built outside the
+# clock). bench_linalg.py has the same names. Drivers: paired_linalg.sh
+# (old vs new Qu binary vs NumPy), aggregation: agg_linalg.qu.
+function rep(name, dt)
+    print("BENCH {name} {dt}")
+end function
+
+seed(1)
+for n in (100, 200, 500, 1000)
+    A = randn(n, n)
+    S = A + transpose(A)
+    tic()
+    f = qr(A)
+    rep("qr_{n}", toc())
+    tic()
+    s = svd(A)
+    rep("svd_{n}", toc())
+    tic()
+    e = eig(S)
+    rep("eig_sym_{n}", toc())
+    tic()
+    e = eig(A)
+    rep("eig_gen_{n}", toc())
+end for

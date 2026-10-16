@@ -1094,20 +1094,110 @@ SectionEnd
   ${EndIf}
 !macroend
 
-; Component default from what is on this machine: ticked only if the
-; editor's App Paths entry (HKCU, then HKLM -- written by the editor's own
-; installer wherever it was put) or one of its config folders exists; the
-; found location is shown in the component's name.
-!macro QU_DETECT_EDITOR SEC LABEL EXE DIR1 DIR2
-  ReadRegStr $R2 HKCU "Software\Microsoft\Windows\CurrentVersion\App Paths\${EXE}" ""
-  ${If} $R2 == ""
-    ReadRegStr $R2 HKLM "Software\Microsoft\Windows\CurrentVersion\App Paths\${EXE}" ""
+
+; ---- editor detection (same design in the CLI and the Studio installer) ---
+; The engine's own `qu editors detect` is the authority at install time
+; (App Paths, Uninstall keys, PATH, known folders); the components page runs
+; before any file is on disk, so this mirrors its registry/folder checks to
+; pick the defaults and to show WHERE each editor was found. Order: App Paths
+; (both exe spellings: codium.exe vs VSCodium.exe), then the Uninstall keys
+; of both registry views by DisplayName prefix (how VSCodium, Cursor and
+; Sublime register on many machines), then Program Files / Programs folders.
+; In: $R0 exe1, $R1 exe2 or "", $R3 DisplayName prefix, $R4 folder name or "".
+; Out: $R2 = location or "". The caller's registry view is restored.
+!macro QuS_APPPATH EXE
+  ${If} ${EXE} != ""
+    ${If} $R2 == ""
+      ReadRegStr $R2 HKCU "Software\Microsoft\Windows\CurrentVersion\App Paths\${EXE}" ""
+    ${EndIf}
+    ${If} $R2 == ""
+      ReadRegStr $R2 HKLM "Software\Microsoft\Windows\CurrentVersion\App Paths\${EXE}" ""
+    ${EndIf}
   ${EndIf}
+!macroend
+
+!macro QuS_UNINST ROOT
+  StrCpy $R6 0
+  ${Do}
+    EnumRegKey $R7 ${ROOT} "Software\Microsoft\Windows\CurrentVersion\Uninstall" $R6
+    ${If} $R7 == ""
+      ${ExitDo}
+    ${EndIf}
+    IntOp $R6 $R6 + 1
+    ReadRegStr $R8 ${ROOT} "Software\Microsoft\Windows\CurrentVersion\Uninstall\$R7" "DisplayName"
+    StrCpy $R9 $R8 $R5
+    ${If} $R9 == $R3
+      ReadRegStr $R2 ${ROOT} "Software\Microsoft\Windows\CurrentVersion\Uninstall\$R7" "InstallLocation"
+      ${If} $R2 == ""
+        ReadRegStr $R2 ${ROOT} "Software\Microsoft\Windows\CurrentVersion\Uninstall\$R7" "DisplayIcon"
+        StrCpy $R9 $R2 "" -2
+        ${If} $R9 == ",0"
+          StrCpy $R2 $R2 -2
+        ${EndIf}
+      ${EndIf}
+      ${If} $R2 != ""
+        Goto QuS_located
+      ${EndIf}
+    ${EndIf}
+  ${Loop}
+!macroend
+
+Function QuSLocateEditor
+  Push $0
+  Push $R5
+  Push $R6
+  Push $R7
+  Push $R8
+  Push $R9
+  StrCpy $R2 ""
+  StrLen $R5 $R3
+  ${For} $0 0 1
+    ${If} $0 == 0
+      SetRegView 64
+    ${Else}
+      SetRegView 32
+    ${EndIf}
+    !insertmacro QuS_APPPATH $R0
+    !insertmacro QuS_APPPATH $R1
+    ${If} $R2 != ""
+      Goto QuS_located
+    ${EndIf}
+    ${If} $R3 != ""
+      !insertmacro QuS_UNINST HKCU
+      !insertmacro QuS_UNINST HKLM
+    ${EndIf}
+  ${Next}
+  ${If} $R4 != ""
+    ${If} ${FileExists} "$PROGRAMFILES64\$R4\*.*"
+      StrCpy $R2 "$PROGRAMFILES64\$R4"
+    ${ElseIf} ${FileExists} "$LOCALAPPDATA\Programs\$R4\*.*"
+      StrCpy $R2 "$LOCALAPPDATA\Programs\$R4"
+    ${EndIf}
+  ${EndIf}
+  QuS_located:
+  Pop $R9
+  Pop $R8
+  Pop $R7
+  Pop $R6
+  Pop $R5
+  Pop $0
+  !insertmacro SetContext
+FunctionEnd
+
+!macro QuSDETECT_EDITOR SEC LABEL EXE1 EXE2 UNPFX PFDIR DIR1 DIR2
+  StrCpy $R0 "${EXE1}"
+  StrCpy $R1 "${EXE2}"
+  StrCpy $R3 "${UNPFX}"
+  StrCpy $R4 "${PFDIR}"
+  Call QuSLocateEditor
   ${If} $R2 != ""
     SectionSetText ${SEC} "${LABEL} ($R2)"
   ${Else}
-    ${IfNot} ${FileExists} "${DIR1}\*.*"
-    ${AndIfNot} ${FileExists} "${DIR2}\*.*"
+    ${If} ${FileExists} "${DIR1}\*.*"
+    ${OrIf} ${FileExists} "${DIR2}\*.*"
+      SectionSetText ${SEC} "${LABEL} (settings folder found, program not located)"
+    ${Else}
+      SectionSetText ${SEC} "${LABEL} (not found)"
       !insertmacro UnselectSection ${SEC}
     ${EndIf}
   ${EndIf}
@@ -1192,12 +1282,12 @@ SectionEnd
 !insertmacro MUI_FUNCTION_DESCRIPTION_END
 
 Function QuComponentDefaults
-  !insertmacro QU_DETECT_EDITOR ${SecQuVSCode} "VS Code" "Code.exe" "$PROFILE\.vscode" "$APPDATA\Code"
-  !insertmacro QU_DETECT_EDITOR ${SecQuVSCodium} "VSCodium" "codium.exe" "$PROFILE\.vscode-oss" "$APPDATA\VSCodium"
-  !insertmacro QU_DETECT_EDITOR ${SecQuCursor} "Cursor" "cursor.exe" "$PROFILE\.cursor" "$APPDATA\Cursor"
-  !insertmacro QU_DETECT_EDITOR ${SecQuWindsurf} "Windsurf" "windsurf.exe" "$PROFILE\.windsurf" "$APPDATA\Windsurf"
-  !insertmacro QU_DETECT_EDITOR ${SecQuSublime} "Sublime Text" "sublime_text.exe" "$APPDATA\Sublime Text\Packages" "$APPDATA\Sublime Text 3\Packages"
-  !insertmacro QU_DETECT_EDITOR ${SecQuNpp} "Notepad++" "notepad++.exe" "$APPDATA\Notepad++" "$APPDATA\Notepad++"
+  !insertmacro QuSDETECT_EDITOR ${SecQuVSCode} "VS Code" "Code.exe" "" "Microsoft Visual Studio Code" "Microsoft VS Code" "$PROFILE\.vscode" "$APPDATA\Code"
+  !insertmacro QuSDETECT_EDITOR ${SecQuVSCodium} "VSCodium" "VSCodium.exe" "codium.exe" "VSCodium" "VSCodium" "$PROFILE\.vscode-oss" "$APPDATA\VSCodium"
+  !insertmacro QuSDETECT_EDITOR ${SecQuCursor} "Cursor" "Cursor.exe" "cursor.exe" "Cursor" "cursor" "$PROFILE\.cursor" "$APPDATA\Cursor"
+  !insertmacro QuSDETECT_EDITOR ${SecQuWindsurf} "Windsurf" "Windsurf.exe" "windsurf.exe" "Windsurf" "Windsurf" "$PROFILE\.windsurf" "$APPDATA\Windsurf"
+  !insertmacro QuSDETECT_EDITOR ${SecQuSublime} "Sublime Text" "sublime_text.exe" "" "Sublime Text" "Sublime Text" "$APPDATA\Sublime Text\Packages" "$APPDATA\Sublime Text 3\Packages"
+  !insertmacro QuSDETECT_EDITOR ${SecQuNpp} "Notepad++" "notepad++.exe" "" "Notepad++" "Notepad++" "$APPDATA\Notepad++" "$APPDATA\Notepad++"
   ${GetParameters} $R0
   ClearErrors
   ${GetOptions} $R0 "/NOASSOC" $R1

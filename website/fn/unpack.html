@@ -29,17 +29,23 @@
 <main class="docmain">
 <h1>unpack</h1>
 <nav class="onthispage"></nav>
-<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a></p>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/collections-strings.html">Collections & strings</a></p>
+<pre class="fnsig">result = <code>unpack(bytes, spec, [endian="little"])</code></pre>
+<p class="fnnote">Input: bytes, spec, endian &middot; Output: result</p>
 <h2>What it is</h2>
-<p>No chapter describes this one yet. It exists -- the name comes from the interpreter's own table -- but the prose has not been written. That is a gap in the documentation, not in the engine.</p>
+<p>The inverse of <code>pack</code>: <code>bytes</code> is a byte buffer, <code>spec</code> the same field list.</p>
 <h2>Overloads</h2>
 <p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
 <div class="tablewrap"><table class="iotable">
 <tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
-<tr><td class="iocode"><code></code></td><td><span class="ionone">no input</span></td><td><span class="ionone">not documented yet</span></td><td>&mdash;</td></tr>
+<tr><td class="iocode"><code>result = unpack(bytes, spec, [endian="little"])</code></td><td><div class="ioitem"><code>bytes</code> <span class="iotype">&mdash;</span><span class="iodesc">The inverse of <code>pack</code>: <code>bytes</code> is a byte buffer, <code>spec</code> the same field list.</span></div>
+<div class="ioitem"><code>spec</code> <span class="iotype">&mdash;</span><span class="iodesc">The inverse of <code>pack</code>: <code>bytes</code> is a byte buffer, <code>spec</code> the same field list.</span></div>
+<div class="ioitem"><code>endian</code> <span class="iotype">optional (default <code>"little"</code>)</span><span class="iodesc"><code>unpack([0, 1, 255, 254], "i16,i16", endian="big")</code> is <code>[1, -2]</code>.</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">vector or number</span></div>
+</td><td>Returns a vector of numbers, one per field. A buffer shorter than the spec needs is an error. <code>unpack([0xAA, 0x10, 0x00, 0x00, 0x00, 0xC0, 0x3F], "u8,u16,f32")</code> is <code>[170, 16, 1.5]</code>; <code>unpack([0, 1, 255, 254], "i16,i16", endian="big")</code> is <code>[1, -2]</code>.</td></tr>
 </table></div>
 <h3>Examples</h3>
-<p class="fnnote">No documentation example calls this form yet.</p>
+<p class="fnnote">No documentation example calls this form yet. The <a href="../docs/collections-strings.html">Collections & strings</a> chapter is where one belongs.</p>
 </main>
 </div>
 <footer><div class="wrap">

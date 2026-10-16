@@ -1,4 +1,11 @@
-//! `qu test [paths...] [--filter substr] [--fail-fast] [--json]`
+//! `qu test [paths...] [--filter substr] [--fail-fast] [--json] [--timeout secs]`
+//!
+//! `--timeout` (default 60; 0 = none) runs every test in its own child
+//! `qu` process (`qu test --child <file> --only <test>`, internal) so a hung
+//! test is killed alone and reported `FAILED (timeout)`; it also means each
+//! test starts from a fresh interpreter (the file's top level is re-run per
+//! test). `--timeout 0` runs in-process with one interpreter per file, which
+//! is replaced after an interpreter panic.
 //!
 //! # Convention
 //!
@@ -55,6 +62,13 @@ struct Outcome {
 }
 
 fn collect_qu(dir: &Path, out: &mut Vec<PathBuf>) {
+    collect_qu_depth(dir, out, 0);
+}
+
+fn collect_qu_depth(dir: &Path, out: &mut Vec<PathBuf>, depth: usize) {
+    if depth > crate::fmt_cmd::MAX_WALK_DEPTH {
+        return;
+    }
     let Ok(rd) = std::fs::read_dir(dir) else { return };
     let mut entries: Vec<_> = rd.filter_map(|e| e.ok()).collect();
     entries.sort_by_key(|e| e.file_name());
@@ -62,10 +76,10 @@ fn collect_qu(dir: &Path, out: &mut Vec<PathBuf>) {
         let p = e.path();
         let name = e.file_name().to_string_lossy().into_owned();
         if p.is_dir() {
-            if name.starts_with('.') || matches!(name.as_str(), "target" | "node_modules") {
+            if name.starts_with('.') || matches!(name.as_str(), "target" | "node_modules") || crate::fmt_cmd::is_link_or_reparse(&p) {
                 continue;
             }
-            collect_qu(&p, out);
+            collect_qu_depth(&p, out, depth + 1);
         } else if name.ends_with(".qu") {
             out.push(p);
         }
@@ -140,7 +154,159 @@ fn first_line_in_trace(trace: &str, file: &str) -> Option<u32> {
     digits.parse().ok()
 }
 
-fn run_file(path: &Path, filter: Option<&str>, fail_fast: bool, stop: &mut bool) -> Vec<Outcome> {
+fn outcome_json(o: &Outcome) -> serde_json::Value {
+    serde_json::json!({
+        "file": o.file,
+        "name": o.name,
+        "line": o.line,
+        "status": if o.ok { "pass" } else { "fail" },
+        "ms": (o.ms * 1000.0).round() / 1000.0,
+        "error": if o.ok { serde_json::Value::Null } else { serde_json::Value::String(o.error.clone()) },
+        "trace": if o.trace.is_empty() { serde_json::Value::Null } else { serde_json::Value::String(o.trace.clone()) },
+        "output": o.output,
+    })
+}
+
+fn outcome_from_json(v: &serde_json::Value) -> Outcome {
+    let s = |k: &str| v[k].as_str().unwrap_or("").to_string();
+    Outcome {
+        file: s("file"),
+        name: v["name"].as_str().map(|x| x.to_string()),
+        line: v["line"].as_u64().unwrap_or(0) as u32,
+        ok: v["status"] == "pass",
+        ms: v["ms"].as_f64().unwrap_or(0.0),
+        error: s("error"),
+        trace: s("trace"),
+        output: s("output"),
+    }
+}
+
+const CHILD_MARK: &str = "@@QU_TEST_RESULT@@ ";
+
+/// Run one test (or a whole script file) in a child `qu test --child`
+/// process so a hang can be abandoned by killing ONLY that child. Threads
+/// cannot be killed safely; processes can. `None` from the child's report
+/// means it died without reporting (crash / abort).
+fn run_in_child(file: &str, only: Option<&str>, timeout: f64) -> Result<Vec<Outcome>, String> {
+    use std::io::Read;
+    use std::process::{Command, Stdio};
+    let exe = std::env::current_exe().map_err(|e| format!("cannot find own executable: {e}"))?;
+    let mut cmd = Command::new(exe);
+    cmd.arg("test").arg("--child").arg(file);
+    if let Some(n) = only {
+        cmd.arg("--only").arg(n);
+    }
+    let mut child = cmd
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .map_err(|e| format!("cannot start child: {e}"))?;
+    let mut so = child.stdout.take().unwrap();
+    let mut se = child.stderr.take().unwrap();
+    let h_out = std::thread::spawn(move || {
+        let mut s = String::new();
+        let _ = so.read_to_string(&mut s);
+        s
+    });
+    let h_err = std::thread::spawn(move || {
+        let mut s = String::new();
+        let _ = se.read_to_string(&mut s);
+        s
+    });
+    let deadline = Instant::now() + std::time::Duration::from_secs_f64(timeout);
+    let mut timed_out = false;
+    let status = loop {
+        match child.try_wait() {
+            Ok(Some(st)) => break Some(st),
+            Ok(None) => {
+                if Instant::now() >= deadline {
+                    let _ = child.kill();
+                    let _ = child.wait();
+                    timed_out = true;
+                    break None;
+                }
+                std::thread::sleep(std::time::Duration::from_millis(10));
+            }
+            Err(e) => return Err(format!("waiting for child: {e}")),
+        }
+    };
+    let out = h_out.join().unwrap_or_default();
+    let err = h_err.join().unwrap_or_default();
+    if timed_out {
+        return Err(format!("FAILED (timeout): exceeded {timeout} s and was killed"));
+    }
+    for l in out.lines() {
+        if let Some(j) = l.strip_prefix(CHILD_MARK) {
+            if let Ok(serde_json::Value::Array(a)) = serde_json::from_str::<serde_json::Value>(j) {
+                return Ok(a.iter().map(outcome_from_json).collect());
+            }
+        }
+    }
+    let tail: String = err.lines().rev().take(3).collect::<Vec<_>>().into_iter().rev().collect::<Vec<_>>().join(" | ");
+    Err(format!("child process died without reporting ({:?}) {tail}", status.map(|s| s.code())))
+}
+
+/// `run_file`, but each test runs in its own child process under a
+/// deadline. The child re-runs the file's top-level code, so every test
+/// starts from a pristine interpreter and a hang or crash costs one test.
+fn run_file_isolated(path: &Path, filter: Option<&str>, fail_fast: bool, stop: &mut bool, timeout: f64) -> Vec<Outcome> {
+    let file = path.to_string_lossy().replace('\\', "/");
+    let src = match std::fs::read_to_string(path) {
+        Ok(s) => s,
+        Err(_) => return run_file(path, filter, fail_fast, stop, None), // reports the read error
+    };
+    let tests = top_level_test_functions(&src);
+    let selected: Vec<&(String, u32)> = tests.iter().filter(|(n, _)| filter.map_or(true, |f| n.contains(f))).collect();
+    if !tests.is_empty() && selected.is_empty() {
+        return Vec::new();
+    }
+    if tests.is_empty() && filter.is_some_and(|f| !file.contains(f)) {
+        return Vec::new();
+    }
+    let fail = |name: Option<String>, line: u32, error: String| Outcome {
+        file: file.clone(),
+        name,
+        line,
+        ok: false,
+        ms: 0.0,
+        error,
+        trace: String::new(),
+        output: String::new(),
+    };
+    let mut results = Vec::new();
+    if tests.is_empty() {
+        match run_in_child(&file, None, timeout) {
+            Ok(v) => results.extend(v),
+            Err(m) => results.push(fail(None, 0, m)),
+        }
+        return results;
+    }
+    for (name, line) in selected {
+        if fail_fast && *stop {
+            break;
+        }
+        match run_in_child(&file, Some(name), timeout) {
+            Ok(v) => {
+                let load_failed = v.iter().any(|o| o.name.as_deref() == Some("(load)"));
+                if v.iter().any(|o| !o.ok) {
+                    *stop = true;
+                }
+                results.extend(v);
+                if load_failed {
+                    break; // the file does not load: one (load) failure, as in-process
+                }
+            }
+            Err(m) => {
+                *stop = true;
+                results.push(fail(Some(name.clone()), *line, m));
+            }
+        }
+    }
+    results
+}
+
+fn run_file(path: &Path, filter: Option<&str>, fail_fast: bool, stop: &mut bool, only: Option<&str>) -> Vec<Outcome> {
     let file = path.to_string_lossy().replace('\\', "/");
     let mut results = Vec::new();
     let src = match std::fs::read_to_string(path) {
@@ -163,11 +329,12 @@ fn run_file(path: &Path, filter: Option<&str>, fail_fast: bool, stop: &mut bool)
     let selected: Vec<&(String, u32)> = tests
         .iter()
         .filter(|(n, _)| filter.map_or(true, |f| n.contains(f)))
+        .filter(|(n, _)| only.map_or(true, |o| n == o))
         .collect();
     if !tests.is_empty() && selected.is_empty() {
         return results; // filtered out entirely
     }
-    if tests.is_empty() && filter.is_some_and(|f| !file.contains(f)) {
+    if tests.is_empty() && only.is_none() && filter.is_some_and(|f| !file.contains(f)) {
         return results;
     }
 
@@ -212,12 +379,23 @@ fn run_file(path: &Path, filter: Option<&str>, fail_fast: bool, stop: &mut bool)
         let ms = t.elapsed().as_secs_f64() * 1000.0;
         let output = it.out.get(start_len..).unwrap_or("").to_string();
         it.out.truncate(start_len);
+        let panicked = matches!(&r, Err((m, _)) if m.starts_with("interpreter panic:"));
         let (ok, error, trace) = match r {
             Ok(()) => (true, String::new(), String::new()),
             Err((m, tr)) => (false, m, tr),
         };
         if !ok {
             *stop = true;
+        }
+        if panicked {
+            // A panic unwinds past the call-stack / frame bookkeeping
+            // without popping it, so this interpreter is no longer
+            // trustworthy for the NEXT test. Replace it with a pristine one
+            // and re-run the file's top-level definitions.
+            it = qu_interp::Interp::new();
+            it.set_script_path(path);
+            let _ = run_unit(&mut it, &src, &file, false);
+            it.out.clear();
         }
         results.push(Outcome { file: file.clone(), name: Some(name.clone()), line: *line, ok, ms, error, trace, output });
     }
@@ -229,6 +407,9 @@ pub fn cmd_test(args: &[String]) -> Result<(), String> {
     let mut filter: Option<String> = None;
     let mut fail_fast = false;
     let mut json = false;
+    let mut timeout = 60.0f64;
+    let mut child: Option<String> = None;
+    let mut only: Option<String> = None;
     let mut i = 0;
     while i < args.len() {
         match args[i].as_str() {
@@ -238,10 +419,37 @@ pub fn cmd_test(args: &[String]) -> Result<(), String> {
             }
             "--fail-fast" => fail_fast = true,
             "--json" => json = true,
+            "--timeout" => {
+                i += 1;
+                timeout = args
+                    .get(i)
+                    .and_then(|s| s.parse::<f64>().ok())
+                    .filter(|t| *t >= 0.0 && t.is_finite())
+                    .ok_or("test: --timeout expects a number of seconds (0 = no limit, in-process)")?;
+            }
+            "--child" => {
+                i += 1;
+                child = Some(args.get(i).ok_or("test: --child expects a file")?.clone());
+            }
+            "--only" => {
+                i += 1;
+                only = Some(args.get(i).ok_or("test: --only expects a test name")?.clone());
+            }
             s if s.starts_with("--") => return Err(format!("test: unknown option `{s}`")),
             s => paths.push(s.to_string()),
         }
         i += 1;
+    }
+    if let Some(file) = child {
+        // Internal: run exactly one test (or one script file) in this
+        // process and report it on a marked stdout line.
+        let mut stop = false;
+        let res = run_file(Path::new(&file), None, false, &mut stop, only.as_deref());
+        let arr: Vec<serde_json::Value> = res.iter().map(outcome_json).collect();
+        use std::io::Write;
+        println!("{CHILD_MARK}{}", serde_json::Value::Array(arr));
+        std::io::stdout().flush().ok();
+        std::process::exit(0);
     }
     let files = discover(&paths)?;
     let started = Instant::now();
@@ -251,28 +459,18 @@ pub fn cmd_test(args: &[String]) -> Result<(), String> {
         if fail_fast && stop {
             break;
         }
-        all.extend(run_file(f, filter.as_deref(), fail_fast, &mut stop));
+        if timeout > 0.0 {
+            all.extend(run_file_isolated(f, filter.as_deref(), fail_fast, &mut stop, timeout));
+        } else {
+            all.extend(run_file(f, filter.as_deref(), fail_fast, &mut stop, None));
+        }
     }
     let total_ms = started.elapsed().as_secs_f64() * 1000.0;
     let passed = all.iter().filter(|o| o.ok).count();
     let failed = all.len() - passed;
 
     if json {
-        let results: Vec<serde_json::Value> = all
-            .iter()
-            .map(|o| {
-                serde_json::json!({
-                    "file": o.file,
-                    "name": o.name,
-                    "line": o.line,
-                    "status": if o.ok { "pass" } else { "fail" },
-                    "ms": (o.ms * 1000.0).round() / 1000.0,
-                    "error": if o.ok { serde_json::Value::Null } else { serde_json::Value::String(o.error.clone()) },
-                    "trace": if o.trace.is_empty() { serde_json::Value::Null } else { serde_json::Value::String(o.trace.clone()) },
-                    "output": o.output,
-                })
-            })
-            .collect();
+        let results: Vec<serde_json::Value> = all.iter().map(outcome_json).collect();
         let doc = serde_json::json!({
             "passed": passed,
             "failed": failed,

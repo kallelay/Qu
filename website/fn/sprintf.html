@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>sprintf — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>sprintf</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/collections-strings.html">Collections & strings</a></p>
+<pre class="fnsig">result = <code>sprintf(fmt, ...)</code></pre>
+<p class="fnnote">Input: fmt, ... &middot; Output: result</p>
+<h2>What it is</h2>
+<p>C/MATLAB-style formatting: <code>fmt</code> is a <code>Str</code> with conversions <code>%d %i %u</code> (integers), <code>%f</code> <code>%e</code> <code>%E</code> <code>%g</code> <code>%G</code> (reals), <code>%s</code> (any value as text), <code>%c</code>, <code>%x</code> <code>%X</code> <code>%o</code> and <code>%%</code>, each with optional flags (<code>-</code> left-align, <code>+</code> sign, space, <code>0</code> zero-pad, <code>#</code> prefix), a width and a <code>.precision</code> (<code>%08.3f</code>, <code>%-10s</code>, <code>%+.2e</code>). One argument per conversion, in order; too few is an error that says so. A vector, list or matrix argument contributes its elements, and when arguments are left over the format is applied again from the start (MATLAB's rule): <code>sprintf("%d,", [1, 2, 3])</code> is <code>"1,2,3,"</code>. A <code>*</code> takes the width or precision from an argument (<code>%*d</code>, <code>%.*f</code>), and C length modifiers (<code>%ld</code>, <code>%lu</code>, <code>%lf</code>, <code>%hd</code>) are accepted and ignored. <code>%e</code> writes <code>1.235e+04</code> (signed exponent, at least two digits) and <code>%g</code> follows C's significant-digit rules. A non-integer under <code>%d</code> prints in its shortest general form instead of being truncated.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = sprintf(fmt, ...)</code></td><td><div class="ioitem"><code>fmt</code> <span class="iotype">Str</span><span class="iodesc">C/MATLAB-style formatting: <code>fmt</code> is a <code>Str</code> with conversions <code>%d %i %u</code> (integers), <code>%f</code> <code>%e</code> <code>%E</code> <code>%g</code> <code>%G</code> (reals), <code>%s</code> (any value as text), <code>%c</code>, <code>%x</code> <code>%X</code> <code>%o</code> and <code>%%</code>, each with optional flags (<code>-</code> left-align, <code>+</code> sign, space, <code>0</code> zero-pad, <code>#</code> prefix), a width and a <code>.precision</code> (<code>%08.3f</code>, <code>%-10s</code>, <code>%+.2e</code>).</span></div>
+<div class="ioitem"><code>...</code> <span class="iotype">repeatable</span><span class="iogap">not documented yet</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">Str</span></div>
+</td><td>Returns the <code>Str</code>.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">No documentation example calls this form yet. The <a href="../docs/collections-strings.html">Collections & strings</a> chapter is where one belongs.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.3.0 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

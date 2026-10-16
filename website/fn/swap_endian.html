@@ -29,17 +29,21 @@
 <main class="docmain">
 <h1>swap_endian</h1>
 <nav class="onthispage"></nav>
-<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a></p>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/collections-strings.html">Collections & strings</a></p>
+<pre class="fnsig"><code>swap_endian(bytes, [width=4])</code></pre>
+<p class="fnnote">Input: bytes, width &middot; Output: no output</p>
 <h2>What it is</h2>
-<p>No chapter describes this one yet. It exists -- the name comes from the interpreter's own table -- but the prose has not been written. That is a gap in the documentation, not in the engine.</p>
+<p>Reverses the byte order <strong>within</strong> each <code>width</code>-byte chunk (big-endian <code>u32</code>s become little-endian and back), unlike <code>reverse_bytes</code>, which reverses the whole buffer. The length must divide evenly by <code>width</code>; a partial trailing chunk is an error, not silently dropped. <code>swap_endian([1, 2, 3, 4], width=2)</code> is <code>[2, 1, 4, 3]</code>.</p>
 <h2>Overloads</h2>
 <p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
 <div class="tablewrap"><table class="iotable">
 <tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
-<tr><td class="iocode"><code></code></td><td><span class="ionone">no input</span></td><td><span class="ionone">not documented yet</span></td><td>&mdash;</td></tr>
+<tr><td class="iocode"><code>swap_endian(bytes, [width=4])</code></td><td><div class="ioitem"><code>bytes</code> <span class="iotype">&mdash;</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>width</code> <span class="iotype">optional (default <code>4</code>)</span><span class="iodesc">Reverses the byte order <strong>within</strong> each <code>width</code>-byte chunk (big-endian <code>u32</code>s become little-endian and back), unlike <code>reverse_bytes</code>, which reverses the whole buffer.</span></div>
+</td><td><span class="ionone">not documented yet</span></td><td>&mdash;</td></tr>
 </table></div>
 <h3>Examples</h3>
-<p class="fnnote">No documentation example calls this form yet.</p>
+<p class="fnnote">No documentation example calls this form yet. The <a href="../docs/collections-strings.html">Collections & strings</a> chapter is where one belongs.</p>
 </main>
 </div>
 <footer><div class="wrap">

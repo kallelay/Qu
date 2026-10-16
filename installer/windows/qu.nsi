@@ -299,23 +299,6 @@ Var PsExe
   ${EndIf}
 !macroend
 
-; Component default from the machine: App Paths (HKCU then HKLM: the
-; editor's own installer wrote it, wherever it was put) or a config folder;
-; the found location shows in the component name.
-!macro DETECT_EDITOR SEC LABEL EXE DIR1 DIR2
-  ReadRegStr $R2 HKCU "Software\Microsoft\Windows\CurrentVersion\App Paths\${EXE}" ""
-  ${If} $R2 == ""
-    ReadRegStr $R2 HKLM "Software\Microsoft\Windows\CurrentVersion\App Paths\${EXE}" ""
-  ${EndIf}
-  ${If} $R2 != ""
-    SectionSetText ${SEC} "${LABEL} ($R2)"
-  ${Else}
-    ${IfNot} ${FileExists} "${DIR1}\*.*"
-    ${AndIfNot} ${FileExists} "${DIR2}\*.*"
-      !insertmacro UnselectSection ${SEC}
-    ${EndIf}
-  ${EndIf}
-!macroend
 
 ; ---- installer ----------------------------------------------------------
 
@@ -545,16 +528,125 @@ Section /o "Desktop shortcuts" SecDesktop
 SectionEnd
 
 ; After the sections: their ${Sec...} ids exist only from here on.
+
+; ---- editor detection (same design in the CLI and the Studio installer) ---
+; The engine's own `qu editors detect` is the authority at install time
+; (App Paths, Uninstall keys, PATH, known folders); the components page runs
+; before any file is on disk, so this mirrors its registry/folder checks to
+; pick the defaults and to show WHERE each editor was found. Order: App Paths
+; (both exe spellings: codium.exe vs VSCodium.exe), then the Uninstall keys
+; of both registry views by DisplayName prefix (how VSCodium, Cursor and
+; Sublime register on many machines), then Program Files / Programs folders.
+; In: $R0 exe1, $R1 exe2 or "", $R3 DisplayName prefix, $R4 folder name or "".
+; Out: $R2 = location or "". The caller's registry view is restored.
+!macro Qu_APPPATH EXE
+  ${If} ${EXE} != ""
+    ${If} $R2 == ""
+      ReadRegStr $R2 HKCU "Software\Microsoft\Windows\CurrentVersion\App Paths\${EXE}" ""
+    ${EndIf}
+    ${If} $R2 == ""
+      ReadRegStr $R2 HKLM "Software\Microsoft\Windows\CurrentVersion\App Paths\${EXE}" ""
+    ${EndIf}
+  ${EndIf}
+!macroend
+
+!macro Qu_UNINST ROOT
+  StrCpy $R6 0
+  ${Do}
+    EnumRegKey $R7 ${ROOT} "Software\Microsoft\Windows\CurrentVersion\Uninstall" $R6
+    ${If} $R7 == ""
+      ${ExitDo}
+    ${EndIf}
+    IntOp $R6 $R6 + 1
+    ReadRegStr $R8 ${ROOT} "Software\Microsoft\Windows\CurrentVersion\Uninstall\$R7" "DisplayName"
+    StrCpy $R9 $R8 $R5
+    ${If} $R9 == $R3
+      ReadRegStr $R2 ${ROOT} "Software\Microsoft\Windows\CurrentVersion\Uninstall\$R7" "InstallLocation"
+      ${If} $R2 == ""
+        ReadRegStr $R2 ${ROOT} "Software\Microsoft\Windows\CurrentVersion\Uninstall\$R7" "DisplayIcon"
+        StrCpy $R9 $R2 "" -2
+        ${If} $R9 == ",0"
+          StrCpy $R2 $R2 -2
+        ${EndIf}
+      ${EndIf}
+      ${If} $R2 != ""
+        Goto Qu_located
+      ${EndIf}
+    ${EndIf}
+  ${Loop}
+!macroend
+
+Function QuLocateEditor
+  Push $0
+  Push $R5
+  Push $R6
+  Push $R7
+  Push $R8
+  Push $R9
+  StrCpy $R2 ""
+  StrLen $R5 $R3
+  ${For} $0 0 1
+    ${If} $0 == 0
+      SetRegView 64
+    ${Else}
+      SetRegView 32
+    ${EndIf}
+    !insertmacro Qu_APPPATH $R0
+    !insertmacro Qu_APPPATH $R1
+    ${If} $R2 != ""
+      Goto Qu_located
+    ${EndIf}
+    ${If} $R3 != ""
+      !insertmacro Qu_UNINST HKCU
+      !insertmacro Qu_UNINST HKLM
+    ${EndIf}
+  ${Next}
+  ${If} $R4 != ""
+    ${If} ${FileExists} "$PROGRAMFILES64\$R4\*.*"
+      StrCpy $R2 "$PROGRAMFILES64\$R4"
+    ${ElseIf} ${FileExists} "$LOCALAPPDATA\Programs\$R4\*.*"
+      StrCpy $R2 "$LOCALAPPDATA\Programs\$R4"
+    ${EndIf}
+  ${EndIf}
+  Qu_located:
+  Pop $R9
+  Pop $R8
+  Pop $R7
+  Pop $R6
+  Pop $R5
+  Pop $0
+  !insertmacro SET_SCOPE_CONTEXT
+FunctionEnd
+
+!macro QuDETECT_EDITOR SEC LABEL EXE1 EXE2 UNPFX PFDIR DIR1 DIR2
+  StrCpy $R0 "${EXE1}"
+  StrCpy $R1 "${EXE2}"
+  StrCpy $R3 "${UNPFX}"
+  StrCpy $R4 "${PFDIR}"
+  Call QuLocateEditor
+  ${If} $R2 != ""
+    SectionSetText ${SEC} "${LABEL} ($R2)"
+  ${Else}
+    ${If} ${FileExists} "${DIR1}\*.*"
+    ${OrIf} ${FileExists} "${DIR2}\*.*"
+      SectionSetText ${SEC} "${LABEL} (settings folder found, program not located)"
+    ${Else}
+      SectionSetText ${SEC} "${LABEL} (not found)"
+      !insertmacro UnselectSection ${SEC}
+    ${EndIf}
+  ${EndIf}
+!macroend
+
 Function QuComponentDefaults
   ; Component defaults: plugins only for editors that are here; the
   ; command-line switches override the page for scripted installs.
   !ifdef HAVE_EDITORS
-    !insertmacro DETECT_EDITOR ${SecVSCode} "VS Code" "Code.exe" "$PROFILE\.vscode" "$APPDATA\Code"
-    !insertmacro DETECT_EDITOR ${SecVSCodium} "VSCodium" "codium.exe" "$PROFILE\.vscode-oss" "$APPDATA\VSCodium"
-    !insertmacro DETECT_EDITOR ${SecCursor} "Cursor" "cursor.exe" "$PROFILE\.cursor" "$APPDATA\Cursor"
-    !insertmacro DETECT_EDITOR ${SecWindsurf} "Windsurf" "windsurf.exe" "$PROFILE\.windsurf" "$APPDATA\Windsurf"
-    !insertmacro DETECT_EDITOR ${SecSublime} "Sublime Text" "sublime_text.exe" "$APPDATA\Sublime Text\Packages" "$APPDATA\Sublime Text 3\Packages"
-    !insertmacro DETECT_EDITOR ${SecNpp} "Notepad++" "notepad++.exe" "$APPDATA\Notepad++" "$APPDATA\Notepad++"
+    !insertmacro QuDETECT_EDITOR ${SecVSCode} "VS Code" "Code.exe" "" "Microsoft Visual Studio Code" "Microsoft VS Code" "$PROFILE\.vscode" "$APPDATA\Code"
+    !insertmacro QuDETECT_EDITOR ${SecVSCodium} "VSCodium" "VSCodium.exe" "codium.exe" "VSCodium" "VSCodium" "$PROFILE\.vscode-oss" "$APPDATA\VSCodium"
+    !insertmacro QuDETECT_EDITOR ${SecCursor} "Cursor" "Cursor.exe" "cursor.exe" "Cursor" "cursor" "$PROFILE\.cursor" "$APPDATA\Cursor"
+    !insertmacro QuDETECT_EDITOR ${SecWindsurf} "Windsurf" "Windsurf.exe" "windsurf.exe" "Windsurf" "Windsurf" "$PROFILE\.windsurf" "$APPDATA\Windsurf"
+    !insertmacro QuDETECT_EDITOR ${SecSublime} "Sublime Text" "sublime_text.exe" "" "Sublime Text" "Sublime Text" "$APPDATA\Sublime Text\Packages" "$APPDATA\Sublime Text 3\Packages"
+    !insertmacro QuDETECT_EDITOR ${SecNpp} "Notepad++" "notepad++.exe" "" "Notepad++" "Notepad++" "$APPDATA\Notepad++" "$APPDATA\Notepad++"
   !endif
   ClearErrors
   ${GetParameters} $R0

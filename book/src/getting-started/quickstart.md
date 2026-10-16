@@ -136,6 +136,7 @@ qu test path/to/dir file.qu   # explicit files; directories are searched recursi
 qu test --filter sum          # only test functions whose name contains "sum"
 qu test --fail-fast           # stop at the first failure
 qu test --json                # one JSON document on stdout, for CI tooling
+qu test --timeout 10          # kill a test running longer than 10 s (default 60; 0 = no limit)
 ```
 
 A **test** is a top-level function with no parameters whose name starts
@@ -150,10 +151,12 @@ function test_sum()
 end function
 ```
 
-Each file runs in a **fresh interpreter**, so one file cannot leak
-variables or functions into the next. Within a file, the top-level code
-runs first (fixtures, helpers), then each `test_` function in source
-order. A file that defines no `test_` function is run as a **script** and
+Each test runs in its own child `qu` process with a **fresh interpreter**
+(the file's top-level code is re-run for each test), so nothing leaks from one
+test or file into the next, and a test that hangs is killed alone and reported
+`FAILED (timeout)` while the run continues. With `--timeout 0` the tests of a
+file share one in-process interpreter instead: top-level code runs once
+(fixtures, helpers), then each `test_` function in source order. A file that defines no `test_` function is run as a **script** and
 passes if it finishes without an error.
 
 Every test prints `PASS`/`FAIL` with `file:line` and its name and time; a
@@ -373,6 +376,13 @@ Notes on what just happened:
 - `:=` defines a one-line, non-recursive, *elemental* function (call it on a
   vector and it maps automatically); `function ... end function` is the
   multi-statement form with explicit `return`.
+- **Qu has no closures.** A function (nested, or an anonymous lambda) cannot
+  see the local variables of the function that encloses it; it can read
+  top-level (global) variables, and anything it needs from its caller must be
+  passed as an argument. A function definition nested inside another function
+  is not private to it: running the outer function defines the inner one in
+  the **global** function namespace, where it can clash with (and replace) a
+  function of the same name.
 - `start to stop [step delta]` is a range, **inclusive at both ends** —
   unlike Python's `range`.
 - `"{expr}"` interpolates directly in a double-quoted string, with an
@@ -720,7 +730,11 @@ need one of these spellings:
 `r"..."` ends at the first `"`; `r"""..."""` (new in v0.4.8) ends at the next
 three quotes, so it can hold quotes, braces and backslashes. So
 `parse_json(r"""[{"a":1}]""")` works without escaping anything. (`r'...'` is not
-a raw string: after a variable `r`, `'` is the transpose.)
+a raw string: after a variable `r`, `'` is the transpose.) In a run of four or
+more quotes the closing three are the last three, as in Python, so
+`r"""say "hi""""` ends in a literal `"`. A string that is never closed (either
+form) is an error at the line and column where it opened, not a silent swallow
+of the rest of the file.
 
 ## Where did my script fail?
 

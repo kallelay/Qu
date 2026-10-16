@@ -1,5 +1,5 @@
 " Vim syntax file for Qu (.qu)
-" Qu editor plugin 0.2.0
+" Qu editor plugin 0.2.1
 "
 " Deliberately highlights the language itself -- keywords, constants, types,
 " numbers (with unit suffixes), strings (including r"..." / r"""...""" raw
@@ -15,9 +15,17 @@ endif
 
 syn case match
 
-syn keyword quControl and as break by case cases catch continue do each else elseif elsewhere end for from if in loop mod not on or otherwise repeat return select skip step then to try until use using where while with
-syn keyword quKeyword after animate assert async await backend base circuit class collect compile compose const constant data def device dimension distributed ease elemental enum error every export finetune fit flag frame function global hold implements import inherits input inline interface layer let local method mesh model module namespace new node optional override param parallel project property pure read render reserve release restore run scene3d schedule set signal simd simulate sketch spawn spectrum stencil sub swap table train tune type unit unsafe vectorize view warn watch window
-syn keyword quType bool int int64 uint uint64 float float64 double complex complex128 string str array vector matrix tensor record list figure frame logical integer
+syn keyword quControl and as break by case cases catch continue do each else elseif elsewhere end for from if in loop mod not on or otherwise repeat return skip step then to try until use using while with
+syn keyword quKeyword assert async await backend base class collect compose const constant data def device dimension distributed ease elemental enum every export finetune flag frame function global hold implements import inherits inline interface layer let local method mesh model module namespace new node optional override project property pure render reserve release restore run scene3d schedule simd sketch stencil sub train tune unit unsafe vectorize view watch window
+" Contextual keywords (they are also ordinary names / builtin functions, so
+" colour them only where the parser treats them as keywords).
+syn match quKeyword /^\s*\zs\%(after\)\>\%(\s*[=(]\)\@!/
+syn match quKeyword /^\s*\zs\%(parallel\)\>\%(\s\+for\>\)\@=/
+syn match quKeyword /^\s*\zs\%(select\)\>\%(\s\+case\>\)\@=/
+syn match quKeyword /^\s*\zs\%(type\)\>\%(\s\+\%(implicit\|explicit\)\>\)\@=/
+syn match quControl /\<end\s\+\zs\%(parallel\|select\)\>/
+syn match quControl /\<where\>\%(\s*(\)\@!/
+syn keyword quTypebool int int64 uint uint64 float float64 double complex complex128 string str array vector matrix tensor record list figure frame logical integer
 syn keyword quBoolean true false none
 
 " numbers: hex, decimal/float/exponent, imaginary (i/j), then an attached unit

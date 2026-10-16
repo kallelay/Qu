@@ -38,8 +38,11 @@
 //!   closing bracket follows); one space on each side of the comparison /
 //!   compound-assignment operators `== != <= >= := += -= *= /= ^= .*= ./=
 //!   |>`, and of `=` at bracket depth 0 (so a keyword argument `f(x=1)`
-//!   and a default parameter are left exactly as written). Nothing else
-//!   (`+ - * / < >`, ranges, unary minus, `'`) is touched: `-` and `'` are
+//!   and a default parameter are left exactly as written). `<` and `>`
+//!   are spaced as comparisons only between two operands (`a>3` becomes
+//!   `a > 3`), never in a type refinement (`model<"filter">`,
+//!   `record<Circle>`). Nothing else
+//!   (`+ - * /`, ranges, unary minus, `'`) is touched: `-` and `'` are
 //!   ambiguous between binary/unary and transpose/quote.
 //!
 //! # Line endings
@@ -416,6 +419,7 @@ pub fn format_source(src: &str) -> String {
         let mut prev_end: Option<usize> = None;
         let mut prev_tok: Option<&Tok> = None;
         let mut prev_spaced = false;
+        let mut refine_open = false;
         let line_end_byte = a.line_starts[l] + raw.len();
         let mut verbatim_tail_from: Option<usize> = None;
         for (k, &i) in toks_here.iter().enumerate() {
@@ -423,6 +427,38 @@ pub fn format_source(src: &str) -> String {
             let multiline = t.span.end > a.line_starts.get(l + 1).copied().unwrap_or(usize::MAX);
             let depth0 = bracket <= 0;
             let spaced = match &t.tok {
+                Tok::Op(op @ ("<" | ">")) => {
+                    // `<` / `>` are comparisons EXCEPT in a type refinement
+                    // (`x: model<"filter">`, `r: record<Circle>`), where
+                    // the parser reads them as brackets. Space only when
+                    // an operand sits on each side and the left word is
+                    // not a refinable type tag.
+                    let next = toks_here.get(k + 1).map(|&j| &a.toks[j].tok);
+                    let left_ok = k > 0
+                        && match prev_tok {
+                            Some(Tok::Int(_) | Tok::Float(_) | Tok::Imag(_) | Tok::UnitLit(..) | Tok::Str(_) | Tok::RawStr(_)) => true,
+                            Some(Tok::Ident(w)) => !matches!(w.as_str(), "model" | "record"),
+                            Some(Tok::Op(")" | "]" | "}" | "'")) => true,
+                            Some(Tok::Keyword("true" | "false")) => true,
+                            _ => false,
+                        };
+                    let right_ok = matches!(
+                        next,
+                        Some(
+                            Tok::Int(_) | Tok::Float(_) | Tok::Imag(_) | Tok::UnitLit(..) | Tok::Str(_) | Tok::RawStr(_)
+                                | Tok::Ident(_) | Tok::Op("(" | "[" | "{" | "-" | "@") | Tok::Keyword("true" | "false" | "not")
+                        )
+                    );
+                    if *op == "<" {
+                        refine_open = !left_ok && matches!(prev_tok, Some(Tok::Ident(w)) if matches!(w.as_str(), "model" | "record"));
+                        left_ok && right_ok
+                    } else if refine_open {
+                        refine_open = false;
+                        false
+                    } else {
+                        left_ok && right_ok
+                    }
+                }
                 Tok::Op(op) => is_assign_like(op) || (*op == "=" && depth0),
                 _ => false,
             };
@@ -545,9 +581,37 @@ pub fn format_checked(src: &str) -> Result<String, String> {
     Ok(out)
 }
 
+/// Deepest directory nesting a recursive search will enter.
+pub const MAX_WALK_DEPTH: usize = 40;
+
+/// True for a symbolic link or (on Windows) any reparse point, which
+/// includes junctions. Directory walks skip these: following one can loop
+/// forever (`a/b -> a`) or wander out of the tree.
+pub fn is_link_or_reparse(p: &Path) -> bool {
+    let Ok(md) = std::fs::symlink_metadata(p) else { return false };
+    if md.file_type().is_symlink() {
+        return true;
+    }
+    #[cfg(windows)]
+    {
+        use std::os::windows::fs::MetadataExt;
+        if md.file_attributes() & 0x400 != 0 {
+            return true; // FILE_ATTRIBUTE_REPARSE_POINT
+        }
+    }
+    false
+}
+
 fn collect(path: &Path, out: &mut Vec<PathBuf>) {
+    collect_depth(path, out, 0);
+}
+
+fn collect_depth(path: &Path, out: &mut Vec<PathBuf>, depth: usize) {
     if path.is_file() {
         out.push(path.to_path_buf());
+        return;
+    }
+    if depth > MAX_WALK_DEPTH {
         return;
     }
     let Ok(rd) = std::fs::read_dir(path) else { return };
@@ -556,11 +620,14 @@ fn collect(path: &Path, out: &mut Vec<PathBuf>) {
     for e in entries {
         let p = e.path();
         let name = e.file_name().to_string_lossy().into_owned();
+        if is_link_or_reparse(&p) {
+            continue;
+        }
         if p.is_dir() {
             if name.starts_with('.') || matches!(name.as_str(), "target" | "node_modules") {
                 continue;
             }
-            collect(&p, out);
+            collect_depth(&p, out, depth + 1);
         } else if name.ends_with(".qu") {
             out.push(p);
         }

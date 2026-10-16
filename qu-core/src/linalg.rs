@@ -75,11 +75,7 @@ pub fn pseudo_inverse(
         return Err(LinalgError::InvalidTolerance(relative));
     }
 
-    let source = DMatrix::from_column_slice(input.rows(), input.cols(), input.as_slice());
-    let svd = source.svd(true, true);
-    let u = svd.u.ok_or(LinalgError::Decomposition("U"))?;
-    let v_t = svd.v_t.ok_or(LinalgError::Decomposition("V transpose"))?;
-    let singular_values: Vec<f64> = svd.singular_values.iter().copied().collect();
+    let (u, singular_values, v_t) = thin_svd(input)?;
     let largest = singular_values.first().copied().unwrap_or(0.0);
     let tolerance = relative * largest;
     let rank = singular_values
@@ -116,6 +112,38 @@ pub fn pseudo_inverse(
     })
 }
 
+/// Smallest `min(rows, cols)` for which the blocked, parallel kernels
+/// (`dense_qr`, `dense_svd`, `dense_eigsym`; new in 0.4.10) replace
+/// nalgebra's unblocked ones. Below it the nalgebra routines run exactly as
+/// before. Measured crossover points; see `docs/perf-0.4.9.md`.
+pub const BLOCKED_QR_MIN: usize = 144;
+pub const BLOCKED_SVD_MIN: usize = 128;
+pub const BLOCKED_EIGSYM_MIN: usize = 128;
+/// Non-symmetric `eig` (eigenvalues only) uses the Schur-vector-free
+/// iteration from this order up.
+pub const BLOCKED_EIGGEN_MIN: usize = 32;
+
+/// Thin SVD factors `(U, singular values descending, V^T)` of a finite,
+/// non-empty matrix: blocked for large inputs, nalgebra's otherwise.
+fn thin_svd(input: &Matrix) -> Result<(DMatrix<f64>, Vec<f64>, DMatrix<f64>), LinalgError> {
+    let (m, n) = input.shape();
+    if m.min(n) >= BLOCKED_SVD_MIN {
+        let r = crate::dense_svd::svd(input.as_slice(), m, n);
+        let k = m.min(n);
+        return Ok((
+            DMatrix::from_column_slice(m, k, &r.u),
+            r.s,
+            DMatrix::from_column_slice(k, n, &r.vt),
+        ));
+    }
+    let source = DMatrix::from_column_slice(m, n, input.as_slice());
+    let result = source.svd(true, true);
+    let u = result.u.ok_or(LinalgError::Decomposition("U"))?;
+    let v_t = result.v_t.ok_or(LinalgError::Decomposition("V transpose"))?;
+    let singular_values: Vec<f64> = result.singular_values.iter().copied().collect();
+    Ok((u, singular_values, v_t))
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct SvdResult {
     /// `(m, k)`, `k = min(m,n)` — the thin left singular vectors.
@@ -139,11 +167,7 @@ pub fn svd(input: &Matrix) -> Result<SvdResult, LinalgError> {
     if input.as_slice().iter().any(|value| !value.is_finite()) {
         return Err(LinalgError::NonFiniteInput);
     }
-    let source = DMatrix::from_column_slice(input.rows(), input.cols(), input.as_slice());
-    let result = source.svd(true, true);
-    let u = result.u.ok_or(LinalgError::Decomposition("U"))?;
-    let v_t = result.v_t.ok_or(LinalgError::Decomposition("V transpose"))?;
-    let singular_values: Vec<f64> = result.singular_values.iter().copied().collect();
+    let (u, singular_values, v_t) = thin_svd(input)?;
     let (ur, uc) = u.shape();
     let (vr, vc) = v_t.shape();
     Ok(SvdResult {
@@ -282,6 +306,16 @@ pub fn qr(input: &Matrix) -> Result<QrResult, LinalgError> {
         return Err(LinalgError::NonFiniteInput);
     }
     let (rows, cols) = input.shape();
+    if rows.min(cols) >= BLOCKED_QR_MIN {
+        // Blocked compact-WY Householder QR on the GEMM kernel; same
+        // conventions (thin factors, non-negative diagonal of R).
+        let (q, r) = crate::dense_qr::qr(input.as_slice(), rows, cols);
+        let k = rows.min(cols);
+        return Ok(QrResult {
+            q: Matrix::from_col_major(rows, k, q),
+            r: Matrix::from_col_major(k, cols, r),
+        });
+    }
     let source = DMatrix::from_column_slice(rows, cols, input.as_slice());
     let decomposition = source.qr();
     let q = decomposition.q();
@@ -393,15 +427,33 @@ pub fn eig(input: &Matrix) -> Result<EigResult, LinalgError> {
     if rows != cols {
         return Err(LinalgError::NotSquare { rows, cols });
     }
-    let source = DMatrix::from_column_slice(rows, cols, input.as_slice());
     let tol = 1e-9;
+    let data = input.as_slice();
     let is_symmetric = (0..rows).all(|i| {
         (0..i).all(|j| {
-            let a = source[(i, j)];
-            let b = source[(j, i)];
+            let a = data[i + j * rows];
+            let b = data[j + i * rows];
             (a - b).abs() <= tol * (1.0 + a.abs().max(b.abs()))
         })
     });
+    if is_symmetric && rows >= BLOCKED_EIGSYM_MIN {
+        // Blocked tridiagonalisation + recorded, row-blocked QL rotations;
+        // same conventions and eigenvalue order as the nalgebra route.
+        let (values, vectors) = crate::dense_eigsym::eigh(data, rows);
+        return Ok(EigResult {
+            values_re: values,
+            values_im: vec![0.0; rows],
+            vectors: Some(Matrix::from_col_major(rows, cols, vectors)),
+        });
+    }
+    if !is_symmetric && rows >= BLOCKED_EIGGEN_MIN {
+        // Eigenvalues only: no Schur vectors, window-restricted sweeps,
+        // exceptional shifts so permutation-like inputs terminate.
+        let (re, im) = crate::dense_eiggen::eigenvalues(data, rows)
+            .ok_or(LinalgError::Decomposition("Schur (QR iteration did not converge)"))?;
+        return Ok(EigResult { values_re: re, values_im: im, vectors: None });
+    }
+    let source = DMatrix::from_column_slice(rows, cols, data);
     if is_symmetric {
         let decomposition = source.symmetric_eigen();
         let values_re = decomposition.eigenvalues.iter().copied().collect();
@@ -412,7 +464,11 @@ pub fn eig(input: &Matrix) -> Result<EigResult, LinalgError> {
             vectors: Some(Matrix::from_col_major(rows, cols, vectors.as_slice().to_vec())),
         })
     } else {
-        let schur = source.schur();
+        // `schur()` iterates without a bound and never terminates on some
+        // permutation-like inputs (no exceptional shifts); bound the total
+        // iteration count -- ordinary inputs need ~2n -- and report an error.
+        let schur = nalgebra::linalg::Schur::try_new(source, f64::EPSILON, 1000 + 100 * rows)
+            .ok_or(LinalgError::Decomposition("Schur (QR iteration did not converge)"))?;
         let eigenvalues = schur.complex_eigenvalues();
         Ok(EigResult {
             values_re: eigenvalues.iter().map(|c| c.re).collect(),

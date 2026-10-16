@@ -10,7 +10,7 @@ description is written in exactly one place, the chapter that teaches
 the subject, and this page is a view onto it rather than a second copy
 that can drift.
 
-**1227 builtins, 1138 described.** The rest are
+**1227 builtins, 1142 described.** The rest are
 listed at the end, by name: a gap you can see is worth more than
 one quietly omitted.
 
@@ -212,6 +212,7 @@ program, and a misspelled call suggests the nearest match.
 | [`cpe`](../fn/cpe.html) | `1/(Q (jw)^n)` — constant-phase element | [Signal processing](signal-processing.md) |
 | [`cqt`](../fn/cqt.html) | Constant-Q transform: log-spaced bins sharing one `Q = f/bandwidth`, so a musical interval spans the same number of bins at every pitch | [Signal processing](signal-processing.md) |
 | [`crc`](../fn/crc.html) | Textbook unreflected, zero-initialized polynomial division: the message is shifted left by the CRC width and divided mod 2 | [Signal processing](signal-processing.md) |
+| [`crc32`](../fn/crc32.html) | Returns the standard CRC-32 (IEEE 802.3, reflected, initial value and final XOR `0xFFFFFFFF`) as a number: `crc32("123456789")` is `3421780262`, i.e. `0xCBF43926` | [Collections & strings](collections-strings.md) |
 | [`crc_check`](../fn/crc_check.html) | Divides the whole codeword and reports whether the remainder is all zeros | [Signal processing](signal-processing.md) |
 | [`create_file`](../fn/create_file.html) | `make_file` with a collision policy: `"error"` (default) refuses if `path` already exists, `"overwrite"` truncates it like `make_file` does unconditionally, `"skip"` does nothing and.. | [File I/O](file-io.md) |
 | [`crest_factor`](../fn/crest_factor.html) | `peak(x) / rms(x)`, a dimensionless ratio (a sine wave's is `sqrt(2)` ≈ 1.414) — the same quantity `sinad_estimate(bits, crest_factor)` takes as its second argument | [Core maths](core-math.md) |
@@ -748,6 +749,7 @@ program, and a misspelled call suggests the nearest match.
 
 | | | |
 |---|---|---|
+| [`pack`](../fn/pack.html) | Returns a byte buffer, a `Vec` of integers in `0..=255` | [Collections & strings](collections-strings.md) |
 | [`pad_left`](../fn/pad_left.html) | Pads on the left to `width` characters; a string already that wide is returned unchanged, never truncated | [Collections & strings](collections-strings.md) |
 | [`pad_right`](../fn/pad_right.html) | Same parameters and return as `pad_left`, padding on the right instead | [Collections & strings](collections-strings.md) |
 | [`palette`](../fn/palette.html) | Generates `n` (integer) categorical colours of equal perceptual weight by walking hue at fixed saturation/value | [Plotting](plotting.md) |
@@ -1081,6 +1083,7 @@ program, and a misspelled call suggests the nearest match.
 | [`svm_model`](../fn/svm_model.html) | Binary-classification support-vector machine by simplified SMO on an `N`-row, `D`-column `X` and a length-`N` target `y` that must take exactly two distinct values (no one-vs-rest wrapper) | [Statistics & ML](statistics-ml.md) |
 | [`svr_model`](../fn/svr_model.html) | Support-vector regression on an `N`-row, `D`-column `X` and a length-`N` numeric target `y` | [Statistics & ML](statistics-ml.md) |
 | [`swap`](../fn/swap.html) | `swap` atomically exchanges front and back (returns `Nothing`); `read` returns the stable front value | [Collections & strings](collections-strings.md) |
+| [`swap_endian`](../fn/swap_endian.html) | Reverses the byte order within each `width`-byte chunk (big-endian `u32`s become little-endian and back), unlike `reverse_bytes`, which reverses the whole buffer | [Collections & strings](collections-strings.md) |
 | [`sweep`](../fn/sweep.html) | Generates a linear (or, with `method="logarithmic"`, log) frequency sweep from `f0` to `f1` (numbers, Hz) sampled at rate `fs` (number, Hz) for `n` (integer) samples | [Plotting](plotting.md) |
 | [`sysid`](../fn/sysid.html) | Model selection: fits a ladder of standard topologies and picks one by an information criterion | [Signal processing](signal-processing.md) |
 | [`sysinfo`](../fn/sysinfo.html) | Returns a `Record` describing this machine: `.os`/`.arch`/`.hostname`/`.cpu`/`.qu_version`/`.build` (strings), `.logical_cores` (integer), `.physical_cores` and `.total_memory` (number, or.. | [Concurrency](concurrency.md) |
@@ -1177,6 +1180,7 @@ program, and a misspelled call suggests the nearest match.
 | [`unifstat`](../fn/unifstat.html) | Mean and variance of the continuous uniform distribution with these parameters, as a result with fields `.mean` and `.var` | [Statistics & ML](statistics-ml.md) |
 | [`unique`](../fn/unique.html) | Returns a `Vec`: a sorted, de-duplicated copy | [Collections & strings](collections-strings.md) |
 | [`unit_scale`](../fn/unit_scale.html) | Returns the scale factor a `unit name = ...` declaration registered, or errors naming `name` if nothing was ever declared under it | [REPL & diagnostics](repl-diagnostics.md) |
+| [`unpack`](../fn/unpack.html) | The inverse of `pack`: `bytes` is a byte buffer, `spec` the same field list | [Collections & strings](collections-strings.md) |
 | [`update`](../fn/update.html) | Estimation-family only: the measurement-update half of a filter, called on a state Record `state` with filter-specific arguments (an observation matrix/function, a measurement vector, and a.. | [Statistics & ML](statistics-ml.md) |
 | [`upper`](../fn/upper.html) | Unicode-aware uppercase conversion | [Collections & strings](collections-strings.md) |
 | [`upsample`](../fn/upsample.html) | Raises the sample rate by an integer factor: inserts `L-1` zeros between samples, then interpolates with a lowpass at the original Nyquist (`fs/2`), scaled by `L` to preserve amplitude | [Signal processing](signal-processing.md) |
@@ -1475,7 +1479,7 @@ leaves the qualified one available too.
 | [`pdf.strip_metadata`](../fn/pdf.strip_metadata.html) | Removes a PDF's `/Info` dictionary entirely, and its catalog's `/Metadata` XMP stream reference if it has one (the XMP stream's own contents are not parsed — only the reference to it is.. | [File I/O](file-io.md) |
 | [`pdf.structural_diff`](../fn/pdf.structural_diff.html) | A coarse, non-content comparison: page count, per-page `/MediaBox` size, whether each document has an outline (`/Outlines`) and each document's total annotation count | [File I/O](file-io.md) |
 | [`pdf.text_diff`](../fn/pdf.text_diff.html) | Page-by-page text diff of two documents, built entirely on `pdf.extract_text`/`pdf.page_count` | [File I/O](file-io.md) |
-| [`pdf.to_html`](../fn/pdf.to_html.html) | A simple HTML fragment for the pages asked for (default all): one `<section class="page" data-page="N">` per page holding one `<p>` per paragraph, text escaped (`&` `<` `>`) | [File I/O](file-io.md) |
+| [`pdf.to_html`](../fn/pdf.to_html.html) | A simple HTML fragment for the pages asked for (default all; `pages` is positional, not a keyword): one `<section class="page" data-page="N">` per page holding one `<p>` per paragraph, text.. | [File I/O](file-io.md) |
 | [`pdf.write_merge`](../fn/pdf.write_merge.html) | Exactly `pdf.merge`, written to a file instead of returned | [File I/O](file-io.md) |
 | [`pdf.write_pages`](../fn/pdf.write_pages.html) | Exactly `pdf.extract_pages`, written to a file instead of returned | [File I/O](file-io.md) |
 | [`image.load`](../fn/image.load.html) | not described in a chapter yet | |
@@ -1536,10 +1540,9 @@ backlog rather than a statement about the language.
 [`casefold`](../fn/casefold.html) [`circuit_impedance`](../fn/circuit_impedance.html)
 [`clear_bit`](../fn/clear_bit.html) [`codepoints`](../fn/codepoints.html)
 [`conformal`](../fn/conformal.html) [`coverage`](../fn/coverage.html)
-[`crc32`](../fn/crc32.html) [`created_at`](../fn/created_at.html) [`dedent`](../fn/dedent.html)
-[`duration`](../fn/duration.html) [`entropy`](../fn/entropy.html) [`exit`](../fn/exit.html)
-[`file_info`](../fn/file_info.html) [`find_hex`](../fn/find_hex.html)
-[`get_bit`](../fn/get_bit.html) [`hex_decode`](../fn/hex_decode.html)
+[`created_at`](../fn/created_at.html) [`dedent`](../fn/dedent.html) [`duration`](../fn/duration.html)
+[`entropy`](../fn/entropy.html) [`exit`](../fn/exit.html) [`file_info`](../fn/file_info.html)
+[`find_hex`](../fn/find_hex.html) [`get_bit`](../fn/get_bit.html) [`hex_decode`](../fn/hex_decode.html)
 [`hex_encode`](../fn/hex_encode.html) [`hexdump`](../fn/hexdump.html)
 [`image`](../fn/image.html) [`image_regions`](../fn/image_regions.html)
 [`indent`](../fn/indent.html) [`invert`](../fn/invert.html) [`is_readonly`](../fn/is_readonly.html)
@@ -1550,7 +1553,7 @@ backlog rather than a statement about the language.
 [`line_delete`](../fn/line_delete.html) [`line_insert`](../fn/line_insert.html)
 [`line_range`](../fn/line_range.html) [`line_set`](../fn/line_set.html)
 [`modified_at`](../fn/modified_at.html) [`nbytes`](../fn/nbytes.html)
-[`pack`](../fn/pack.html) [`pad_bytes`](../fn/pad_bytes.html) [`path_absolute`](../fn/path_absolute.html)
+[`pad_bytes`](../fn/pad_bytes.html) [`path_absolute`](../fn/path_absolute.html)
 [`path_extension`](../fn/path_extension.html) [`path_join`](../fn/path_join.html)
 [`path_name`](../fn/path_name.html) [`path_normalize`](../fn/path_normalize.html)
 [`path_parent`](../fn/path_parent.html) [`path_relative_to`](../fn/path_relative_to.html)
@@ -1565,7 +1568,7 @@ backlog rather than a statement about the language.
 [`set_bit`](../fn/set_bit.html) [`setenv`](../fn/setenv.html) [`sha256`](../fn/sha256.html)
 [`similar`](../fn/similar.html) [`slice_at`](../fn/slice_at.html) [`splice`](../fn/splice.html)
 [`split_time`](../fn/split_time.html) [`strip_ansi`](../fn/strip_ansi.html)
-[`swap_endian`](../fn/swap_endian.html) [`time_to_sample`](../fn/time_to_sample.html)
-[`timer`](../fn/timer.html) [`toggle_bit`](../fn/toggle_bit.html) [`unpack`](../fn/unpack.html)
-[`unsetenv`](../fn/unsetenv.html) [`word_wrap`](../fn/word_wrap.html)
+[`time_to_sample`](../fn/time_to_sample.html) [`timer`](../fn/timer.html)
+[`toggle_bit`](../fn/toggle_bit.html) [`unsetenv`](../fn/unsetenv.html)
+[`word_wrap`](../fn/word_wrap.html)
 

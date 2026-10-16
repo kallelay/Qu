@@ -70,8 +70,8 @@ fn superscript(ex: i32) -> String {
 pub fn format_sci(x: f64, prec: usize, style: &str) -> R<String> {
     // validate the style first, so a typo is an error for EVERY value and not
     // only for the ones that happen to have a non-zero exponent
-    if !matches!(style, "unicode" | "tex" | "ascii") {
-        return e(format!("sci: style must be \"unicode\", \"tex\" or \"ascii\", got \"{style}\""));
+    if !matches!(style, "unicode" | "tex" | "ascii" | "math") {
+        return e(format!("sci: style must be \"unicode\", \"tex\", \"ascii\" or \"math\", got \"{style}\""));
     }
     if !x.is_finite() {
         return Ok(non_finite(x));
@@ -84,7 +84,13 @@ pub fn format_sci(x: f64, prec: usize, style: &str) -> R<String> {
         "unicode" => format!("{m} × 10{}", superscript(ex)),
         "tex" => format!("{m} \\times 10^{{{ex}}}"),
         "ascii" => format!("{m} x 10^{ex}"),
-        other => return e(format!("sci: style must be \"unicode\", \"tex\" or \"ascii\", got \"{other}\"")),
+        // `$...$` math markup: what plot titles and labels render as a raised
+        // exponent in SVG and PDF and hand to LaTeX as real math in TikZ
+        // (the same markup the axis multipliers use). The Unicode style has
+        // no superscript glyphs in LaTeX text fonts, so prefer this one for
+        // anything that may be exported to TikZ/LaTeX.
+        "math" => format!("${m}\\times10^{{{ex}}}$"),
+        other => return e(format!("sci: style must be \"unicode\", \"tex\", \"ascii\" or \"math\", got \"{other}\"")),
     })
 }
 
@@ -468,6 +474,7 @@ mod tests {
         assert_eq!(format_sci(1.2345e-45, 2, "unicode").unwrap(), "1.23 × 10⁻⁴⁵");
         assert_eq!(format_sci(1.2345e-45, 2, "tex").unwrap(), "1.23 \\times 10^{-45}");
         assert_eq!(format_sci(1.2345e-45, 2, "ascii").unwrap(), "1.23 x 10^-45");
+        assert_eq!(format_sci(1.2345e-45, 2, "math").unwrap(), "$1.23\\times10^{-45}$");
         // `format_sci` takes digits AFTER the point: 4 of them is 5 significant
         assert_eq!(format_sci(6.02214076e23, 4, "unicode").unwrap(), "6.0221 × 10²³");
         assert_eq!(format_sci(1.5, 2, "unicode").unwrap(), "1.50", "exponent 0 prints the bare mantissa");

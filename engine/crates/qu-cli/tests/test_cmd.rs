@@ -93,6 +93,33 @@ fn each_file_gets_a_fresh_interpreter() {
 }
 
 #[test]
+fn a_hanging_test_times_out_and_the_run_continues() {
+    let d = scratch("timeout");
+    let src = "function test_hang()\n  x = 0\n  while true\n    x = x + 1\n  end\nend function\n\
+               function test_after()\n  y = 1\nend function\n";
+    std::fs::write(d.join("h.qu"), src).unwrap();
+    let t = std::time::Instant::now();
+    let (code, out, _) = qu(&d, &["test", "h.qu", "--timeout", "2"]);
+    assert!(t.elapsed().as_secs() < 30, "run did not return promptly");
+    assert_eq!(code, 1, "{out}");
+    assert!(out.contains("FAIL h.qu:1 test_hang"), "{out}");
+    assert!(out.contains("FAILED (timeout)"), "{out}");
+    assert!(out.contains("PASS h.qu:7 test_after"), "{out}");
+    assert!(out.contains("1 passed, 1 failed"), "{out}");
+    let _ = std::fs::remove_dir_all(&d);
+}
+
+#[test]
+fn timeout_zero_runs_in_process_and_a_normal_failure_does_not_poison_the_next_test() {
+    let d = scratch("inproc");
+    std::fs::write(d.join("f.qu"), FAILING).unwrap();
+    let (code, out, _) = qu(&d, &["test", "f.qu", "--timeout", "0"]);
+    assert_eq!(code, 1, "{out}");
+    assert!(out.contains("PASS f.qu:1 test_good") && out.contains("FAIL f.qu:5 test_bad"), "{out}");
+    let _ = std::fs::remove_dir_all(&d);
+}
+
+#[test]
 fn filter_and_fail_fast() {
     let d = scratch("filter");
     std::fs::write(d.join("c.qu"), FAILING).unwrap();

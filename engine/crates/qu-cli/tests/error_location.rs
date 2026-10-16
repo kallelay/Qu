@@ -61,6 +61,45 @@ fn a_caught_error_carries_file_and_trace() {
     assert!(text.contains("in f()"), "{text}");
 }
 
+fn run_two(tag: &str, main_src: &str, helper_src: &str) -> (i32, String) {
+    let dir = std::env::temp_dir().join(format!("qu_errloc_imp_{tag}_{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(dir.join("helpers.qu"), helper_src).unwrap();
+    let path = dir.join("main.qu");
+    std::fs::write(&path, main_src).unwrap();
+    let out = Command::new(env!("CARGO_BIN_EXE_qu")).arg("run").arg(&path).output().expect("spawn qu");
+    let text = format!("{}{}", String::from_utf8_lossy(&out.stdout), String::from_utf8_lossy(&out.stderr));
+    (out.status.code().unwrap_or(-1), text)
+}
+
+#[test]
+fn an_error_inside_an_imported_file_names_that_file() {
+    let helpers = "x = 1\ny = 2\nz = 3\nw = 4\nfunction wrap()\n  return sqrt(\"abc\")\nend\n";
+    let main = "import \"helpers.qu\"\nq = 0\nr = wrap()\n";
+    let (code, text) = run_two("a", main, helpers);
+    assert_eq!(code, 1, "{text}");
+    assert!(text.contains("helpers.qu:6 in wrap()"), "{text}");
+    assert!(!text.contains("main.qu:6"), "{text}");
+    assert!(text.contains("main.qu:3 (top level)"), "{text}");
+}
+
+#[test]
+fn caught_error_in_imported_file_reports_that_file_and_line() {
+    let helpers = "function wrap()\n  return sqrt(\"abc\")\nend\n";
+    let main = "import \"helpers.qu\"\ntry\n  wrap()\ncatch e\n  print(e.file)\n  print(e.line)\n  print(e.trace)\nend\n";
+    let (code, text) = run_two("b", main, helpers);
+    assert_eq!(code, 0, "{text}");
+    assert!(text.contains("helpers.qu:2 in wrap()"), "{text}");
+    assert!(text.contains("main.qu:3 (top level)"), "{text}");
+}
+
+#[test]
+fn an_unterminated_raw_string_is_a_clear_error_at_its_opening() {
+    let (code, text) = run_script("unterminated.qu", "x = 1\ny = r\"\"\"abc\nprint(x)\n");
+    assert_eq!(code, 1, "{text}");
+    assert!(text.contains("unterminated raw string starting at line 2:5"), "{text}");
+}
+
 #[test]
 fn dry_run_skips_file_writes_and_says_so() {
     let dir = std::env::temp_dir().join(format!("qu_dryrun_{}", std::process::id()));

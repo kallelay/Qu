@@ -29,17 +29,23 @@
 <main class="docmain">
 <h1>pack</h1>
 <nav class="onthispage"></nav>
-<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a></p>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/collections-strings.html">Collections & strings</a></p>
+<pre class="fnsig">result = <code>pack(values, spec, [endian="little"])</code></pre>
+<p class="fnnote">Input: values, spec, endian &middot; Output: result</p>
 <h2>What it is</h2>
-<p>No chapter describes this one yet. It exists -- the name comes from the interpreter's own table -- but the prose has not been written. That is a gap in the documentation, not in the engine.</p>
+<p><code>values</code> is a vector of numbers; <code>spec</code> is a comma- or space-separated field list of <code>u8 i8 u16 i16 u32 i32 u64 i64 f32 f64</code> (a count prefix repeats a field: <code>"4u8"</code>).</p>
 <h2>Overloads</h2>
 <p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
 <div class="tablewrap"><table class="iotable">
 <tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
-<tr><td class="iocode"><code></code></td><td><span class="ionone">no input</span></td><td><span class="ionone">not documented yet</span></td><td>&mdash;</td></tr>
+<tr><td class="iocode"><code>result = pack(values, spec, [endian="little"])</code></td><td><div class="ioitem"><code>values</code> <span class="iotype">vector or number</span><span class="iodesc"><code>values</code> is a vector of numbers.</span></div>
+<div class="ioitem"><code>spec</code> <span class="iotype">&mdash;</span><span class="iodesc"><code>spec</code> is a comma- or space-separated field list of <code>u8 i8 u16 i16 u32 i32 u64 i64 f32 f64</code> (a count prefix repeats a field: <code>"4u8"</code>).</span></div>
+<div class="ioitem"><code>endian</code> <span class="iotype">optional (default <code>"little"</code>)</span><span class="iodesc"><code>endian="big"</code> (or <code>"network"</code>) gives the wire order.</span></div>
+</td><td><div class="ioitem"><code>endian="big"</code> <span class="iotype">&mdash;</span><span class="iodesc">or <code>"network"</code></span></div>
+</td><td>Returns a byte buffer, a <code>Vec</code> of integers in <code>0..=255</code>. <code>endian="big"</code> (or <code>"network"</code>) gives the wire order; the default is little-endian. The number of values must equal the number of fields, and a value that does not fit its field is an error rather than being truncated. <code>pack([1, -2, 300], "i16,i16,i16")</code> is <code>[1, 0, 254, 255, 44, 1]</code>.</td></tr>
 </table></div>
 <h3>Examples</h3>
-<p class="fnnote">No documentation example calls this form yet.</p>
+<p class="fnnote">No documentation example calls this form yet. The <a href="../docs/collections-strings.html">Collections & strings</a> chapter is where one belongs.</p>
 </main>
 </div>
 <footer><div class="wrap">

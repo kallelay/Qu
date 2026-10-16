@@ -30,17 +30,16 @@
 <h1>stft</h1>
 <nav class="onthispage"></nav>
 <p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/signal-processing.html">Signal processing</a></p>
-<pre class="fnsig">result = <code>stft(x, nfft, [hop=nfft/2])</code></pre>
-<p class="fnnote">Input: x, nfft, hop &middot; Output: result</p>
+<pre class="fnsig">result = <code>stft(x, nfft[, hop])</code></pre>
+<p class="fnnote">Input: x, nfft[, hop] &middot; Output: result</p>
 <h2>What it is</h2>
-<p><code>x</code> is a length-N real vector; <code>nfft</code> (number) is the frame/FFT size; <code>hop</code> (optional number, default <code>nfft/2</code>, i.e. 50% overlap) is the sample stride between successive frame starts.</p>
+<p><code>x</code> is a length-N real vector; <code>nfft</code> (number) is the frame/FFT size; <code>hop</code> (optional <strong>positional</strong> number -- <code>hop=</code> as a keyword is not accepted; default <code>nfft/2</code>, i.e. 50% overlap) is the sample stride between successive frame starts.</p>
 <h2>Overloads</h2>
 <p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
 <div class="tablewrap"><table class="iotable">
 <tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
-<tr><td class="iocode"><code>result = stft(x, nfft, [hop=nfft/2])</code></td><td><div class="ioitem"><code>x</code> <span class="iotype">vector</span><span class="iodesc"><code>x</code> is a length-N real vector.</span></div>
-<div class="ioitem"><code>nfft</code> <span class="iotype">number</span><span class="iodesc"><code>nfft</code> (number) is the frame/FFT size.</span></div>
-<div class="ioitem"><code>hop</code> <span class="iotype">number, optional (default <code>nfft/2</code>)</span><span class="iodesc"><code>hop</code> (optional number, default <code>nfft/2</code>, i.e.</span></div>
+<tr><td class="iocode"><code>result = stft(x, nfft[, hop])</code></td><td><div class="ioitem"><code>x</code> <span class="iotype">vector</span><span class="iodesc"><code>x</code> is a length-N real vector.</span></div>
+<div class="ioitem"><code>nfft[, hop]</code> <span class="iotype">&mdash;</span><span class="iogap">not documented yet</span></div>
 </td><td><div class="ioitem"><code>result</code> <span class="iotype">matrix or CMat</span></div>
 </td><td>Returns an <code>nfft</code>×<code>num_frames</code> complex matrix (<code>CMat</code>, the full per-frame spectrum, not one-sided) — one column per frame, built from a periodic-Hann-windowed FFT per frame. <code>abs(stft(x, ...))</code> is a spectrogram.</td></tr>
 </table></div>
