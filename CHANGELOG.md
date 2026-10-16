@@ -10,6 +10,14 @@ changes are called out.
 
 ## [Unreleased]
 
+## [0.4.10] - 2026-10-16
+
+Dense `qr`, `svd` and `eig` are 3.7-5x faster at 1000x1000 (within 1.1-1.35x of single-thread NumPy); the interpreter is faster at calls, record reads and in-place variable writes; `dict` is O(n) instead of O(n^2); errors in imported files name the right file; `qu test --timeout`; unterminated strings are parse errors; the Windows installers find editors the way `qu editors` does and show where each was found; editor grammars 0.2.1.
+
+- Both Windows installers (CLI and Studio) detect VS Code, VSCodium, Cursor, Windsurf, Sublime Text and Notepad++ the way `qu editors detect` does -- App Paths under both exe spellings, the Uninstall keys of both registry views, then Program Files/Programs folders -- and show where each was found on the Components page. The old probe read one App Paths spelling, so editors that register only through Uninstall keys (VSCodium, Cursor and Sublime here) showed no location.
+- Docs: book rows and function pages for `pack`, `unpack`, `swap_endian` and `crc32` (they had none); regenerated builtin table and index.
+- Tests: the `--max-time` and `qu test --timeout` hang scripts do real work per iteration; a bare `x = x + 1` loop now reaches the 10M-iteration safety stop in under a second.
+
 - Dense `qr`, `svd`, `eig` are blocked/faster on large matrices (cutoffs: QR from 144, SVD and symmetric eig from 128, general eig from 32; smaller sizes use the old kernels). The general (non-symmetric) eigenvalue path now stops after a bounded number of Schur iterations instead of looping, and eigenvalue ORDER can differ from earlier versions for some matrices -- sort before comparing. Paired against the old kernels and single-thread NumPy in `docs/perf-0.4.9.md` (1000x1000: qr 4.9x, svd 4.8x, symmetric eig 4.3x, general eig 3.7x faster, within 1.1-1.35x of NumPy; at 100x100 the symmetric/QR/SVD paths are unchanged within noise).
 - Errors inside an imported file now name that file: a trace used to print the main script's name with the imported file's line number (`main.qu:5 in wrap()` for line 5 of `helpers.qu`). `Stmt::SourceLine` markers carry a file tag, so every frame of `error_trace`, `e.file`, `e.line` and `e.trace` shows `helpers.qu:5` (the path relative to the main script, or the bundled name in a `qu build` binary).
 - `qu test --timeout <secs>` (default 60, 0 = none): every test runs in its own child `qu` process, so a hung test is killed alone and reported `FAILED (timeout)` while the run continues; each test also starts from a fresh interpreter. With `--timeout 0` the in-process interpreter is replaced after an interpreter panic so a panic cannot corrupt the next test.
