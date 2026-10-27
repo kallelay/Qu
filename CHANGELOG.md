@@ -10,6 +10,14 @@ changes are called out.
 
 ## [Unreleased]
 
+## [0.4.11] - 2026-10-27
+
+Qu Studio shows a script's output while it runs and has a Stop button; scripts run from their own folder; dropping a file onto the Windows window opens it again; PDF `Highlight`/`Underline`/`StrikeOut`/`Squiggly` annotations draw; the quickstart explains `pdf.render`'s PDFium setup.
+
+- Qu Studio runs a script with its own folder as the working directory, so `list_dir("projects")`, `read_csv("data.csv")` or a relative import written next to the script resolve (they used to resolve against whichever folder Studio was started from, which is how a script that works from the command line failed with "could not read `projects`" in Studio). `qu kernel` takes `"cwd"` on a `run` request; Studio sends the folder of the active file, and its path as `"file"` so a trace names the real file.
+- Qu Studio on Windows: dropping a file onto the window now goes through the web view's own drop handling (`fileDropEnabled: false` in `tauri.windows.conf.json`). The native handler Tauri 1 installs accepted the drop (the copy cursor showed) and then delivered nothing on current WebView2, so nothing opened. Dropped files open as before (`.qu`, `.svg`, `.pdf`, text); the one difference is that a dropped file has no path on disk, so the first Save asks where to save. Opening a file with the Open button, the file tree or `Qu Studio.exe "path"` is unchanged and keeps the path.
+- CI: the Studio smoke-render job is pinned to `ubuntu-24.04` (`ubuntu-latest` is 26.04, where Playwright 1.56 cannot install Chromium).
+
 - Qu Studio shows a script's output while it runs, and has a **Stop** button. The Run button used to hold everything a script printed until the script ended, so a long-running one (a monitor loop, a serial reader) showed only `> Executing...`, and a script that never ended could not be stopped at all (Restart was disabled mid-run and could not reach a running kernel). `qu kernel` now takes `"stream": true` on a `run` request and sends each chunk of output as `{"op":"out","text":...}` as it is produced; Studio forwards them to the terminal (batched, so a script printing thousands of lines a second does not freeze the window; the terminal keeps the newest 5000 lines). Stop ends the interpreter at once (about 60 ms); session variables from earlier runs are cleared, as with Restart. Note `sleep` takes milliseconds.
 
 - `pdf.add_annotation` now draws `Highlight`, `Underline`, `StrikeOut` and `Squiggly`: it writes `/QuadPoints` from `rect=` and a default colour (a `Highlight` used to exist in the file but render as nothing); new optional `color=[r, g, b]` for any type; annotations are flagged printable. Docs: pages are counted from 1 (the signatures said `page_index`), and the quickstart explains that `pdf.render` needs PDFium (`pdfium.dll` / `libpdfium.so` / `libpdfium.dylib` next to `qu`, or `QU_PDFIUM`).

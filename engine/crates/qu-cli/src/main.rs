@@ -1901,6 +1901,15 @@ fn cmd_kernel() -> Result<(), String> {
                 // script that never finishes shows nothing ever. The final
                 // response then carries an empty `output`: everything was
                 // already sent.
+                // `"cwd"`: run with this as the working directory (Qu Studio
+                // sends the folder of the file being run, so `projects/` or an
+                // import written relative to the script resolves). Ignored
+                // when it is empty or not a folder.
+                if let Some(dir) = req.get("cwd").and_then(|v| v.as_str()) {
+                    if !dir.is_empty() && std::path::Path::new(dir).is_dir() {
+                        let _ = std::env::set_current_dir(dir);
+                    }
+                }
                 let stream = req.get("stream").and_then(|v| v.as_bool()).unwrap_or(false);
                 if stream {
                     // Empty what earlier runs left in `out` (a no-op sink),

@@ -100,3 +100,22 @@ fn a_streamed_error_still_reports_the_error_and_the_output_before_it() {
     assert!(fin["error"].as_str().unwrap().contains("undefined_thing"), "{fin}");
     let _ = child.kill();
 }
+
+#[test]
+fn a_run_with_cwd_resolves_relative_paths_next_to_that_folder() {
+    let dir = std::env::temp_dir().join(format!("qu_kernel_cwd_{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let mut child = start();
+    let mut rd = BufReader::new(child.stdout.take().unwrap());
+    send(
+        &mut child,
+        serde_json::json!({"op": "run", "cwd": dir.to_string_lossy(), "code": "write_text(\"marker.txt\", \"here\")"}),
+    );
+    let mut line = String::new();
+    rd.read_line(&mut line).unwrap();
+    let v: serde_json::Value = serde_json::from_str(&line).unwrap();
+    assert_eq!(v["success"], true, "{v}");
+    assert!(dir.join("marker.txt").exists(), "relative write did not land in the cwd folder");
+    let _ = child.kill();
+    let _ = std::fs::remove_dir_all(&dir);
+}

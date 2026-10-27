@@ -830,6 +830,11 @@ function App() {
     try { localStorage.setItem(REPL_MODE_KEY, replMode); } catch { /* per-viewer convenience only */ }
   }, [replMode]);
   const sessionOf = (tab: FileTab | null) => (tab ? tab.path || `tab:${tab.id}` : 'shared');
+  // The file being run, for the interpreter's working directory: a script
+  // that reads `projects/` or imports a sibling file means the folder it
+  // lives in, not wherever Studio happened to be started from.
+  const activePathRef = useRef<string | null>(null);
+  activePathRef.current = currentTab?.path ?? null;
   const replSession = replMode === 'shared' ? 'shared' : sessionOf(currentTab);
   const replSessionRef = useRef(replSession);
   replSessionRef.current = replSession;
@@ -1186,9 +1191,13 @@ function App() {
       // `variables`/`data`/`plots` in the response are therefore the whole
       // session's ACCUMULATED state so far, not just this call's delta --
       // see `kernel_run_response`'s doc comment on the Rust side.
+      const filePath = activePathRef.current;
+      const cut = filePath ? Math.max(filePath.lastIndexOf('/'), filePath.lastIndexOf(String.fromCharCode(92))) : -1;
       const response = await invoke<ExecuteResponse>('repl_run', {
         code: codeToRun,
         session,
+        cwd: filePath && cut > 0 ? filePath.slice(0, cut) : null,
+        file: filePath,
       });
 
       const elapsed = performance.now() - start;

@@ -281,6 +281,8 @@ pub async fn repl_run(
     app: tauri::AppHandle,
     code: String,
     session: Option<String>,
+    cwd: Option<String>,
+    file: Option<String>,
     state: State<'_, ReplState>,
 ) -> Result<ExecuteResponse, String> {
     let start = std::time::Instant::now();
@@ -294,7 +296,12 @@ pub async fn repl_run(
 
     // `"stream": true`: output reaches the window while the script runs
     // (`qu-run-output` events), so a long or endless script is not silent.
-    let request = serde_json::json!({ "op": "run", "code": code, "stream": true });
+    // `cwd`/`file`: the folder and name of the file being run, so relative
+    // paths in the script resolve next to it and a trace names the file.
+    let request = serde_json::json!({
+        "op": "run", "code": code, "stream": true,
+        "cwd": cwd.unwrap_or_default(), "file": file.unwrap_or_default(),
+    });
     state.running.lock().unwrap().insert(key.clone(), kernel.child.pid());
     let result = kernel_request(&mut kernel, &request, Some((&app, key.as_str()))).await;
     state.running.lock().unwrap().remove(&key);
