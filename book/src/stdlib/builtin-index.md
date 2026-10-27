@@ -1446,7 +1446,7 @@ leaves the qualified one available too.
 | [`docx.split_cell`](../fn/docx.split_cell.html) | Undoes a merge: the merged cell containing grid cell (`row`,`col`) becomes its individual cells again, the text staying in the top-left one | [File I/O](file-io.md) |
 | [`docx.track_delete`](../fn/docx.track_delete.html) | Marks text in body paragraph `i` as a tracked deletion (`w:del`, the text kept as `w:delText`): the first occurrence of `on`, every occurrence with `all=true`, or all of the paragraph --.. | [File I/O](file-io.md) |
 | [`docx.track_insert`](../fn/docx.track_insert.html) | Inserts `text` into body paragraph `i` as a tracked insertion (`w:ins` by `author`, ISO 8601 `date`, default now): directly after the first occurrence of `after`, directly before the first.. | [File I/O](file-io.md) |
-| [`pdf.add_annotation`](../fn/pdf.add_annotation.html) | Adds a simple annotation to a page | [File I/O](file-io.md) |
+| [`pdf.add_annotation`](../fn/pdf.add_annotation.html) | Adds a simple annotation to a page (`page` counts from 1) | [File I/O](file-io.md) |
 | [`pdf.add_attachment`](../fn/pdf.add_attachment.html) | Embeds a file under `filename` | [File I/O](file-io.md) |
 | [`pdf.add_bookmark`](../fn/pdf.add_bookmark.html) | Adds a new outline entry titled `title`, pointing at `page_index` (one-based) | [File I/O](file-io.md) |
 | [`pdf.add_link`](../fn/pdf.add_link.html) | Adds a `/Link` annotation over `rect=` that jumps to `target_page=` (one-based) of the SAME document | [File I/O](file-io.md) |

@@ -10,6 +10,10 @@ changes are called out.
 
 ## [Unreleased]
 
+- Qu Studio shows a script's output while it runs, and has a **Stop** button. The Run button used to hold everything a script printed until the script ended, so a long-running one (a monitor loop, a serial reader) showed only `> Executing...`, and a script that never ended could not be stopped at all (Restart was disabled mid-run and could not reach a running kernel). `qu kernel` now takes `"stream": true` on a `run` request and sends each chunk of output as `{"op":"out","text":...}` as it is produced; Studio forwards them to the terminal (batched, so a script printing thousands of lines a second does not freeze the window; the terminal keeps the newest 5000 lines). Stop ends the interpreter at once (about 60 ms); session variables from earlier runs are cleared, as with Restart. Note `sleep` takes milliseconds.
+
+- `pdf.add_annotation` now draws `Highlight`, `Underline`, `StrikeOut` and `Squiggly`: it writes `/QuadPoints` from `rect=` and a default colour (a `Highlight` used to exist in the file but render as nothing); new optional `color=[r, g, b]` for any type; annotations are flagged printable. Docs: pages are counted from 1 (the signatures said `page_index`), and the quickstart explains that `pdf.render` needs PDFium (`pdfium.dll` / `libpdfium.so` / `libpdfium.dylib` next to `qu`, or `QU_PDFIUM`).
+
 ## [0.4.10] - 2026-10-16
 
 Dense `qr`, `svd` and `eig` are 3.7-5x faster at 1000x1000 (within 1.1-1.35x of single-thread NumPy); the interpreter is faster at calls, record reads and in-place variable writes; `dict` is O(n) instead of O(n^2); errors in imported files name the right file; `qu test --timeout`; unterminated strings are parse errors; the Windows installers find editors the way `qu editors` does and show where each was found; editor grammars 0.2.1.

@@ -43,11 +43,11 @@
 
 use crate::{find_qu_executable, ExecuteResponse, PlotVar, VariableInfo, QU_EXE_NAME};
 use base64::Engine as _;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::Mutex;
 use tauri::api::process::{CommandChild, CommandEvent};
 use tauri::async_runtime::Receiver;
-use tauri::State;
+use tauri::{Manager, State};
 
 struct ReplKernel {
     child: CommandChild,
@@ -60,6 +60,14 @@ struct ReplKernel {
 #[derive(Default)]
 pub struct ReplState {
     inner: Mutex<HashMap<String, ReplKernel>>,
+    /// Process id of each session's kernel WHILE a run is in flight. The
+    /// kernel itself is out of `inner` for that time (see the locking note
+    /// in the module doc), so `repl_stop` could not reach it there; this is
+    /// how it finds the process to end.
+    running: Mutex<HashMap<String, u32>>,
+    /// Sessions whose run `repl_stop` ended on purpose, so the run's
+    /// "the kernel exited" failure is reported as a stop, not an error.
+    stopped: Mutex<HashSet<String>>,
 }
 
 /// The session a call without one belongs to: everything, in shared mode.
@@ -101,6 +109,7 @@ fn spawn_kernel() -> Result<ReplKernel, String> {
 async fn kernel_request(
     kernel: &mut ReplKernel,
     request: &serde_json::Value,
+    live: Option<(&tauri::AppHandle, &str)>,
 ) -> Result<serde_json::Value, String> {
     let mut line = serde_json::to_string(request).map_err(|e| e.to_string())?;
     line.push('\n');
@@ -112,9 +121,65 @@ async fn kernel_request(
     loop {
         match kernel.rx.recv().await {
             Some(CommandEvent::Stdout(resp_line)) => {
-                return serde_json::from_str(&resp_line).map_err(|e| {
+                let v: serde_json::Value = serde_json::from_str(&resp_line).map_err(|e| {
                     format!("bad response from `qu kernel`: {} (line was: {:?})", e, resp_line)
-                });
+                })?;
+                // A streamed run sends its output as `{"op":"out","text":..}`
+                // lines before the one real response. Each goes to the window
+                // now -- but whatever is already queued behind it is gathered
+                // into the SAME event, so a script that prints thousands of
+                // lines a second costs a handful of events, not thousands
+                // (one per line froze the window).
+                if v.get("op").and_then(|o| o.as_str()) == Some("out") {
+                    let mut text = v.get("text").and_then(|t| t.as_str()).unwrap_or("").to_string();
+                    let mut ended: Option<Result<serde_json::Value, String>> = None;
+                    loop {
+                        match kernel.rx.try_recv() {
+                            Ok(CommandEvent::Stdout(l)) => match serde_json::from_str::<serde_json::Value>(&l) {
+                                Ok(n) if n.get("op").and_then(|o| o.as_str()) == Some("out") => {
+                                    text.push_str(n.get("text").and_then(|t| t.as_str()).unwrap_or(""));
+                                }
+                                Ok(n) => {
+                                    ended = Some(Ok(n));
+                                    break;
+                                }
+                                Err(e) => {
+                                    ended = Some(Err(format!("bad response from `qu kernel`: {} (line was: {:?})", e, l)));
+                                    break;
+                                }
+                            },
+                            Ok(CommandEvent::Stderr(err_line)) => {
+                                eprintln!("qu-studio: qu kernel stderr: {}", err_line);
+                            }
+                            Ok(CommandEvent::Error(e)) => {
+                                ended = Some(Err(format!("`qu kernel` process error: {}", e)));
+                                break;
+                            }
+                            Ok(CommandEvent::Terminated(payload)) => {
+                                ended = Some(Err(format!(
+                                    "`qu kernel` process exited unexpectedly (code {:?})",
+                                    payload.code
+                                )));
+                                break;
+                            }
+                            Ok(_) => {}
+                            Err(_) => break,
+                        }
+                    }
+                    if let Some((app, session)) = live {
+                        if !text.is_empty() {
+                            let _ = app.emit_all(
+                                "qu-run-output",
+                                serde_json::json!({"session": session, "text": text}),
+                            );
+                        }
+                    }
+                    match ended {
+                        Some(r) => return r,
+                        None => continue,
+                    }
+                }
+                return Ok(v);
             }
             Some(CommandEvent::Stderr(err_line)) => {
                 eprintln!("qu-studio: qu kernel stderr: {}", err_line);
@@ -213,6 +278,7 @@ fn parse_run_response(v: serde_json::Value, elapsed_ms: f64) -> ExecuteResponse 
 /// broken.
 #[tauri::command]
 pub async fn repl_run(
+    app: tauri::AppHandle,
     code: String,
     session: Option<String>,
     state: State<'_, ReplState>,
@@ -226,8 +292,13 @@ pub async fn repl_run(
     }
     let mut kernel = kernel.expect("just ensured Some above");
 
-    let request = serde_json::json!({ "op": "run", "code": code });
-    let result = kernel_request(&mut kernel, &request).await;
+    // `"stream": true`: output reaches the window while the script runs
+    // (`qu-run-output` events), so a long or endless script is not silent.
+    let request = serde_json::json!({ "op": "run", "code": code, "stream": true });
+    state.running.lock().unwrap().insert(key.clone(), kernel.child.pid());
+    let result = kernel_request(&mut kernel, &request, Some((&app, key.as_str()))).await;
+    state.running.lock().unwrap().remove(&key);
+    let was_stopped = state.stopped.lock().unwrap().remove(&key);
     let elapsed_ms = start.elapsed().as_secs_f64() * 1000.0;
 
     match result {
@@ -244,7 +315,11 @@ pub async fn repl_run(
             Ok(ExecuteResponse {
                 success: false,
                 output: String::new(),
-                error: Some(e),
+                error: Some(if was_stopped {
+                    "Stopped. The interpreter was ended, so variables from earlier runs are gone.".to_string()
+                } else {
+                    e
+                }),
                 elapsed_ms,
                 plots: Vec::new(),
                 variables: Vec::new(),
@@ -252,6 +327,52 @@ pub async fn repl_run(
                 reports: Vec::new(),
             })
         }
+    }
+}
+
+/// Ends the run that is in flight for `session`, if any, by ending its
+/// kernel process (an interpreter stuck in a loop cannot be asked nicely).
+/// The pending `repl_run` then returns a "Stopped" response, and the next
+/// Run starts a fresh interpreter. A no-op when nothing is running.
+#[tauri::command]
+pub fn repl_stop(session: Option<String>, state: State<ReplState>) -> Result<bool, String> {
+    let key = session_key(session);
+    let pid = state.running.lock().unwrap().get(&key).copied();
+    let Some(pid) = pid else { return Ok(false) };
+    state.stopped.lock().unwrap().insert(key);
+    // The pid is the kernel this module itself spawned for the run.
+    // Windows: end it directly with the API (no helper process, no tree
+    // walk -- `taskkill /T` took over five seconds from inside the app).
+    #[cfg(windows)]
+    let status: std::io::Result<std::process::ExitStatus> = {
+        use std::os::windows::process::ExitStatusExt;
+        extern "system" {
+            fn OpenProcess(access: u32, inherit: i32, pid: u32) -> *mut std::ffi::c_void;
+            fn TerminateProcess(handle: *mut std::ffi::c_void, code: u32) -> i32;
+            fn CloseHandle(handle: *mut std::ffi::c_void) -> i32;
+        }
+        const PROCESS_TERMINATE: u32 = 0x0001;
+        // Safety: plain Win32 calls on a handle opened here and closed here.
+        let ok = unsafe {
+            let h = OpenProcess(PROCESS_TERMINATE, 0, pid);
+            if h.is_null() {
+                false
+            } else {
+                let r = TerminateProcess(h, 1) != 0;
+                CloseHandle(h);
+                r
+            }
+        };
+        Ok(std::process::ExitStatus::from_raw(if ok { 0 } else { 1 }))
+    };
+    #[cfg(not(windows))]
+    let status = std::process::Command::new("kill")
+        .args(["-9", &pid.to_string()])
+        .status();
+    match status {
+        Ok(s) if s.success() => Ok(true),
+        Ok(s) => Err(format!("could not end the running script (exit {s})")),
+        Err(e) => Err(format!("could not end the running script: {e}")),
     }
 }
 

@@ -15140,7 +15140,18 @@ impl Interp {
                     Some((_, v)) => Some(pdf_value_str(v, short, "text=")?),
                     None => None,
                 };
-                let out = qu_pdf::add_annotation(&bytes, page, &kind, rect, text.as_deref())
+                let color = match style_entry(style, "color") {
+                    Some((_, Value::Vec(xs))) if xs.len() == 3 && xs.iter().all(|c| (0.0..=1.0).contains(c)) => {
+                        Some([xs[0], xs[1], xs[2]])
+                    }
+                    Some(_) => {
+                        return e(format!(
+                            "{short}: color= is [r, g, b] with each value between 0 and 1"
+                        ))
+                    }
+                    None => None,
+                };
+                let out = qu_pdf::add_annotation_with(&bytes, page, &kind, rect, text.as_deref(), color)
                     .map_err(|msg| EvalError { msg: format!("{short}: {msg}") })?;
                 self.pdf_deliver(out, None, short)
             }

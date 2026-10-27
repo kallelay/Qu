@@ -15,7 +15,7 @@ mod serial_protocol;
 mod seriplot;
 use seriplot::{seriplot_ports, seriplot_start, seriplot_stop, seriplot_poll, seriplot_record, seriplot_buffer};
 mod repl_bridge;
-use repl_bridge::{repl_close, repl_restart, repl_run, ReplState};
+use repl_bridge::{repl_close, repl_restart, repl_run, repl_stop, ReplState};
 mod startup;
 use startup::{get_startup_file, open_in_system, StartupFile};
 use llm_bridge::{
@@ -1263,6 +1263,7 @@ fn main() {
             execute_code,
             repl_run,
             repl_restart,
+            repl_stop,
             repl_close,
             save_figures,
             check_syntax,

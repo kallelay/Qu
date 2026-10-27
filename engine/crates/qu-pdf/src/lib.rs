@@ -1776,6 +1776,26 @@ pub fn add_annotation(
     rect: [f64; 4],
     text: Option<&str>,
 ) -> Result<Vec<u8>, String> {
+    add_annotation_with(bytes, page, subtype, rect, text, None)
+}
+
+/// `add_annotation` with an explicit colour (`/C`, RGB in 0..1).
+///
+/// The text-markup subtypes (`Highlight`, `Underline`, `StrikeOut`,
+/// `Squiggly`) are drawn from `/QuadPoints`, not `/Rect`: without them a
+/// viewer has nothing to paint and the annotation exists in the file but is
+/// invisible (PDFium renders such a page identically to the unannotated
+/// one). So those four get `/QuadPoints` taken from the rect and a default
+/// colour (yellow, green, red, red) when none is given. Every annotation is
+/// also flagged printable (`/F 4`).
+pub fn add_annotation_with(
+    bytes: &[u8],
+    page: u32,
+    subtype: &str,
+    rect: [f64; 4],
+    text: Option<&str>,
+    color: Option<[f64; 3]>,
+) -> Result<Vec<u8>, String> {
     let mut doc = load(bytes)?;
     let page_id = require_page(&doc, page)?;
 
@@ -1783,9 +1803,25 @@ pub fn add_annotation(
         "Type" => "Annot",
         "Subtype" => Object::Name(subtype.as_bytes().to_vec()),
         "Rect" => rect_to_array(rect),
+        "F" => 4,
     };
     if let Some(t) = text {
         dict.set("Contents", Object::string_literal(encode_pdf_text(t)));
+    }
+    let default_color = match subtype {
+        "Highlight" => Some([1.0, 1.0, 0.0]),
+        "Underline" => Some([0.0, 0.6, 0.0]),
+        "StrikeOut" | "Squiggly" => Some([1.0, 0.0, 0.0]),
+        _ => None,
+    };
+    if matches!(subtype, "Highlight" | "Underline" | "StrikeOut" | "Squiggly") {
+        let (x0, x1) = (rect[0].min(rect[2]), rect[0].max(rect[2]));
+        let (y0, y1) = (rect[1].min(rect[3]), rect[1].max(rect[3]));
+        // Top-left, top-right, bottom-left, bottom-right: the order viewers read.
+        dict.set("QuadPoints", rect_to_array([x0, y1, x1, y1]).into_iter().chain(rect_to_array([x0, y0, x1, y0])).collect::<Vec<_>>());
+    }
+    if let Some(c) = color.or(default_color) {
+        dict.set("C", c.iter().map(|&v| Object::from(v)).collect::<Vec<_>>());
     }
     let annot_id = doc.add_object(dict);
     push_annot(&mut doc, page_id, annot_id);
@@ -2862,6 +2898,31 @@ mod tests {
         assert_eq!(rows[0].subtype, "Text");
         assert_eq!(rows[0].rect, rect);
         assert_eq!(rows[0].contents.as_deref(), Some("a note"));
+    }
+
+    #[test]
+    fn text_markup_annotations_carry_quadpoints_and_a_colour_so_they_draw() {
+        let src = build_pdf(1, None);
+        let out = add_annotation(&src, 1, "Highlight", [10.0, 20.0, 110.0, 60.0], Some("hl")).unwrap();
+        let doc = load(&out).unwrap();
+        let page_id = require_page(&doc, 1).unwrap();
+        let items = annots_owned(&doc, page_id);
+        let Object::Reference(id) = items[0] else { panic!("annotation is not a reference") };
+        let d = doc.get_dictionary(id).unwrap();
+        let quad: Vec<f64> = d.get(b"QuadPoints").unwrap().as_array().unwrap().iter().map(|o| o.as_float().unwrap() as f64).collect();
+        assert_eq!(quad, vec![10.0, 60.0, 110.0, 60.0, 10.0, 20.0, 110.0, 20.0]);
+        let c: Vec<f64> = d.get(b"C").unwrap().as_array().unwrap().iter().map(|o| o.as_float().unwrap() as f64).collect();
+        assert_eq!(c, vec![1.0, 1.0, 0.0], "a highlight defaults to yellow");
+
+        // An explicit colour wins, and a non-markup type gets no QuadPoints.
+        let out = add_annotation_with(&src, 1, "Square", [0.0, 0.0, 50.0, 50.0], None, Some([0.0, 0.0, 1.0])).unwrap();
+        let doc = load(&out).unwrap();
+        let page_id = require_page(&doc, 1).unwrap();
+        let Object::Reference(id) = annots_owned(&doc, page_id)[0] else { panic!() };
+        let d = doc.get_dictionary(id).unwrap();
+        assert!(d.get(b"QuadPoints").is_err());
+        let c: Vec<f64> = d.get(b"C").unwrap().as_array().unwrap().iter().map(|o| o.as_float().unwrap() as f64).collect();
+        assert_eq!(c, vec![0.0, 0.0, 1.0]);
     }
 
     #[test]

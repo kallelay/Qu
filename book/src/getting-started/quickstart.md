@@ -703,6 +703,33 @@ macOS). On Linux the web view has none, so the pane shows a notice with
 an **Open in system viewer** button instead. Files over 200 MB (viewers)
 or 50 MB (text) are refused with a message.
 
+## PDF page rendering needs PDFium
+
+Everything in `import pdf` that reads or edits a document's structure, text,
+pages, bookmarks, annotations and attachments is built in. `pdf.render`, which
+turns a page into an image, is the one exception: it uses Google's PDFium,
+which Qu loads when you first call it rather than shipping it.
+
+1. Download the build for your platform from
+   github.com/bblanchon/pdfium-binaries (`pdfium-win-x64.tgz`,
+   `pdfium-linux-x64.tgz`, `pdfium-mac-arm64.tgz`, ... -- the plain ones, not
+   the `v8` ones).
+2. Unpack it and copy `bin/pdfium.dll` (Windows), `lib/libpdfium.so` (Linux)
+   or `lib/libpdfium.dylib` (macOS) **next to the `qu` program** -- for the
+   Windows installers that is the install folder, beside `qu.exe`. Or set the
+   `QU_PDFIUM` environment variable to the file or its folder.
+3. `import pdf` and `img = pdf.render("report.pdf", page=1, dpi=120)`.
+
+Without the library the call stops with an error that says exactly this.
+Nothing else in `import pdf` needs it.
+
+Annotations are editable from Qu itself: `pdf.add_annotation` takes `type=`
+(`"Text"` for a note, `"Square"`, `"Highlight"`, `"Underline"`, `"StrikeOut"`,
+`"Squiggly"`, ...), `rect=`, `text=` and an optional `color=[r, g, b]`;
+`pdf.annotations` lists them and `pdf.remove_annotation` removes one. They
+return the new file as bytes, so save with `bytes_write(path, ...)`. Pages are
+counted from 1.
+
 ## Where to go from here
 
 - **[Book 1 — Fundamentals](book1-fundamentals.md)**, **[Book 2 —

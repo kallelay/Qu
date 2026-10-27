@@ -30,17 +30,17 @@
 <h1>pdf.annotations</h1>
 <nav class="onthispage"></nav>
 <p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/file-io.html">File I/O</a></p>
-<pre class="fnsig"><code>pdf.annotations(src, page_index)</code></pre>
-<p class="fnnote">Input: src, page_index &middot; Output: no output</p>
+<pre class="fnsig"><code>pdf.annotations(src, page)</code></pre>
+<p class="fnnote">Input: src, page &middot; Output: no output</p>
 <h2>What it is</h2>
 <p>A page's annotations as a <code>List</code> of <code>Record</code>s: <code>index</code> (<code>Num</code>, the handle <code>pdf.remove_annotation</code> takes), <code>type</code> (<code>Str</code>, the annotation's <code>/Subtype</code> verbatim — <code>"Text"</code>, <code>"Square"</code>, <code>"Highlight"</code>, <code>"Link"</code>, ...), <code>rect</code> (<code>Vec</code> of 4 numbers, <code>[x0, y0, x1, y1]</code>), and <code>text</code> (<code>Str</code>, or <code>none</code> where the annotation carries no <code>/Contents</code>). An empty <code>List</code>, not an error, for a page with none.</p>
 <h2>Overloads</h2>
 <p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
 <div class="tablewrap"><table class="iotable">
 <tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
-<tr><td class="iocode"><code>pdf.annotations(src, page_index)</code></td><td><div class="ioitem"><code>src</code> <span class="iotype">&mdash;</span><span class="iogap">not documented yet</span></div>
-<div class="ioitem"><code>page_index</code> <span class="iotype">&mdash;</span><span class="iogap">not documented yet</span></div>
-</td><td><span class="ionone">not documented yet</span></td><td>A page's annotations as a <code>List</code> of <code>Record</code>s: <code>index</code> (<code>Num</code>, the handle <code>pdf.remove_annotation</code> takes), <code>type</code> (<code>Str</code>, the annotation's <code>/Subtype</code> verbatim — <code>"Text"</code>, <code>"Square"</code>, <code>"Highlight"</code>, <code>"Link"</code>, ...), <code>rect</code> (<code>Vec</code> of 4 numbers, <code>[x0, y0, x1, y1]</code>), and <code>text</code> (<code>Str</code>, or <code>none</code> where the annotation carries no <code>/Contents</code>). An empty <code>List</code>, not an error, for a page with none.</td></tr>
+<tr><td class="iocode"><code>pdf.annotations(src, page)</code></td><td><div class="ioitem"><code>src</code> <span class="iotype">&mdash;</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>page</code> <span class="iotype">List, Record, Num, Str, Vec, or number</span><span class="iodesc">A page's annotations as a <code>List</code> of <code>Record</code>s: <code>index</code> (<code>Num</code>, the handle <code>pdf.remove_annotation</code> takes), <code>type</code> (<code>Str</code>, the annotation's <code>/Subtype</code> verbatim — <code>"Text"</code>, <code>"Square"</code>, <code>"Highlight"</code>, <code>"Link"</code>, ...), <code>rect</code> (<code>Vec</code> of 4 numbers, <code>[x0, y0, x1, y1]</code>), and <code>text</code> (<code>Str</code>, or <code>none</code> where the annotation carries no <code>/Contents</code>).</span></div>
+</td><td><span class="ionone">not documented yet</span></td><td>&mdash;</td></tr>
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">No documentation example calls this form yet. The <a href="../docs/file-io.html">File I/O</a> chapter is where one belongs.</p>

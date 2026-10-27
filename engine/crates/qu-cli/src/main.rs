@@ -1893,9 +1893,37 @@ fn cmd_kernel() -> Result<(), String> {
                 // An optional `file` names the script the cell/buffer came
                 // from, so a trace reads `script.qu:12` rather than `line 12`.
                 let file = req.get("file").and_then(|v| v.as_str()).unwrap_or("");
+                // `"stream": true` (Qu Studio): output is sent as it is
+                // produced, one `{"op":"out","text":...}` line per chunk,
+                // instead of being held until the run ends -- a script that
+                // runs for a long time (a monitor loop, a serial reader)
+                // otherwise shows nothing at all until it finishes, and a
+                // script that never finishes shows nothing ever. The final
+                // response then carries an empty `output`: everything was
+                // already sent.
+                let stream = req.get("stream").and_then(|v| v.as_bool()).unwrap_or(false);
+                if stream {
+                    // Empty what earlier runs left in `out` (a no-op sink),
+                    // so only this run's output is streamed.
+                    it.out_sink = Some(Box::new(|_, _| {}));
+                    it.drain_out(false);
+                    it.out_sink = Some(Box::new(|text, _flush| {
+                        if text.is_empty() {
+                            return;
+                        }
+                        let out = io::stdout();
+                        write_kernel_response(&out, &serde_json::json!({"op": "out", "text": text}));
+                    }));
+                }
                 let before = it.out.len();
                 let run_result = it.run(code);
-                let output = it.out[before..].to_string();
+                let output = if stream {
+                    it.drain_out(true);
+                    it.out_sink = None;
+                    String::new()
+                } else {
+                    it.out[before..].to_string()
+                };
                 let (success, error) = match &run_result {
                     Ok(()) => (true, None),
                     // Qu Studio's terminal and the Jupyter kernel report this

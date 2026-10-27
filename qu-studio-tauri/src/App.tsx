@@ -33,6 +33,10 @@ import {
   History, BookOpen
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
+
+const MAX_TERMINAL_LINES = 5000;
+const capTerminal = (lines: string[]): string[] =>
+  lines.length > MAX_TERMINAL_LINES ? lines.slice(lines.length - MAX_TERMINAL_LINES) : lines;
 import { cn } from '@qu/ui-components';
 
 /** Resolves `catalogMeta`'s icon NAMES to real lucide components. Kept here
@@ -1165,6 +1169,7 @@ function App() {
     runToken.current += 1;
     const myToken = runToken.current;
     setExecutionState({ isRunning: true, progress: 0, error: null });
+    liveLineBuf.current = '';
     if (fromPrompt) {
       codeToRun.split('\n').forEach((l, i) => addTerminalLine(`${i === 0 ? 'qu>' : '...'} ${l}`));
     } else {
@@ -1221,6 +1226,12 @@ function App() {
       const producedReports = response.reports ?? [];
       if (producedReports.length > 0) setReportHtml(producedReports[producedReports.length - 1]);
 
+      // Whatever the live stream still holds, then its partial last line (no
+      // newline yet).
+      flushLive();
+      if (liveLineBuf.current.trim()) addTerminalLine(liveLineBuf.current);
+      liveLineBuf.current = '';
+
       // Show output
       if (response.output) {
         response.output.split('\n').forEach(line => {
@@ -1228,7 +1239,11 @@ function App() {
         });
       }
       
-      if (response.error) {
+      if (response.error && String(response.error).startsWith('Stopped.')) {
+        // The user ended the run with Stop: not a failure.
+        setExecutionState({ isRunning: false, progress: 100, error: null, elapsed_ms: elapsed });
+        addTerminalLine(`⏹ ${response.error}`);
+      } else if (response.error) {
         setExecutionState({
           isRunning: false,
           progress: 100,
@@ -1288,6 +1303,61 @@ function App() {
       setPromptInput(pos >= hist.length ? '' : hist[pos]);
     }
   }, [promptInput, submitPrompt]);
+
+  // Live output of the run in flight. The kernel sends each chunk as it is
+  // produced (`qu-run-output`), so a script that runs for a long time -- or
+  // forever, like a monitor loop -- shows its prints as they happen instead
+  // of nothing until it ends. Only whole lines are shown; a trailing partial
+  // line waits for its newline (or for the run to end).
+  const liveLineBuf = useRef('');
+  const liveQueue = useRef<string[]>([]);
+  const liveFlushTimer = useRef<number | null>(null);
+  // Adds everything queued so far in ONE state update (a fast script queues
+  // thousands of lines a second; one update each would freeze the window).
+  const flushLive = () => {
+    if (liveFlushTimer.current !== null) {
+      window.clearTimeout(liveFlushTimer.current);
+      liveFlushTimer.current = null;
+    }
+    const lines = liveQueue.current;
+    if (lines.length === 0) return;
+    liveQueue.current = [];
+    setTerminalLines((prev) => capTerminal(prev.concat(lines)));
+  };
+  useEffect(() => {
+    if (typeof (window as any).__TAURI_IPC__ === 'undefined') return;
+    let dead = false;
+    let un: (() => void) | null = null;
+    (async () => {
+      try {
+        const { listen } = await import('@tauri-apps/api/event');
+        const u = await listen<{ session: string; text: string }>('qu-run-output', (e) => {
+          if (e.payload?.session !== replSessionRef.current) return;
+          liveLineBuf.current += String(e.payload.text ?? '');
+          const parts = liveLineBuf.current.split(/\r?\n/);
+          liveLineBuf.current = parts.pop() ?? '';
+          parts.forEach((l) => { if (l.trim()) liveQueue.current.push(l); });
+          if (liveFlushTimer.current === null) {
+            liveFlushTimer.current = window.setTimeout(flushLive, 100);
+          }
+        });
+        if (dead) u(); else un = u;
+      } catch (err) {
+        console.error('live-output wiring failed:', err);
+      }
+    })();
+    return () => { dead = true; un?.(); };
+  }, []);
+
+  // Ends the run in flight (the kernel process is ended; the pending run
+  // returns "Stopped" and the next Run starts a fresh interpreter).
+  const stopRun = useCallback(async () => {
+    try {
+      await invoke('repl_stop', { session: replSessionRef.current });
+    } catch (error: any) {
+      addTerminalLine(`❌ Could not stop the script: ${error?.message ?? error}`, 'error');
+    }
+  }, []);
 
   // Restarts the Code editor Run button's persistent `qu kernel` (see
   // `repl_bridge.rs`'s `repl_restart`): kills the live interpreter and
@@ -1490,9 +1560,12 @@ function App() {
     executeCode(payload.prefixCode);
   }, [executeCode]);
 
+  // The terminal keeps the newest MAX_TERMINAL_LINES lines: every added
+  // line copies the list, so an endless, chatty script would otherwise make
+  // each print slower than the one before until the window stopped responding.
   const addTerminalLine = (line: string, type: 'info' | 'error' | 'success' = 'info') => {
     const prefix = type === 'error' ? '❌ ' : type === 'success' ? '✓ ' : '';
-    setTerminalLines(prev => [...prev, `${prefix}${line}`]);
+    setTerminalLines(prev => capTerminal([...prev, `${prefix}${line}`]));
   };
 
   const clearTerminal = () => setTerminalLines([]);
@@ -2552,6 +2625,19 @@ function App() {
               <Play size={16} />
             )}
             {executionState.isRunning ? 'Running…' : 'Run'}
+          </button>
+          )}
+
+          {/* Stop: a script can run for as long as it likes (a monitor loop
+              never ends on its own), so a run in flight can be ended. */}
+          {activeTab !== 'designer' && executionState.isRunning && (
+          <button
+            onClick={() => stopRun()}
+            className="qu-bar-button"
+            title="Stop the running script (ends the interpreter; session variables are cleared)"
+          >
+            <Square size={16} />
+            Stop
           </button>
           )}
 

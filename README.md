@@ -117,7 +117,9 @@ NMF, ARIMA, MLPs, and `jacobian`/`hessian`/`vmap` on the autodiff tape.
 in-place `import xlsx` editing (only the parts an edit touches are
 rewritten; `to_pdf` needs LibreOffice installed). `import pdf` reads
 structure and text, edits pages, bookmarks and annotations, and
-`pdf.render` rasterises a page through PDFium, loaded at run time. Image
+`pdf.render` rasterises a page through PDFium, loaded at run time (put
+`pdfium.dll` / `libpdfium.so` / `libpdfium.dylib` next to `qu`; see the
+quickstart, "PDF page rendering"). Image
 measurement, adaptive thresholding, morphology, watershed and drawing
 overlays (`import image` for the module functions); `save_svg`/`load_svg`
 and `import svg` shape constructors.
