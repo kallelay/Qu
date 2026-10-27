@@ -72,7 +72,9 @@ jobs:
 
   studio:
     name: Qu Studio (typecheck, smoke render)
-    runs-on: ubuntu-latest
+    # Pinned: ubuntu-latest moved to 26.04, which Playwright 1.56 cannot install
+    # Chromium on ("Playwright does not support chromium on ubuntu26.04-x64").
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
 
