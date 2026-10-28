@@ -4,6 +4,35 @@ export interface NumericVariable {
   shape: number[];
   /** Matrices use Qu's column-major storage. Null denotes a non-finite value. */
   data: (number | null)[];
+  /** Set when `data` is only a PREVIEW of a large variable (the first values,
+   *  exactly): `length` is the real element count, `stats` the min/max/mean
+   *  over ALL of it and `sample` a bounded `[index, value]` profile of ALL of
+   *  it (index counts from 1). The full array is loaded on request. */
+  truncated?: boolean;
+  length?: number;
+  stats?: {
+    min: number | null;
+    max: number | null;
+    mean: number | null;
+    count: number;
+    missing: number;
+  };
+  sample?: [number, number | null][];
+}
+
+/** Total element count: the real one for a preview, else what is held. */
+export function totalLength(v: NumericVariable): number {
+  return v.length ?? v.data.length;
+}
+
+/** Summary of the whole variable: the kernel's own for a preview, else computed. */
+export function summaryOf(v: NumericVariable) {
+  return v.stats ?? numericSummary(v.data);
+}
+
+/** The profile a sparkline/plot is drawn from: the whole-array one for a preview. */
+export function profileOf(v: NumericVariable): { x: number; y: number | null }[] {
+  return v.sample ? v.sample.map(([x, y]) => ({ x, y })) : sampleSeries(v.data);
 }
 
 export function formatNumber(value: number | null | undefined): string {

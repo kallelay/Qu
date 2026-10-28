@@ -332,6 +332,11 @@ export interface PlotVar {
    *  with nothing to plot. Plotly renders null as a gap, which is the honest
    *  rendering of a non-finite sample. */
   data: (number | null)[];
+  /** A PREVIEW of a large variable: see `NumericVariable` in qu-ui-components. */
+  truncated?: boolean;
+  length?: number;
+  stats?: { min: number | null; max: number | null; mean: number | null; count: number; missing: number };
+  sample?: [number, number | null][];
 }
 
 interface Diagnostic {
@@ -2125,6 +2130,35 @@ function App() {
   const openFileObjectRef = useRef(openFileObject);
   openFileObjectRef.current = openFileObject;
 
+  /** The rest of a variable the kernel sent only a preview of (a large array):
+   *  the first values, whole-array statistics and a profile arrive with every
+   *  run; the values themselves come on request. */
+  const loadFullVariable = useCallback(async (name: string) => {
+    try {
+      const r = await invoke<{ success?: boolean; error?: string; data?: (number | null)[]; length?: number }>(
+        'repl_var',
+        { name, start: 0, count: null, session: replSessionRef.current },
+      );
+      if (!r?.success || !r.data) {
+        pushToast('error', r?.error ?? `Could not load ${name}`);
+        return;
+      }
+      const loaded = r.data;
+      const total = r.length ?? loaded.length;
+      setNumericVariables((prev) =>
+        prev.map((v) =>
+          v.name !== name
+            ? v
+            : loaded.length >= total
+              ? { ...v, data: loaded, truncated: undefined, length: undefined, stats: undefined, sample: undefined }
+              : { ...v, data: loaded, truncated: true, length: total },
+        ),
+      );
+    } catch (error: any) {
+      pushToast('error', `Could not load ${name}: ${error?.message ?? error}`);
+    }
+  }, [pushToast]);
+
   /** A drop of several OS paths: open what is supported, toast the rest. */
   const openDroppedPaths = useCallback(async (paths: string[]) => {
     const { accepted, rejected } = routeDroppedPaths(paths);
@@ -3167,7 +3201,7 @@ function App() {
               onKeepFiguresChange={setKeepFigures}
               onSaveCollection={saveFigureCollection}
             />
-            <VariableExplorer variables={variables} numericData={numericVariables} theme={resolvedTheme as 'light' | 'dark'} isRunning={executionState.isRunning} />
+            <VariableExplorer onLoadFull={loadFullVariable} variables={variables} numericData={numericVariables} theme={resolvedTheme as 'light' | 'dark'} isRunning={executionState.isRunning} />
           </aside>
         )}
         </>

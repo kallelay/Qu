@@ -18,8 +18,9 @@ import {
   downloadBlob,
   formatNumber,
   matrixValue,
-  numericSummary,
-  sampleSeries,
+  profileOf,
+  summaryOf,
+  totalLength,
   variableCsv,
 } from "../utils/variableData";
 import type { NumericVariable } from "../utils/variableData";
@@ -40,9 +41,14 @@ export interface VariableExplorerProps {
   theme?: "light" | "dark";
   isRunning?: boolean;
   className?: string;
+  /** Fetch the rest of a variable that arrived as a preview (its `truncated`
+   *  flag is set); the host replaces that entry in `numericData`. */
+  onLoadFull?: (name: string) => Promise<void> | void;
 }
 
 const PAGE_SIZE = 50;
+/** The most values one `repl_var` request can bring (the kernel's cap). */
+const FULL_LOAD_MAX = 2_000_000;
 const ROWS = 10;
 const COLS = 5;
 
@@ -50,21 +56,24 @@ function VariableDetail({
   variable,
   numeric,
   theme,
+  onLoadFull,
 }: {
   variable: Variable;
   numeric?: NumericVariable;
   theme: "light" | "dark";
+  onLoadFull?: (name: string) => Promise<void> | void;
 }) {
+  const [loading, setLoading] = useState(false);
   const [view, setView] = useState<"summary" | "data" | "plot">("summary");
   const [rowPage, setRowPage] = useState(0);
   const [colPage, setColPage] = useState(0);
   const [copyState, setCopyState] = useState("");
   const summary = useMemo(
-    () => (numeric ? numericSummary(numeric.data) : null),
+    () => (numeric ? summaryOf(numeric) : null),
     [numeric],
   );
   const samples = useMemo(
-    () => (numeric ? sampleSeries(numeric.data) : []),
+    () => (numeric ? profileOf(numeric) : []),
     [numeric],
   );
   const [rows = 0, columns = 1] = numeric?.shape ?? [];
@@ -82,7 +91,7 @@ function VariableDetail({
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(
-        numeric ? variableCsv(numeric) : variable.value,
+        numeric && !numeric.truncated ? variableCsv(numeric) : variable.value,
       );
       setCopyState("Copied");
     } catch {
@@ -116,8 +125,13 @@ function VariableDetail({
         {numeric && (
           <button
             className="qu-icon-button"
-            title="Export all values as CSV"
+            title={
+              numeric.truncated
+                ? "Load all values first to export them"
+                : "Export all values as CSV"
+            }
             aria-label="Export all values as CSV"
+            disabled={numeric.truncated}
             onClick={() =>
               downloadBlob(
                 new Blob([variableCsv(numeric)], {
@@ -134,6 +148,34 @@ function VariableDetail({
       {copyState && (
         <div className="qu-note" role="status">
           {copyState}
+        </div>
+      )}
+      {numeric?.truncated && (
+        <div className="qu-note" role="status">
+          Showing the first {numeric.data.length.toLocaleString()} of{" "}
+          {totalLength(numeric).toLocaleString()} values. Min, mean, max and the
+          profile cover all of them.{" "}
+          {onLoadFull && (
+            <button
+              className="qu-icon-button"
+              style={{ width: "auto", padding: "0 8px" }}
+              disabled={loading}
+              onClick={async () => {
+                setLoading(true);
+                try {
+                  await onLoadFull(variable.name);
+                } finally {
+                  setLoading(false);
+                }
+              }}
+            >
+              {loading
+                ? "Loading…"
+                : totalLength(numeric) > FULL_LOAD_MAX
+                  ? `Load the first ${FULL_LOAD_MAX.toLocaleString()} values`
+                  : "Load all values"}
+            </button>
+          )}
         </div>
       )}
       {numeric && (
@@ -175,7 +217,7 @@ function VariableDetail({
                   </div>
                 ))}
               </div>
-              {numeric && numeric.data.length > 1 && !isMatrix && (
+              {numeric && totalLength(numeric) > 1 && !isMatrix && (
                 <div className="qu-sparkline">
                   <svg
                     viewBox="0 0 320 64"
@@ -214,7 +256,7 @@ function VariableDetail({
                             }
                             const command = penDown ? "L" : "M";
                             penDown = true;
-                            return `${command}${2 + ((point.x - 1) / Math.max(1, numeric.data.length - 1)) * 316},${range ? 58 - ((point.y / scale - min) / range) * 52 : 32}`;
+                            return `${command}${2 + ((point.x - 1) / Math.max(1, totalLength(numeric) - 1)) * 316},${range ? 58 - ((point.y / scale - min) / range) * 52 : 32}`;
                           })
                           .join(" ");
                       })()}
@@ -222,7 +264,7 @@ function VariableDetail({
                   </svg>
                   <span>
                     Sampled profile · index 1–
-                    {numeric.data.length.toLocaleString()}
+                    {totalLength(numeric).toLocaleString()}
                   </span>
                 </div>
               )}
@@ -348,7 +390,7 @@ function VariableDetail({
             subtitle={
               isMatrix
                 ? `${rows} rows × ${columns} columns`
-                : `${numeric.data.length.toLocaleString()} values · sampled profile`
+                : `${totalLength(numeric).toLocaleString()} values · sampled profile`
             }
             theme={theme}
             showLegend={false}
@@ -375,7 +417,7 @@ function VariableDetail({
                   }
                 : {
                     type: "scatter",
-                    mode: numeric.data.length === 1 ? "markers" : "lines",
+                    mode: totalLength(numeric) === 1 ? "markers" : "lines",
                     x: samples.map((p) => p.x),
                     y: samples.map((p) => p.y),
                   }
@@ -384,8 +426,8 @@ function VariableDetail({
           <p className="qu-note">
             {isMatrix
               ? `Preview of ${Math.min(rows, 50)} × ${Math.min(columns, 50)} cells`
-              : `Sampled preview · ${numeric.data.length.toLocaleString()} total values`}{" "}
-            · CSV includes all values.
+              : `Sampled preview · ${totalLength(numeric).toLocaleString()} total values`}{" "}
+            · {numeric.truncated ? "Load all values to export CSV." : "CSV includes all values."}
           </p>
         </>
       )}
@@ -400,6 +442,7 @@ export const VariableExplorer: React.FC<VariableExplorerProps> = ({
   theme = "dark",
   isRunning = false,
   className,
+  onLoadFull,
 }) => {
   const [query, setQuery] = useState("");
   const [type, setType] = useState("all");
@@ -629,6 +672,7 @@ export const VariableExplorer: React.FC<VariableExplorerProps> = ({
               variable={current}
               numeric={numericByName.get(current.name)}
               theme={theme}
+              onLoadFull={onLoadFull}
             />
           ) : (
             filtered.length > 0 && (

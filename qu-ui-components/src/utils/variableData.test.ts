@@ -3,7 +3,10 @@ import {
   formatNumber,
   matrixValue,
   numericSummary,
+  profileOf,
   sampleSeries,
+  summaryOf,
+  totalLength,
   variableCsv,
 } from "./variableData";
 import { axisRange } from "./plotStyle";
@@ -85,5 +88,36 @@ describe("plot axis limits", () => {
     expect(axisRange([-1, 10], true)).toBeUndefined();
     expect(axisRange([1, Infinity], false)).toBeUndefined();
     expect(axisRange(undefined, false)).toBeUndefined();
+  });
+});
+
+describe("a large variable that arrives as a preview", () => {
+  const preview = {
+    name: "big",
+    type: "vector",
+    shape: [5_000_000, 1],
+    data: [0, 1, 2],
+    truncated: true,
+    length: 5_000_000,
+    stats: { min: -4.5, max: 9.25, mean: 0.01, count: 4_999_999, missing: 1 },
+    sample: [[1, 0], [2_500_000, 9.25], [5_000_000, -4.5]] as [number, number | null][],
+  };
+
+  it("reports the real length, the kernel's whole-array summary and its profile", () => {
+    expect(totalLength(preview)).toBe(5_000_000);
+    expect(summaryOf(preview)).toEqual(preview.stats);
+    // the profile is the whole-array one (1-based indices), not a resample of the 3 held values
+    expect(profileOf(preview)).toEqual([
+      { x: 1, y: 0 },
+      { x: 2_500_000, y: 9.25 },
+      { x: 5_000_000, y: -4.5 },
+    ]);
+  });
+
+  it("falls back to computing from the held data when nothing was truncated", () => {
+    const whole = { name: "w", type: "vector", shape: [3, 1], data: [1, 2, 3] };
+    expect(totalLength(whole)).toBe(3);
+    expect(summaryOf(whole).max).toBe(3);
+    expect(profileOf(whole).map((p) => p.y)).toContain(2);
   });
 });

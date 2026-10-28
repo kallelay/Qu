@@ -1952,6 +1952,12 @@ fn cmd_kernel() -> Result<(), String> {
                 };
                 write_kernel_response(&stdout, &kernel_run_response(&it, success, output, error));
             }
+            "var" => {
+                let name = req.get("name").and_then(|v| v.as_str()).unwrap_or("");
+                let start = req.get("start").and_then(|v| v.as_u64()).unwrap_or(0) as usize;
+                let count = req.get("count").and_then(|v| v.as_u64()).map(|c| c as usize).unwrap_or(KERNEL_VAR_MAX);
+                write_kernel_response(&stdout, &kernel_var_response(&it, name, start, count));
+            }
             "restart" => {
                 it = qu_interp::Interp::new();
                 write_kernel_response(
@@ -2002,8 +2008,166 @@ fn kernel_vars_value(it: &qu_interp::Interp) -> serde_json::Value {
 }
 
 /// Same idea as `kernel_vars_value`, for `data_to_json`.
+
+/// A numeric variable with more than this many values is sent to the Studio as
+/// a PREVIEW, not whole. Before this, every run's reply carried every numeric
+/// variable in full: after `big = randn(5000000)` each later run -- even
+/// `print(1)` -- answered with 98 MB of JSON (1.6 s here, about 5 s once the
+/// window had parsed it).
+const KERNEL_PREVIEW_LIMIT: usize = 10_000;
+/// How many leading elements a previewed variable still carries exactly.
+const KERNEL_PREVIEW_HEAD: usize = 2_000;
+/// Buckets in the whole-array profile (at most 5 points each) that feeds the
+/// sparkline, so it still shows the real extremes of a 5M-element array.
+const KERNEL_SAMPLE_BUCKETS: usize = 100;
+/// Most elements one `var` request returns.
+const KERNEL_VAR_MAX: usize = 2_000_000;
+
+/// (type name, (rows, cols), the values) of a numeric binding, borrowing the
+/// interpreter's own storage (nothing is copied for a large vector).
+fn numeric_view(v: &qu_interp::Value) -> Option<(&'static str, (usize, usize), std::borrow::Cow<'_, [f64]>)> {
+    use std::borrow::Cow;
+    Some(match v {
+        qu_interp::Value::Num(n) => ("number", (1, 1), Cow::Owned(vec![*n])),
+        qu_interp::Value::Bool(b) => ("bool", (1, 1), Cow::Owned(vec![if *b { 1.0 } else { 0.0 }])),
+        qu_interp::Value::Vec(xs) => ("vector", (xs.len(), 1), Cow::Borrowed(xs.as_slice())),
+        qu_interp::Value::Signal(xs, _, _) => ("vector", (xs.len(), 1), Cow::Borrowed(xs.as_slice())),
+        qu_interp::Value::Mat(m) => ("matrix", m.shape(), Cow::Borrowed(m.as_slice())),
+        _ => return None,
+    })
+}
+
+fn json_f64(x: f64) -> serde_json::Value {
+    if x.is_finite() {
+        serde_json::json!(x)
+    } else {
+        serde_json::Value::Null
+    }
+}
+
+/// min / max / mean over the FINITE values of the whole array (the mean is
+/// normalised by the largest magnitude before summing, as the front end's own
+/// `numericSummary` does, so values near f64::MAX still give a finite mean).
+fn numeric_stats(data: &[f64]) -> serde_json::Value {
+    let (mut min, mut max, mut count) = (f64::INFINITY, f64::NEG_INFINITY, 0usize);
+    for &x in data {
+        if x.is_finite() {
+            min = min.min(x);
+            max = max.max(x);
+            count += 1;
+        }
+    }
+    if count == 0 {
+        return serde_json::json!({"min": null, "max": null, "mean": null, "count": 0, "missing": data.len()});
+    }
+    let scale = min.abs().max(max.abs());
+    let mut mean = 0.0f64;
+    if scale > 0.0 {
+        for &x in data {
+            if x.is_finite() {
+                mean += x / scale / count as f64;
+            }
+        }
+    }
+    let mean = mean.clamp(-1.0, 1.0) * scale;
+    serde_json::json!({"min": min, "max": max, "mean": mean, "count": count, "missing": data.len() - count})
+}
+
+/// A bounded profile of the whole array: per bucket its first, lowest,
+/// highest and last point (plus one non-finite gap), as `[index(1-based), value]`.
+fn numeric_sample(data: &[f64], buckets: usize) -> Vec<serde_json::Value> {
+    let step = data.len().div_ceil(buckets.max(1)).max(1);
+    let mut out = Vec::new();
+    let mut start = 0;
+    while start < data.len() {
+        let end = (start + step).min(data.len());
+        let (mut lo, mut hi, mut missing) = (start, start, None);
+        for i in start..end {
+            let v = data[i];
+            if !v.is_finite() {
+                missing = Some(i);
+                continue;
+            }
+            if !data[lo].is_finite() || v < data[lo] {
+                lo = i;
+            }
+            if !data[hi].is_finite() || v > data[hi] {
+                hi = i;
+            }
+        }
+        let mut at = std::collections::BTreeSet::new();
+        at.extend([start, lo, hi, end - 1]);
+        at.extend(missing);
+        for i in at {
+            out.push(serde_json::json!([i + 1, json_f64(data[i])]));
+        }
+        start = end;
+    }
+    out
+}
+
+/// One variable's entry in a run reply: whole when small, a preview
+/// (`truncated: true`, the first KERNEL_PREVIEW_HEAD values exactly, the real
+/// `length`, `stats` over everything, and a `sample` profile) when large.
+fn kernel_data_entry(name: &str, kind: &str, shape: (usize, usize), data: &[f64]) -> serde_json::Value {
+    let enc = |xs: &[f64]| xs.iter().map(|&x| json_f64(x)).collect::<Vec<_>>();
+    if data.len() <= KERNEL_PREVIEW_LIMIT {
+        return serde_json::json!({"name": name, "type": kind, "shape": [shape.0, shape.1], "data": enc(data)});
+    }
+    serde_json::json!({
+        "name": name, "type": kind, "shape": [shape.0, shape.1],
+        "length": data.len(), "truncated": true,
+        "data": enc(&data[..KERNEL_PREVIEW_HEAD]),
+        "stats": numeric_stats(data),
+        "sample": numeric_sample(data, KERNEL_SAMPLE_BUCKETS),
+    })
+}
+
+/// A record's numeric fields are `name.field` entries, one level deep (same
+/// rule as `data_to_json`).
+fn kernel_flat_bindings(it: &qu_interp::Interp) -> Vec<(String, &qu_interp::Value)> {
+    let mut flat: Vec<(String, &qu_interp::Value)> = Vec::new();
+    for (name, v) in it.global_bindings() {
+        match v {
+            qu_interp::Value::Record(fields) => {
+                for (field, fv) in fields.iter() {
+                    flat.push((format!("{name}.{field}"), fv));
+                }
+            }
+            _ => flat.push((name.to_string(), v)),
+        }
+    }
+    flat.sort_by(|a, b| a.0.cmp(&b.0));
+    flat
+}
+
 fn kernel_data_value(it: &qu_interp::Interp) -> serde_json::Value {
-    serde_json::from_str(&data_to_json(it)).unwrap_or_else(|_| serde_json::json!([]))
+    let entries: Vec<serde_json::Value> = kernel_flat_bindings(it)
+        .into_iter()
+        .filter_map(|(name, v)| {
+            let (kind, shape, data) = numeric_view(v)?;
+            Some(kernel_data_entry(&name, kind, shape, &data))
+        })
+        .collect();
+    serde_json::Value::Array(entries)
+}
+
+/// The reply to `{"op":"var","name":..,"start":..,"count":..}`: a slice of one
+/// numeric variable, so the Studio can show everything of a previewed one on
+/// request. `count` is capped at KERNEL_VAR_MAX values.
+fn kernel_var_response(it: &qu_interp::Interp, name: &str, start: usize, count: usize) -> serde_json::Value {
+    let found = kernel_flat_bindings(it).into_iter().find(|(n, _)| n == name).and_then(|(_, v)| numeric_view(v));
+    let Some((kind, shape, data)) = found else {
+        return serde_json::json!({"op": "var", "success": false, "name": name,
+            "error": format!("no numeric variable named `{name}` in this session")});
+    };
+    let start = start.min(data.len());
+    let end = start.saturating_add(count.min(KERNEL_VAR_MAX)).min(data.len());
+    serde_json::json!({
+        "op": "var", "success": true, "name": name, "type": kind,
+        "shape": [shape.0, shape.1], "length": data.len(), "start": start,
+        "data": data[start..end].iter().map(|&x| json_f64(x)).collect::<Vec<_>>(),
+    })
 }
 
 /// Every figure `it` currently holds, rendered to SVG text — the session's

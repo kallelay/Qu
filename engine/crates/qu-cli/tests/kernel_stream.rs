@@ -119,3 +119,116 @@ fn a_run_with_cwd_resolves_relative_paths_next_to_that_folder() {
     let _ = child.kill();
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+// ---- lazy variable payload: a large numeric variable is a preview, fetched whole on request ----
+
+fn reply(rd: &mut BufReader<std::process::ChildStdout>) -> (serde_json::Value, usize) {
+    let mut line = String::new();
+    assert!(rd.read_line(&mut line).unwrap() > 0, "kernel closed early");
+    (serde_json::from_str(&line).unwrap(), line.len())
+}
+
+fn entry<'a>(run: &'a serde_json::Value, name: &str) -> &'a serde_json::Value {
+    run["data"].as_array().unwrap().iter().find(|e| e["name"] == name).unwrap_or_else(|| panic!("no data entry for {name}"))
+}
+
+#[test]
+fn a_large_variable_is_sent_as_a_preview_with_exact_whole_array_stats() {
+    let mut child = start();
+    let mut rd = BufReader::new(child.stdout.take().unwrap());
+    send(&mut child, serde_json::json!({"op": "run", "code": "v = 0:199999\ns = [1, 2, 3]"}));
+    let (run, bytes) = reply(&mut rd);
+    // 200,000 values used to be ~1.4 MB of JSON in every reply; now a few tens of KB.
+    assert!(bytes < 100_000, "reply is {bytes} bytes");
+    let v = entry(&run, "v");
+    assert_eq!(v["truncated"], true, "{v}");
+    assert_eq!(v["length"], 200_000);
+    assert_eq!(v["shape"], serde_json::json!([200_000, 1]));
+    let head = v["data"].as_array().unwrap();
+    assert_eq!(head.len(), 2000);
+    assert_eq!(head[0], 0.0);
+    assert_eq!(head[1999], 1999.0);
+    // stats cover the WHOLE array, not the preview
+    assert_eq!(v["stats"]["min"], 0.0);
+    assert_eq!(v["stats"]["max"], 199_999.0);
+    assert!((v["stats"]["mean"].as_f64().unwrap() - 99_999.5).abs() < 1e-6, "{}", v["stats"]);
+    assert_eq!(v["stats"]["count"], 200_000);
+    // the profile spans the whole array (1-based indices) and keeps the real extremes
+    let sample = v["sample"].as_array().unwrap();
+    assert!(sample.len() >= 100 && sample.len() <= 600, "{}", sample.len());
+    assert_eq!(sample[0][0], 1);
+    assert_eq!(sample[sample.len() - 1][0], 200_000);
+    assert!(sample.iter().any(|p| p[1] == 199_999.0));
+    // a small variable is exactly what it always was: whole, no preview fields
+    let s = entry(&run, "s");
+    assert_eq!(s["data"], serde_json::json!([1.0, 2.0, 3.0]));
+    assert!(s.get("truncated").is_none() && s.get("stats").is_none(), "{s}");
+    let _ = child.kill();
+}
+
+#[test]
+fn the_var_request_returns_any_slice_of_a_previewed_variable() {
+    let mut child = start();
+    let mut rd = BufReader::new(child.stdout.take().unwrap());
+    send(&mut child, serde_json::json!({"op": "run", "code": "v = 0:199999\nr = {a = linspace(0, 19999, 20000), b = 1}"}));
+    let (setup, _) = reply(&mut rd);
+    assert_eq!(setup["success"], true, "the setup script failed: {setup}");
+
+    send(&mut child, serde_json::json!({"op": "var", "name": "v", "start": 10, "count": 5}));
+    let (r, _) = reply(&mut rd);
+    assert_eq!(r["op"], "var");
+    assert_eq!(r["success"], true, "{r}");
+    assert_eq!(r["data"], serde_json::json!([10.0, 11.0, 12.0, 13.0, 14.0]));
+    assert_eq!(r["length"], 200_000);
+    assert_eq!(r["start"], 10);
+
+    // no count: everything (here under the per-request cap)
+    send(&mut child, serde_json::json!({"op": "var", "name": "v"}));
+    let (r, _) = reply(&mut rd);
+    assert_eq!(r["data"].as_array().unwrap().len(), 200_000);
+
+    // a slice that runs past the end is cut, one that starts past it is empty
+    send(&mut child, serde_json::json!({"op": "var", "name": "v", "start": 199_998, "count": 100}));
+    let (r, _) = reply(&mut rd);
+    assert_eq!(r["data"], serde_json::json!([199_998.0, 199_999.0]));
+    send(&mut child, serde_json::json!({"op": "var", "name": "v", "start": 999_999}));
+    let (r, _) = reply(&mut rd);
+    assert_eq!(r["data"], serde_json::json!([]));
+
+    // a record's numeric field is addressed as name.field, like the data entries
+    send(&mut child, serde_json::json!({"op": "var", "name": "r.a", "start": 5, "count": 2}));
+    let (r, _) = reply(&mut rd);
+    assert_eq!(r["data"], serde_json::json!([5.0, 6.0]), "{r}");
+
+    // an unknown name is a clear failure, not a hang or a crash
+    send(&mut child, serde_json::json!({"op": "var", "name": "nope"}));
+    let (r, _) = reply(&mut rd);
+    assert_eq!(r["success"], false);
+    assert!(r["error"].as_str().unwrap().contains("nope"), "{r}");
+    // and the kernel still works afterwards
+    send(&mut child, serde_json::json!({"op": "run", "code": "print(1)"}));
+    let (r, _) = reply(&mut rd);
+    assert_eq!(r["success"], true);
+    let _ = child.kill();
+}
+
+#[test]
+fn a_big_matrix_and_non_finite_values_survive_the_preview() {
+    let mut child = start();
+    let mut rd = BufReader::new(child.stdout.take().unwrap());
+    send(&mut child, serde_json::json!({"op": "run", "code": "M = zeros(300, 100)\nM[0, 0] = 7\nw = 0:19999\nw[3] = nan"}));
+    let (run, _) = reply(&mut rd);
+    assert_eq!(run["success"], true, "the setup script failed: {run}");
+    let m = entry(&run, "M");
+    assert_eq!(m["truncated"], true);
+    assert_eq!(m["shape"], serde_json::json!([300, 100]), "the real shape, not the preview's");
+    assert_eq!(m["length"], 30_000);
+    assert_eq!(m["data"][0], 7.0);
+    assert_eq!(m["stats"]["max"], 7.0);
+    // a NaN in the full array is counted as missing and never breaks the JSON
+    let w = entry(&run, "w");
+    assert_eq!(w["stats"]["missing"], 1);
+    assert_eq!(w["stats"]["count"], 19_999);
+    assert!(w["data"][3].is_null(), "{}", w["data"][3]);
+    let _ = child.kill();
+}

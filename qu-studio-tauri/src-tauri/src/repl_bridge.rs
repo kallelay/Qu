@@ -337,6 +337,36 @@ pub async fn repl_run(
     }
 }
 
+/// A slice of one numeric variable of the session's interpreter: the Variables
+/// panel shows only a preview of a large array, and this fetches the rest on
+/// request (`{"op":"var"}` in `qu kernel`). `count: None` means as much as one
+/// request may carry. While a run is in flight the kernel is busy, so this
+/// answers with that instead of waiting behind it.
+#[tauri::command]
+pub async fn repl_var(
+    name: String,
+    start: Option<u64>,
+    count: Option<u64>,
+    session: Option<String>,
+    state: State<'_, ReplState>,
+) -> Result<serde_json::Value, String> {
+    let key = session_key(session);
+    let Some(mut kernel) = state.inner.lock().unwrap().remove(&key) else {
+        return Err("the interpreter is busy with a run (or has not started); try again when it is idle".to_string());
+    };
+    let request = serde_json::json!({ "op": "var", "name": name, "start": start.unwrap_or(0), "count": count });
+    match kernel_request(&mut kernel, &request, None).await {
+        Ok(v) => {
+            state.inner.lock().unwrap().insert(key, kernel);
+            Ok(v)
+        }
+        Err(e) => {
+            let _ = kernel.child.kill();
+            Err(e)
+        }
+    }
+}
+
 /// Ends the run that is in flight for `session`, if any, by ending its
 /// kernel process (an interpreter stuck in a loop cannot be asked nicely).
 /// The pending `repl_run` then returns a "Stopped" response, and the next

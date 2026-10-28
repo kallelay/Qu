@@ -15,7 +15,7 @@ mod serial_protocol;
 mod seriplot;
 use seriplot::{seriplot_ports, seriplot_start, seriplot_stop, seriplot_poll, seriplot_record, seriplot_buffer};
 mod repl_bridge;
-use repl_bridge::{repl_close, repl_restart, repl_run, repl_stop, ReplState};
+use repl_bridge::{repl_close, repl_restart, repl_run, repl_stop, repl_var, ReplState};
 mod startup;
 use startup::{get_startup_file, open_in_system, StartupFile};
 use llm_bridge::{
@@ -161,6 +161,18 @@ pub struct PlotVar {
     /// `null`, which Plotly already renders as a gap in a line rather than
     /// a fake zero.
     pub data: Vec<Option<f64>>,
+    /// Set (with the fields below) when `data` is only a PREVIEW of a large
+    /// variable: the persistent kernel sends the first values exactly, plus
+    /// whole-array statistics and a bounded profile, and the full array is
+    /// fetched on request (`repl_var`). `length` is the real element count.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub length: Option<usize>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub truncated: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stats: Option<serde_json::Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sample: Option<Vec<serde_json::Value>>,
 }
 
 /// One binding shown in QuStudio's Variables panel, mirroring the frontend's
@@ -1264,6 +1276,7 @@ fn main() {
             repl_run,
             repl_restart,
             repl_stop,
+            repl_var,
             repl_close,
             save_figures,
             check_syntax,
