@@ -1,5 +1,36 @@
 # Changelog (Qu editor plugins)
 
+## Unreleased
+
+- Grammar (TextMate + Sublime): `.'` is an operator, not the start of a
+  string (`y = A.'` used to open a string that swallowed the rest of the
+  file and inverted every later string/code colour); single-quoted strings
+  no longer show `{...}` as interpolation (the spec says only double-quoted
+  strings interpolate); an unclosed `{` in a string ends at the closing quote
+  instead of running on; `{x:0.3f}` colours the format spec; LaTeX groups
+  (`"$V_{pp}$"`, `"$10^{-3}$"`) are not interpolations.
+- Grammar: contextual words (`model`, `method`, `base`, `unit`, `mesh`, `window`,
+  `flag`, `pure`, `data`, ...) are coloured as keywords only when an operand
+  follows on the same line (`model resnet(x)`, `window "Title"`), not in
+  `model = ...`, `if n > window`, `for method in ...`; keyword-named keyword
+  arguments (`on="cpu"`, `from = 1`, `step = 2`) are plain names. `end pool`,
+  `end test`, `end bench`, ... closers are coloured.
+- `language-configuration.json`: `window = 5`, `model = ...`, `table = ...` and
+  one-line `if ... end` no longer indent the next line.
+- Run File: the post-run variable dump no longer lists the built-in constants
+  (`pi`, `e`, `QuTab`, ... flagged `system` by `--emit-vars`).
+- Sublime build: `qu run` syntax errors (`qu: parse error at file.qu:L:C: ...`)
+  are clickable; the Parse variant's regex captured the line as the file name.
+- Notepad++ UDL: the line-comment marker was in the "close" slot
+  (`02#`), so `#` comments were not recognised; it is now the open marker
+  (`00#`). `_` is a number character (`1_000`); single-quoted strings end at
+  end of line, so a transpose `A'` no longer swallows the rest of the file.
+
+## 0.2.2
+
+- Grammar: `.'` is an operator (it started a string and swallowed the rest of the file); common identifiers (`model`, `window`, `base`, `unit`, `mesh`, ...) are coloured as keywords only when used as one; keyword-named arguments (`on=`, `from=`, `to=`, `step=`) are plain names; `end pool`/`end test`/... close their block; single-quoted strings do not interpolate; an unclosed `{` no longer runs past the closing quote; LaTeX groups are not interpolation and `{x:0.3f}` marks its format spec.
+- Indent rules ignore assignments and one-line blocks. Run File no longer prints the built-in variables. **Run File is now Ctrl+Alt+R** (it was Ctrl+Alt+Q, which is AltGr+Q = `@` on a German keyboard).
+
 ## 0.2.1
 
 - Grammar: builtin function names (`read`, `set`, `fit`, `input`, `error`,

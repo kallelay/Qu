@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>pdf.replace_text — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>pdf.replace_text</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/file-io.html">File I/O</a></p>
+<pre class="fnsig"><code>pdf.replace_text(src, old, new, [page=], [count=], [case_sensitive=true])</code></pre>
+<p class="fnnote">Input: src, old, new, page, count, case_sensitive &middot; Output: no output</p>
+<h2>What it is</h2>
+<p>Changes text in an existing PDF and returns the edited file as a <code>Vec</code> of bytes (save with <code>bytes_write</code>). Edits the strings of <code>Tj</code>/<code>TJ</code>/<code>'</code>/<code>"</code> operators (literal or hex, Flate decoded) in page content streams, for <strong>simple fonts</strong> (Type1/TrueType, one byte per glyph): a match may span several strings of one <code>TJ</code> array or several consecutive show operators, and a <code>TJ</code> gap wider than a space matches a space. <code>page=</code> limits the edit to one page, <code>count=</code> to the first N replacements, <code>case_sensitive=false</code> folds case. Pages it does not change are left byte-identical. <strong>Refuses with a named error</strong> (never a corrupted file) when nothing can be replaced: text in a composite Type0/CID font (the error names the font), text only in a Form XObject, text split by positioning/colour operators, or a replacement character the font cannot show; in a subset font (<code>ABCDEF+Name</code>) or a Type3 font (matplotlib's default) only characters already shown on that page can be used. Nothing is reflowed: a longer replacement keeps its starting point and can overlap what follows.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>pdf.replace_text(src, old, new, [page=], [count=], [case_sensitive=true])</code></td><td><div class="ioitem"><code>src</code> <span class="iotype">&mdash;</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>old</code> <span class="iotype">&mdash;</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>new</code> <span class="iotype">&mdash;</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>page</code> <span class="iotype">optional</span><span class="iodesc"><code>page=</code> limits the edit to one page, <code>count=</code> to the first N replacements, <code>case_sensitive=false</code> folds case.</span></div>
+<div class="ioitem"><code>count</code> <span class="iotype">optional</span><span class="iodesc"><code>page=</code> limits the edit to one page, <code>count=</code> to the first N replacements, <code>case_sensitive=false</code> folds case.</span></div>
+<div class="ioitem"><code>case_sensitive</code> <span class="iotype">optional (default <code>true</code>)</span><span class="iodesc"><code>page=</code> limits the edit to one page, <code>count=</code> to the first N replacements, <code>case_sensitive=false</code> folds case.</span></div>
+</td><td><span class="ionone">not documented yet</span></td><td>Changes text in an existing PDF and returns the edited file as a <code>Vec</code> of bytes (save with <code>bytes_write</code>). Pages it does not change are left byte-identical. Nothing is reflowed: a longer replacement keeps its starting point and can overlap what follows.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">No documentation example calls this form yet. The <a href="../docs/file-io.html">File I/O</a> chapter is where one belongs.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.3.0 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

@@ -41,6 +41,8 @@ use lopdf::{dictionary, Document, Object, ObjectId, Stream};
 
 mod extras;
 pub use extras::*;
+mod edit_text;
+pub use edit_text::*;
 
 /// What a PDF says about itself, without extracting anything from it.
 ///
@@ -75,6 +77,35 @@ pub struct PdfInfo {
 
 fn load(bytes: &[u8]) -> Result<Document, String> {
     Document::load_mem(bytes).map_err(|err| format!("not a readable PDF: {err}"))
+}
+
+/// Largest total size one page's content streams may inflate to when a
+/// function decodes them (text extraction, `to_html`, `replace_text`).
+/// Without a bound, a few-megabyte file whose page stream is gigabytes of
+/// zeros under Flate (a decompression bomb) made these functions allocate
+/// twice the inflated size -- 3 GB and counting for a 4 MB file. 256 MB is
+/// far above any real page (a dense vector plot is tens of MB); raise it
+/// with the `QU_PDF_MAX_CONTENT_MB` environment variable.
+pub(crate) fn max_content_bytes() -> usize {
+    std::env::var("QU_PDF_MAX_CONTENT_MB")
+        .ok()
+        .and_then(|v| v.trim().parse::<usize>().ok())
+        .filter(|mb| *mb > 0)
+        .map(|mb| mb.saturating_mul(1024 * 1024))
+        .unwrap_or(256 * 1024 * 1024)
+}
+
+/// A decode failure as the caller sees it: the size-limit refusal gets a
+/// message that says what happened and how to change it.
+pub(crate) fn content_error(who: &str, err: &lopdf::Error) -> String {
+    if matches!(err, lopdf::Error::Decompress(lopdf::DecompressError::MemoryLimitExceeded { .. })) {
+        format!(
+            "{who}: a page's content expands to more than {} MB when decompressed -- refusing to read it (a decompression bomb, or an enormous page; set QU_PDF_MAX_CONTENT_MB to raise the limit)",
+            max_content_bytes() / (1024 * 1024)
+        )
+    } else {
+        format!("{who}: {err}")
+    }
 }
 
 /// Page count, metadata and version in one pass.
@@ -189,8 +220,8 @@ pub fn extract_text(bytes: &[u8], pages: Option<&[u32]>) -> Result<String, Strin
         }
     };
     let text = doc
-        .extract_text(&wanted)
-        .map_err(|err| format!("extract_text: {err}"))?;
+        .extract_text_with_limit(&wanted, max_content_bytes())
+        .map_err(|err| content_error("extract_text", &err))?;
 
     if text.trim().is_empty() {
         // The discriminator. Fonts reachable from the page but no text out
@@ -1820,8 +1851,34 @@ pub fn add_annotation_with(
         // Top-left, top-right, bottom-left, bottom-right: the order viewers read.
         dict.set("QuadPoints", rect_to_array([x0, y1, x1, y1]).into_iter().chain(rect_to_array([x0, y0, x1, y0])).collect::<Vec<_>>());
     }
-    if let Some(c) = color.or(default_color) {
-        dict.set("C", c.iter().map(|&v| Object::from(v)).collect::<Vec<_>>());
+    // Subtypes that are malformed (or drawn inconsistently by viewers other
+    // than PDFium) without their own required keys get the minimum.
+    match subtype {
+        "FreeText" => {
+            // `color` is the TEXT colour here (black by default); the box
+            // behind it is a light callout yellow. Passing the colour as the
+            // annotation's `/C` instead would make it the BACKGROUND, so a
+            // black `color` hid the text on a black rectangle.
+            let t = color.unwrap_or([0.0, 0.0, 0.0]);
+            dict.set(
+                "DA",
+                Object::string_literal(format!("/Helv 12 Tf {} {} {} rg", t[0], t[1], t[2])),
+            );
+            dict.set("C", rect_to_array([1.0, 1.0, 0.85, 0.0]).into_iter().take(3).collect::<Vec<_>>());
+        }
+        "Stamp" => dict.set("Name", Object::Name(b"Draft".to_vec())),
+        "Text" => dict.set("Name", Object::Name(b"Note".to_vec())),
+        "Line" => dict.set("L", rect_to_array([rect[0], rect[1], rect[2], rect[3]])),
+        "Ink" => dict.set(
+            "InkList",
+            vec![Object::Array(rect_to_array([rect[0], rect[1], rect[2], rect[3]]))],
+        ),
+        _ => {}
+    }
+    if subtype != "FreeText" {
+        if let Some(c) = color.or(default_color) {
+            dict.set("C", c.iter().map(|&v| Object::from(v)).collect::<Vec<_>>());
+        }
     }
     let annot_id = doc.add_object(dict);
     push_annot(&mut doc, page_id, annot_id);
@@ -3140,6 +3197,107 @@ mod tests {
         );
     }
 
+    /// A PDF whose single page stream is `inflated_mb` MB of spaces under
+    /// Flate: a few KB on disk, a bomb in memory.
+    fn bomb_pdf(inflated_mb: usize) -> Vec<u8> {
+        use std::io::Write;
+        let mut z = flate2::write::ZlibEncoder::new(Vec::new(), flate2::Compression::best());
+        z.write_all(&vec![b' '; inflated_mb * 1024 * 1024]).unwrap();
+        z.write_all(b"BT /F1 12 Tf 50 700 Td (Hello bomb) Tj ET").unwrap();
+        let data = z.finish().unwrap();
+        let mut objs: Vec<Vec<u8>> = vec![
+            b"<< /Type /Catalog /Pages 2 0 R >>".to_vec(),
+            b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>".to_vec(),
+            b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>".to_vec(),
+        ];
+        let mut stream = format!("<< /Length {} /Filter /FlateDecode >>
+stream
+", data.len()).into_bytes();
+        stream.extend_from_slice(&data);
+        stream.extend_from_slice(b"
+endstream");
+        objs.push(stream);
+        objs.push(b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>".to_vec());
+        let mut out = b"%PDF-1.4
+".to_vec();
+        let mut offs = Vec::new();
+        for (i, o) in objs.iter().enumerate() {
+            offs.push(out.len());
+            out.extend_from_slice(format!("{} 0 obj
+", i + 1).as_bytes());
+            out.extend_from_slice(o);
+            out.extend_from_slice(b"
+endobj
+");
+        }
+        let xref = out.len();
+        out.extend_from_slice(format!("xref
+0 {}
+0000000000 65535 f 
+", objs.len() + 1).as_bytes());
+        for o in offs {
+            out.extend_from_slice(format!("{o:010} 00000 n 
+").as_bytes());
+        }
+        out.extend_from_slice(format!("trailer
+<< /Size {} /Root 1 0 R >>
+startxref
+{xref}
+%%EOF
+", objs.len() + 1).as_bytes());
+        out
+    }
+
+    #[test]
+    fn a_decompression_bomb_is_refused_by_every_function_that_decodes_page_content() {
+        // A 1 MB limit; the page inflates to 8 MB. (Other tests use tiny
+        // pages, so lowering the limit for the whole process cannot affect them.)
+        std::env::set_var("QU_PDF_MAX_CONTENT_MB", "1");
+        let bomb = bomb_pdf(8);
+        assert!(bomb.len() < 100_000, "the file itself must be small: {} bytes", bomb.len());
+        // Structure-only functions never decode the stream and keep working.
+        assert_eq!(info(&bomb).unwrap().page_count, 1);
+        for (name, err) in [
+            ("extract_text", extract_text(&bomb, None).unwrap_err()),
+            ("find_text", find_text(&bomb, "Hello", true).unwrap_err()),
+            ("to_html", crate::to_html(&bomb, None, false).unwrap_err()),
+            ("replace_text", crate::replace_text(&bomb, "Hello", "World", None, None, true).unwrap_err()),
+        ] {
+            assert!(err.contains("decompress") && err.contains("QU_PDF_MAX_CONTENT_MB"), "{name}: {err}");
+        }
+        // With room, the same file reads normally.
+        std::env::set_var("QU_PDF_MAX_CONTENT_MB", "64");
+        assert!(extract_text(&bomb, None).unwrap().contains("Hello bomb"));
+        std::env::remove_var("QU_PDF_MAX_CONTENT_MB");
+    }
+
+    #[test]
+    fn annotation_subtypes_carry_their_required_keys() {
+        let pdf = build_pdf(1, None);
+        for (t, key) in [("FreeText", "DA"), ("Stamp", "Name"), ("Line", "L"), ("Ink", "InkList"), ("Text", "Name")] {
+            let out = add_annotation(&pdf, 1, t, [10.0, 10.0, 100.0, 50.0], Some("x")).unwrap();
+            let doc = load(&out).unwrap();
+            let page = doc.get_pages()[&1];
+            let annots = annots_owned(&doc, page);
+            let id = annots[0].as_reference().unwrap();
+            assert!(doc.get_dictionary(id).unwrap().has(key.as_bytes()), "{t} lacks /{key}");
+        }
+    }
+
+    #[test]
+    fn free_text_color_is_the_text_colour_not_the_background() {
+        let pdf = build_pdf(1, None);
+        let out = add_annotation_with(&pdf, 1, "FreeText", [10.0, 10.0, 100.0, 50.0], Some("x"), Some([0.0, 0.0, 0.0])).unwrap();
+        let doc = load(&out).unwrap();
+        let page = doc.get_pages()[&1];
+        let id = annots_owned(&doc, page)[0].as_reference().unwrap();
+        let d = doc.get_dictionary(id).unwrap();
+        let da = String::from_utf8_lossy(d.get(b"DA").unwrap().as_str().unwrap()).to_string();
+        assert!(da.ends_with("0 0 0 rg"), "text colour not in /DA: {da}");
+        let bg: Vec<f64> = d.get(b"C").unwrap().as_array().unwrap().iter().map(|o| o.as_float().unwrap() as f64).collect();
+        assert!(bg.iter().all(|v| *v > 0.8), "background must stay light, got {bg:?}");
+    }
+
     #[test]
     fn rotate_page_increments_and_a_second_90_makes_180() {
         let src = build_pdf(2, None);
@@ -3467,3 +3625,6 @@ pub fn render(bytes: &[u8], page: u32, dpi: f64) -> Result<Rendered, String> {
 
 #[cfg(test)]
 mod extras_tests;
+
+#[cfg(test)]
+mod edit_text_tests;

@@ -183,6 +183,7 @@ pub(crate) mod fit_stats;
 pub mod multivariate;
 pub mod native_ops;
 pub mod sparse_ops;
+mod basics_ops;
 #[cfg(any(feature = "docx", feature = "pptx", feature = "xlsx"))]
 pub mod office_ops;
 pub mod surgery_ops;
@@ -3997,7 +3998,7 @@ pub const MODULE_EXPORTS: &[(&str, &[&str])] = &[
     ("xlsx", &["add_chart", "add_comment", "add_image", "add_nyquist_chart", "add_sheet", "add_validation", "autofilter", "clear", "color_scale", "column_width", "conditional_format", "copy_sheet", "create_table", "define_name", "delete_columns", "delete_rows", "delete_sheet", "discard", "fill_formula", "format_cells", "formula", "freeze_panes", "get_cell", "get_range", "hide_sheet", "insert_columns", "insert_rows", "merge", "move_range", "new", "open", "read", "rename_sheet", "row_height", "save_as", "set_cell", "set_formula", "set_range", "sheets", "sort_range", "to_pdf", "used_range", "write"]),
     ("pptx", &["new", "open", "save_as", "discard", "info", "set_info", "slide_count", "slides", "slide_text", "slide_title", "notes", "find_text", "replace_text", "layouts", "add_slide", "delete_slide", "move_slide", "duplicate_slide", "hide_slide", "unhide_slide", "add_text", "add_image", "add_table", "to_markdown", "to_pdf", "set_notes", "shapes", "set_shape_text", "delete_shape", "move_shape", "resize_shape", "set_slide_title", "bring_to_front", "send_to_back", "set_link", "links", "theme_colors", "theme_fonts", "set_theme_colors", "set_theme_fonts", "add_chart", "add_nyquist_chart", "add_shape", "align_shapes", "rotate_shape"]),
     ("docx", &["new", "open", "save_as", "discard", "full_text", "paragraphs", "headings", "find_text", "replace_text", "set_paragraph", "insert_paragraph", "remove_paragraph", "add_heading", "add_paragraph", "add_page_break", "add_table", "add_image", "tables", "set_cell", "comments", "footnotes", "endnotes", "info", "set_info", "accept_changes", "reject_changes", "to_markdown", "to_latex", "to_pdf", "links", "add_link", "add_comment", "bookmarks", "add_bookmark", "add_cross_ref", "fields", "add_field", "add_toc", "sections", "page_setup", "add_section_break", "header_text", "footer_text", "set_header", "set_footer", "add_list_item", "set_list", "add_column", "add_footnote", "add_row", "format_text", "line_spacing", "merge_cells", "move_paragraph", "split_cell", "track_delete", "track_insert"]),
-    ("pdf", &["add_annotation", "add_attachment", "add_bookmark", "add_link", "add_page", "annotations", "attachments", "crop_box", "crop_page", "delete_page", "duplicate_page", "extract_attachment", "extract_image", "extract_pages", "extract_text", "find_text", "images", "info", "media_box", "merge", "move_page", "outlines", "page_count", "remove_annotation", "render", "reverse_pages", "rotate_page", "set_metadata", "split_at", "split_every", "strip_metadata", "structural_diff", "text_diff", "to_html", "write_merge", "write_pages"]),
+    ("pdf", &["add_annotation", "add_attachment", "add_bookmark", "add_link", "add_page", "add_text", "annotations", "attachments", "crop_box", "crop_page", "delete_page", "duplicate_page", "extract_attachment", "extract_image", "extract_pages", "extract_text", "find_text", "images", "info", "media_box", "merge", "move_page", "outlines", "page_count", "remove_annotation", "render", "replace_text", "reverse_pages", "rotate_page", "set_metadata", "split_at", "split_every", "strip_metadata", "structural_diff", "text_diff", "to_html", "write_merge", "write_pages"]),
     ("image", &["load", "luma", "regions", "blur", "canny", "bilateral", "distance_transform", "skeleton", "fill_holes", "contours", "autocrop", "sobel", "scharr", "laplacian", "gradient_magnitude", "rgb2hsv", "hsv2rgb", "rgb2lab", "lab2rgb", "watershed"]),
     ("svg", &["rect", "circle", "line", "path", "text"]),
     ("sparse", &["from_triplets", "from_dense", "eye", "diag", "random", "size", "nnz", "density", "to_dense", "get", "triplets", "transpose", "add", "sub", "scale", "mul", "hadamard", "solve"]),
@@ -15179,6 +15180,67 @@ impl Interp {
                     .map_err(|msg| EvalError { msg: format!("{short}: {msg}") })?;
                 self.pdf_deliver(out, None, short)
             }
+            "pdf::replace_text" => {
+                let bytes = self.pdf_bytes(arg_get(args, 0), short)?;
+                let old = text_arg(args, 1)?;
+                let new = text_arg(args, 2)?;
+                let page = match style_entry(style, "page") {
+                    Some((_, v)) => Some(pdf_one_page(v, short)?),
+                    None => None,
+                };
+                let count = match style_entry(style, "count") {
+                    None => None,
+                    Some((_, Value::Num(n))) if n.fract() == 0.0 && *n >= 1.0 => Some(*n as usize),
+                    Some((_, other)) => {
+                        return e(format!(
+                            "{short}: count= is a whole number of at least 1, found {}",
+                            other.type_name()
+                        ))
+                    }
+                };
+                let case_sensitive = match style_entry(style, "case_sensitive") {
+                    None => true,
+                    Some((_, v)) => truthy(v),
+                };
+                let out = qu_pdf::replace_text(&bytes, &old, &new, page, count, case_sensitive)
+                    .map_err(|msg| EvalError { msg })?;
+                self.pdf_deliver(out, None, short)
+            }
+            "pdf::add_text" => {
+                let bytes = self.pdf_bytes(arg_get(args, 0), short)?;
+                let Some(page_v) = arg_get(args, 1) else {
+                    return e(format!("{short}: needs a page number"));
+                };
+                let page = pdf_one_page(page_v, short)?;
+                let (x, y) = match (arg_get(args, 2), arg_get(args, 3)) {
+                    (Some(Value::Num(x)), Some(Value::Num(y))) => (*x, *y),
+                    _ => return e(format!("{short}(src, page, x, y, text): x and y are numbers (PDF points from the bottom-left)")),
+                };
+                let text = text_arg(args, 4)?;
+                let size = match style_entry(style, "size") {
+                    None => 12.0,
+                    Some((_, Value::Num(n))) => *n,
+                    Some((_, other)) => {
+                        return e(format!("{short}: size= is a number, found {}", other.type_name()))
+                    }
+                };
+                let color = match style_entry(style, "color") {
+                    None => [0.0, 0.0, 0.0],
+                    Some((_, Value::Vec(xs))) if xs.len() == 3 && xs.iter().all(|c| (0.0..=1.0).contains(c)) => {
+                        [xs[0], xs[1], xs[2]]
+                    }
+                    Some(_) => {
+                        return e(format!("{short}: color= is [r, g, b] with each value between 0 and 1"))
+                    }
+                };
+                let font = match style_entry(style, "font") {
+                    None => "Helvetica".to_string(),
+                    Some((_, v)) => pdf_value_str(v, short, "font=")?,
+                };
+                let out = qu_pdf::add_text(&bytes, page, x, y, &text, size, color, &font)
+                    .map_err(|msg| EvalError { msg })?;
+                self.pdf_deliver(out, None, short)
+            }
             "pdf::add_link" => {
                 let bytes = self.pdf_bytes(arg_get(args, 0), short)?;
                 let Some(page_v) = arg_get(args, 1) else {
@@ -20972,6 +21034,19 @@ self.eval_grad(loss, wrt)
                         );
                     }
                 }
+                // `help("pdf.render")`: a module-qualified name is not in
+                // BUILTIN_NAMES (it only exists after `import pdf`), but the
+                // chapters document it, so answer from the table instead of
+                // claiming it is unknown.
+                if name.contains('.') && !BUILTIN_NAMES.contains(&name.as_str()) {
+                    if let Some(doc) = builtin_docs::builtin_doc(&name) {
+                        let _ = writeln!(self.out, "  {}", doc.signature);
+                        let _ = writeln!(self.out, "  {}.", doc.summary);
+                        let module = name.split('.').next().unwrap_or("");
+                        let _ = writeln!(self.out, "  (module function: `import {module}` first, then call it as `{name}(...)`)");
+                        return Ok(Value::Nothing);
+                    }
+                }
                 if BUILTIN_NAMES.contains(&name.as_str()) {
                     let related = similar_builtins(&name);
                     let related: Vec<&str> = related.into_iter().filter(|r| *r != name).collect();
@@ -20985,7 +21060,16 @@ self.eval_grad(loss, wrt)
                     // the old bare line rather than claim ignorance.
                     match builtin_docs::builtin_doc(&name) {
                         Some(doc) => {
-                            let _ = writeln!(self.out, "  {}", doc.signature);
+                            // An alias row (`round` listed with `floor`, `subplot`
+                            // with `panel`) carries ONE signature, the first
+                            // name's. Spell it with the name that was asked for.
+                            let sig = match doc.signature.split_once('(') {
+                                Some((head, rest)) if head != name && !head.contains(' ') => {
+                                    format!("{name}({rest}")
+                                }
+                                _ => doc.signature.to_string(),
+                            };
+                            let _ = writeln!(self.out, "  {}", sig);
                             let _ = writeln!(self.out, "  {}.", doc.summary);
                         }
                         None => {
@@ -22305,6 +22389,8 @@ self.eval_grad(loss, wrt)
             | "pdf::add_annotation"
             | "pdf::remove_annotation"
             | "pdf::add_link"
+            | "pdf::replace_text"
+            | "pdf::add_text"
             | "pdf::attachments"
             | "pdf::add_attachment"
             | "pdf::extract_attachment"
@@ -29855,11 +29941,43 @@ self.eval_grad(loss, wrt)
                 let old = str_arg(&args, 1)?;
                 let new = str_arg(&args, 2)?;
                 // `replace(s, old, new, count)` stops after `count`
-                // occurrences, BASIC's fourth argument.
-                let count = match arg_get(&args, 3) {
+                // occurrences, BASIC's fourth argument. The positional form
+                // is unchanged and always will be: `replace(s, o, n, 2)`
+                // means today what it meant before `count=` existed.
+                //
+                // `count=` is accepted as a keyword too, so it can be
+                // written beside `skip=` without one option being positional
+                // and its partner named -- `replace(s, o, n, skip=2,
+                // count=1)` reads as one instruction.
+                //
+                // Giving BOTH forms is an ERROR rather than a silent
+                // precedence rule. There is no reading of
+                // `replace(s, o, n, 2, count=3)` that is obviously right,
+                // and picking one quietly is how `theme("dark")` came to
+                // render an unthemed figure.
+                let positional_count = match arg_get(&args, 3) {
                     Some(v) => Some(v.as_index().map_err(|m| EvalError { msg: m })?),
                     None => None,
                 };
+                let keyword_count = usize_kwarg(&style, "count", f)?;
+                let count = match (positional_count, keyword_count) {
+                    (Some(_), Some(_)) => {
+                        return e(format!(
+                            "{f}: count given twice, once positionally and once as `count=` -- \
+                             use one or the other"
+                        ))
+                    }
+                    (Some(p), None) => Some(p),
+                    (None, Some(k)) => Some(k),
+                    (None, None) => None,
+                };
+                // `skip=` leaves the first N matches alone, then replaces
+                // from there. Without it there is no way to reach an
+                // occurrence that is not the first: "only the 3rd" is
+                // `skip=2, count=1`. Counts MATCHES, not characters, and
+                // counts them in whichever pattern language `pattern=`
+                // selected, so the two compose without a special case.
+                let skip = usize_kwarg(&style, "skip", f)?.unwrap_or(0);
                 // `case=` -- "sensitive" (default), "insensitive", or
                 // "preserve", where the replacement inherits the case of
                 // what it replaced letter by letter:
@@ -29877,7 +29995,7 @@ self.eval_grad(loss, wrt)
                 let spans = keep_spans(&s, &keep);
                 match kind {
                     PatternKind::Literal if keep.is_empty() => {
-                        Ok(Value::Str(replace_with_case(&s, &old, &new, count, mode)))
+                        Ok(Value::Str(replace_with_case(&s, &old, &new, count, skip, mode)))
                     }
                     kind => {
                         let re = search_regex(&old, kind, mode, f)?;
@@ -29897,9 +30015,12 @@ self.eval_grad(loss, wrt)
                         //     now  "bX bX"
                         //
                         // The empty match at position 0 ate the first slot.
+                        // `skip=` counts the matches that would be replaced -- after the
+                        // zero-width and `keep=` filtering above, never before it.
                         for m in re
                             .find_iter(&s)
                             .filter(|m| m.end() > m.start() && !in_kept(&spans, m.start(), m.end()))
+                            .skip(skip)
                             .take(limit)
                         {
                             out.push_str(&s[at..m.start()]);
@@ -33856,6 +33977,9 @@ self.eval_grad(loss, wrt)
             // `randi(lo, hi, ...)` — inclusive both ends (MATLAB's `randi`
             // convention, not NumPy's half-open `randint`).
             "randi" => {
+                if arg_get(&args, 0).is_none() || arg_get(&args, 1).is_none() {
+                    return e("randi: requires lo and hi");
+                }
                 let lo = arg_get(&args, 0).and_then(|v| v.as_num().ok()).unwrap_or(0.0) as i64;
                 let hi = arg_get(&args, 1).and_then(|v| v.as_num().ok()).unwrap_or(1.0) as i64;
                 let rows = arg_get(&args, 2).and_then(|v| v.as_num().ok()).unwrap_or(1.0) as usize;
@@ -34769,6 +34893,11 @@ self.eval_grad(loss, wrt)
                 }
                 Ok(Value::Vec(Arc::new(idx.into_iter().map(|i| i as f64).collect())))
             }
+            // atan2/hypot/fix/rem/maximum/minimum/isnan/isinf/isfinite/cumprod/repmat/kron/outer/
+            // cross/tril/triu/nnz/lstsq/expm -- see `basics_ops.rs`.
+            "atan2" | "hypot" | "fix" | "rem" | "maximum" | "minimum" | "isnan" | "isinf" | "isfinite"
+            | "cumprod" | "repmat" | "kron" | "outer" | "cross" | "tril" | "triu" | "nnz" | "lstsq"
+            | "expm" => basics_ops::call(&*self, f, &args),
             "cumsum" => {
                 let src = arg0(&args)?;
                 let xs = to_vec(src)?;
@@ -43269,12 +43398,17 @@ fn replace_with_case(
     old: &str,
     new: &str,
     count: Option<usize>,
+    skip: usize,
     mode: CaseMode,
 ) -> String {
     // An empty needle has no case to match and no span to inherit from.
-    // Left to the standard library so the mode cannot change what an
-    // already-odd call does.
-    if old.is_empty() || mode == CaseMode::Sensitive {
+    // Left to the standard library so neither the mode nor `skip` can
+    // change what an already-odd call does.
+    //
+    // The `Sensitive` shortcut applies only with nothing skipped: the
+    // standard library counts from the FIRST match, which is precisely the
+    // thing `skip` exists to stop doing.
+    if old.is_empty() || (mode == CaseMode::Sensitive && skip == 0) {
         return match count {
             Some(n) => s.replacen(old, new, n),
             None => s.replace(old, new),
@@ -43283,9 +43417,18 @@ fn replace_with_case(
     let limit = count.unwrap_or(usize::MAX);
     let mut out = String::with_capacity(s.len());
     let mut at = 0usize;
+    let mut seen = 0usize;
     let mut done = 0usize;
     while done < limit {
         let Some((start, end)) = find_ignore_case(s, old, at) else { break };
+        seen += 1;
+        // A skipped match is copied through exactly as found -- including
+        // its own casing, which `preserve` must not touch on the way past.
+        if seen <= skip {
+            out.push_str(&s[at..end]);
+            at = end;
+            continue;
+        }
         out.push_str(&s[at..start]);
         match mode {
             CaseMode::Preserve => out.push_str(&apply_case_pattern(&s[start..end], new)),
@@ -43296,6 +43439,21 @@ fn replace_with_case(
     }
     out.push_str(&s[at..]);
     out
+}
+
+/// A whole-number keyword argument, or `None` when it was not given.
+///
+/// Shared by `count=` and `skip=` so the two reject a bad value the same
+/// way, and so the message names WHICH keyword is wrong rather than leaving
+/// a bare "expected a non-negative index" for the caller to place.
+fn usize_kwarg(style: &[(String, Value)], key: &str, fname: &str) -> R<Option<usize>> {
+    match style_entry(style, key) {
+        None => Ok(None),
+        Some((_, v)) => match v.as_index() {
+            Ok(n) => Ok(Some(n)),
+            Err(msg) => e(format!("{fname}: `{key}=` {msg}")),
+        },
+    }
 }
 
 /// The literal text between `scan`'s placeholders, turned into regex that
@@ -46439,7 +46597,7 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "append_all", "append_text", "apply", "apply_calibration", "apply_calibration_curve",
     "apply_edits", "apply_gain", "apply_offset", "apropos", "ar_model", "arc", "area", "arg",
     "argmax", "argmean", "argmedian", "argmin", "argquantile", "argsort", "argv", "arima", "arrow",
-    "arrowtext", "as_text", "asc", "asin", "asinh", "astar_mrmr", "at", "atan", "atanh",
+    "arrowtext", "as_text", "asc", "asin", "asinh", "astar_mrmr", "at", "atan", "atan2", "atanh",
     "available", "avgpool2d", "band_power", "band_zero", "bar", "base64_decode", "base64_encode",
     "basin_hopping", "beamform", "beeswarm", "before", "before_last", "berncdf", "bernfit",
     "berninv", "bernpdf", "bernrnd", "bernstat", "betacdf", "betafit", "betainv", "betapdf",
@@ -46456,8 +46614,8 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "compile", "complex", "cond", "conformal", "confusion_matrix", "conj", "contains", "contour",
     "contourf", "conv", "conv1d", "conv2d", "convert_unit", "copy_file", "corr", "corr_heatmap",
     "corrcoef", "corrmat", "corrplot", "cos", "cosh", "coth", "count", "cov", "coverage", "cpe",
-    "cqt", "crc", "crc32", "crc_check", "create_file", "created_at", "crest_factor", "crop",
-    "cs_guarantee", "cs_recover", "csch", "csd", "csv2json", "csv2xml", "csvify", "ctranspose",
+    "cqt", "crc", "crc32", "crc_check", "create_file", "created_at", "crest_factor", "crop", "cross",
+    "cs_guarantee", "cs_recover", "csch", "csd", "csv2json", "csv2xml", "csvify", "ctranspose", "cumprod",
     "cumsum", "cumtrapz", "cur_dir", "curve_fit", "cut", "cv_stability", "cwt", "daily_profile", "db", "db2mag",
     "db2pow", "db_power", "dbfs", "dbscan", "dct", "dec2bin", "dec2hex", "decode_can", "decode_i2c",
     "decode_spi", "decode_uart", "dedent", "delay", "delta_e", "dense", "dense_layer", "describe",
@@ -46469,13 +46627,13 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "elemul", "elepow", "ellip", "ellipse", "emd", "emf", "end_time", "ends_with", "energy", "enob",
     "enob_estimate", "entropy", "enum_values", "eof", "erf", "erfc", "error", "errorbar",
     "estimate", "estimate_complexity", "estimate_frequency", "exec", "exit", "exp", "exp2",
-    "expcdf", "expfit", "expinv", "explain", "explore", "expm1", "exponential", "exppdf", "exprnd",
+    "expcdf", "expfit", "expinv", "explain", "explore", "expm", "expm1", "exponential", "exppdf", "exprnd",
     "expstat", "extend", "eye", "f1", "fall_time", "falling_edges", "fcdf", "fft", "fftc", "fftr", "fifo",
     "figure", "figure_background", "figure_size", "file_exists", "file_history", "file_info",
     "file_size", "file_versioning", "fill_between", "fill_missing", "filter", "filter_ba",
     "filter_init", "filter_next", "filtfilt", "find", "find_clipping", "find_edges", "find_hex",
     "find_missing", "find_outliers", "find_peaks", "find_pulses", "find_trigger",
-    "find_zero_crossings", "findpeaks", "finv", "fir1", "firls", "first", "fit", "fit_scaler",
+    "find_zero_crossings", "findpeaks", "finv", "fir1", "firls", "first", "fit", "fit_scaler", "fix",
     "flatten", "flip", "fliplr", "flipud", "floor", "fold", "fontfamily", "fontsize", "fopen",
     "foreground_mask", "format", "forward", "fpdf", "freqz", "frnd", "fstat", "fuzzy_pid_init",
     "fvtool", "fzero", "gain", "gamcdf", "gamfit", "gaminv", "gamma", "gampdf", "gamrnd", "gamstat",
@@ -46488,17 +46646,17 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "hex_encode", "hexbin", "hexdump", "high_time", "hilbert", "hist", "histeq", "histogram",
     "hit_miss", "hline", "hmm", "hourly_profile", "hsl", "hstack", "hsv", "html2md", "http_get",
     "huffman_decode", "huffman_encode", "hum", "hurst_exponent", "hygecdf", "hygeinv", "hygepdf",
-    "hygernd", "hygestat", "ica", "ica_model", "idct", "identity", "idft", "idwt", "ifft", "im",
+    "hygernd", "hygestat", "hypot", "ica", "ica_model", "idct", "identity", "idft", "idwt", "ifft", "im",
     "imadjust", "imag", "image", "image_from_matrix", "image_new", "image_regions", "imagesc",
     "imbothat", "imclose", "imdilate", "imequalize", "imerode", "imfilter", "imhist", "imnoise",
     "imopen", "impedance", "impedance_from_reflection", "impulse", "imrotate", "imscale", "imshow",
     "imtophat", "imtranslate", "imwarp", "inch", "indent", "index", "index_of", "indexof",
     "inductor", "input", "insert", "insert_column", "insert_row", "interp1", "interp2",
     "interpolate_at", "interpolate_nan", "inv", "inverse_transform", "invert", "iqr", "irfft",
-    "is_clipped", "is_empty", "is_full", "is_readonly", "is_stable", "isolation_forest", "items",
+    "is_clipped", "is_empty", "is_full", "is_readonly", "is_stable", "isfinite", "isinf", "isnan", "isolation_forest", "items",
     "jacobian", "join", "js_exec", "json2csv", "json2xml", "json_delete", "json_get", "json_set",
     "jsonify", "k_fold", "kaiser", "kalman_init", "kapur_threshold", "keys", "kfold", "kill",
-    "kmeans", "kmeans_centers", "kmeans_model", "kmedians_model", "kmedoids_model", "knn_model",
+    "kmeans", "kmeans_centers", "kmeans_model", "kmedians_model", "kmedoids_model", "knn_model", "kron",
     "kurtosis", "lab", "label_blobs", "last", "last_index_of", "layer_norm", "lcase", "lda_model",
     "least_squares", "left", "legend", "len", "length", "levenshtein", "lfilter", "lgamma", "like",
     "line", "line_at", "line_col", "line_count", "line_delete", "line_insert", "line_range",
@@ -46506,20 +46664,20 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "listen_pool", "llm_load", "lms_init", "ln", "load", "load_image", "load_library", "load_model",
     "load_svg", "log", "log10", "log1p", "log2", "logistic_model", "loglog", "logncdf", "lognfit",
     "logninv", "lognpdf", "lognrnd", "lognstat", "logspace", "logsumexp", "low_time", "lower",
-    "lr_adaptive", "lr_plateau", "lse", "lstm_cell", "lstm_forward", "lstm_init", "ltrim", "lu",
+    "lr_adaptive", "lr_plateau", "lse", "lstm_cell", "lstm_forward", "lstm_init", "lstsq", "ltrim", "lu",
     "mae", "mag2db", "magnitude", "make_file", "map", "markers", "markov_chain", "matlab_exec",
-    "matmul", "max", "maxpool2d", "md2html", "mean", "measure_snr", "medfilt", "medfilt2", "median",
+    "matmul", "max", "maximum", "maxpool2d", "md2html", "mean", "measure_snr", "medfilt", "medfilt2", "median",
     "median_filter", "mel_spectrogram", "mem_usage", "meshgrid", "metadata", "mid", "min",
-    "minimize", "minutely_profile", "mirror", "mismatch_loss", "mkdir", "mlp_classifier", "mm",
+    "minimize", "minimum", "minutely_profile", "mirror", "mismatch_loss", "mkdir", "mlp_classifier", "mm",
     "mmap_len", "mmap_open", "mmap_read", "mod", "mode", "modified_at", "monte_carlo",
     "monthly_profile", "move", "move_file", "mse", "mtimes", "mul", "multi_head_attention",
     "multi_otsu", "multisine", "multithreshold", "mutex", "mutex_add", "mutex_get", "mutex_set",
     "mutex_update", "mutual_info_classif", "mvnpdf", "nadam", "naive_bayes_model", "nand",
     "native_call", "nbincdf", "nbinfit", "nbininv", "nbinpdf", "nbinrnd", "nbinstat", "nbytes",
-    "ncol", "neighbors", "nesterov_sgd", "newton", "nmf", "nnls", "nor", "norm", "normal",
+    "ncol", "neighbors", "nesterov_sgd", "newton", "nmf", "nnls", "nnz", "nor", "norm", "normal",
     "normalize", "normcdf", "normfit", "norminv", "normpdf", "normrnd", "normstat", "now", "nrow",
     "numel", "nyquist", "ode23", "ode45", "ode_stiff", "ols_model", "ones", "ones_like", "optimizer_step", "or", "ord", "otsu",
-    "otsu_threshold", "overshoot", "pack", "pad_bytes", "pad_left", "pad_right", "palette", "panel",
+    "otsu_threshold", "outer", "overshoot", "pack", "pad_bytes", "pad_left", "pad_right", "palette", "panel",
     "parallel", "param", "parse_as", "parse_csv", "parse_json", "parse_xml", "particle_filter",
     "particle_filter_init", "path_absolute", "path_extension", "path_join", "path_name",
     "path_normalize", "path_parent", "path_relative_to", "path_stem", "pause", "pca",
@@ -46543,10 +46701,10 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "read_line", "read_mat", "read_npy", "read_npz", "read_struct", "read_structs", "read_uint16", "read_uint32",
     "read_uint64", "read_until", "read_values", "read_version", "real", "recall", "rect",
     "rectangle", "reduce", "reflection_coefficient", "regex_count", "regex_find", "regex_find_all",
-    "regex_groups", "regex_match", "regex_replace", "regex_split", "regionprops", "regions", "relu",
+    "regex_groups", "regex_match", "regex_replace", "regex_split", "regionprops", "regions", "relu", "rem",
     "remove", "remove_dir", "remove_file", "remove_nan", "remove_noise", "remove_outliers",
     "remove_small_blobs", "rename_file", "repeat_str", "replace", "replace_bytes",
-    "replace_outliers", "resample_int", "resample_to", "reset", "reshape", "residual_acf",
+    "replace_outliers", "repmat", "resample_int", "resample_to", "reset", "reshape", "residual_acf",
     "resistor", "resize", "restart", "restore_version", "return_loss", "reverse", "reverse_bytes",
     "rewind", "rfe", "rfft", "rgb", "rgba", "ridge", "ridge_model", "right", "rise_time",
     "rising_edges", "rk4", "rlkk_extrapolate", "rlkk_reconstruct", "rlkk_validate", "rms", "rmse",
@@ -46576,7 +46734,7 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "to_hsv", "to_int", "to_lab", "to_rgb", "to_unit", "to_vec", "toc", "toggle_bit", "tolower",
     "touch", "toupper", "tpdf", "trace", "track", "train_loop", "train_test_split",
     "train_val_test_split", "transfer_function", "transform", "transformer_block", "transpose",
-    "trapz", "tree_model", "triangle", "trim", "trnd", "tsne", "tstat", "tv_denoise", "type", "ucase",
+    "trapz", "tree_model", "triangle", "tril", "trim", "triu", "trnd", "tsne", "tstat", "tv_denoise", "type", "ucase",
     "ui_button", "ui_checkbox", "ui_number", "ui_select", "ui_slider", "ui_text", "undershoot",
     "unidcdf", "unidinv", "unidpdf", "unidrnd", "unidstat", "unifcdf", "unifinv", "unifit",
     "uniform", "unifpdf", "unifrnd", "unifstat", "unique", "unit_scale", "unpack", "unsetenv",
@@ -66582,6 +66740,80 @@ out = both.x");
         assert!(!err.contains("no shape to copy"), "table: {err}");
     }
 
+    /// `skip=` is the only way to reach an occurrence that is not the
+    /// first. `count` alone counts from match one, so "replace the 3rd and
+    /// leave 1, 2, 4, 5 alone" was unsayable.
+    #[test]
+    fn replace_can_skip_the_first_matches() {
+        let it = run(
+            "s = \"a a a a a\"
+             third = replace(s, \"a\", \"X\", skip=2, count=1)
+             rest  = replace(s, \"a\", \"X\", skip=2)
+             past  = replace(s, \"a\", \"X\", skip=99)
+             zeroskip = replace(s, \"a\", \"X\", skip=0, count=2)",
+        );
+        assert!(matches!(it.get("third"), Some(Value::Str(v)) if v == "a a X a a"), "{:?}", it.get("third"));
+        assert!(matches!(it.get("rest"), Some(Value::Str(v)) if v == "a a X X X"), "{:?}", it.get("rest"));
+        // Skipping past the end replaces nothing, and is not an error --
+        // "there was no third one" is an answer, not a fault.
+        assert!(matches!(it.get("past"), Some(Value::Str(v)) if v == "a a a a a"), "{:?}", it.get("past"));
+        // skip=0 is exactly today's behaviour.
+        assert!(matches!(it.get("zeroskip"), Some(Value::Str(v)) if v == "X X a a a"), "{:?}", it.get("zeroskip"));
+    }
+
+    #[test]
+    fn skip_counts_only_the_matches_keep_leaves_replaceable() {
+        // `skip=` counts the occurrences that would be replaced, so one
+        // inside `keep=` text is neither replaced nor counted.
+        let it = run(
+            "s = \"foo bar foo (foo) foo\"
+             r = replace(s, \"foo\", \"X\", keep=\"(foo)\", skip=1)",
+        );
+        assert!(
+            matches!(it.get("r"), Some(Value::Str(v)) if v == "foo bar X (foo) X"),
+            "{:?}",
+            it.get("r")
+        );
+    }
+
+    #[test]
+    fn skip_composes_with_case_and_pattern() {
+        // `skip` counts MATCHES, in whichever pattern language is selected,
+        // so it needs no special case per language.
+        let it = run(
+            "p = \"the programme, the Programme, the PROGRAMME\"
+             pres = replace(p, \"programme\", \"program\", skip=1, count=1, case=\"preserve\")
+             r = \"id=1 id=2 id=3\"
+             rx = replace(r, \"id=\\\\d\", \"X\", pattern=\"regex\", skip=1)",
+        );
+        // Only the SECOND is replaced, and it inherits that one's casing --
+        // the skipped first keeps its own, untouched.
+        assert!(
+            matches!(it.get("pres"), Some(Value::Str(v)) if v == "the programme, the Program, the PROGRAMME"),
+            "{:?}",
+            it.get("pres")
+        );
+        assert!(matches!(it.get("rx"), Some(Value::Str(v)) if v == "id=1 X X"), "{:?}", it.get("rx"));
+    }
+
+    #[test]
+    fn count_given_twice_is_an_error_not_a_precedence_rule() {
+        // There is no obviously-right reading of `replace(s, o, n, 2,
+        // count=3)`, and picking one quietly is how `theme("dark")` came to
+        // render an unthemed figure.
+        let mut it = Interp::new();
+        let err = it
+            .run("x = replace(\"aaa\", \"a\", \"X\", 2, count=3)")
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("count given twice"), "{err}");
+        // A bad `skip=` names the keyword rather than leaving a bare index
+        // complaint for the caller to place.
+        let mut neg = Interp::new();
+        let err = neg.run("x = replace(\"aaa\", \"a\", \"X\", skip=-1)").unwrap_err().to_string();
+        assert!(err.contains("`skip=`"), "{err}");
+    }
+
     #[test]
     fn contains_accepts_a_complex_vector() {
         // `[2+3i]` builds a complex VECTOR, not a list, and
@@ -80347,6 +80579,43 @@ end for");
         }
         let it2 = run("x = randi(1, 6, 10000, seed = 3)");
         assert_eq!(xs, vec_of(&it2, "x"), "same seed must reproduce the same draws");
+    }
+
+    #[test]
+    fn randi_requires_lo_and_hi() {
+        let err = run_err("x = randi(10)");
+        assert!(err.msg.contains("randi"), "unexpected message: {}", err.msg);
+        let err = run_err("x = randi()");
+        assert!(err.msg.contains("randi"), "unexpected message: {}", err.msg);
+    }
+
+    #[test]
+    fn randi_two_and_four_arg_call_shapes_still_work() {
+        let it = run("x = randi(1, 6)");
+        assert!(matches!(it.get("x"), Some(Value::Num(n)) if (1.0..=6.0).contains(n)), "got {:?}", it.get("x"));
+
+        let it = run("x = randi(1, 6, 3, 2)");
+        match it.get("x") {
+            Some(Value::Mat(m)) => {
+                assert_eq!(m.shape(), (3, 2));
+                assert!(m.as_slice().iter().all(|&v| (1.0..=6.0).contains(&v)));
+            }
+            other => panic!("x is not a matrix: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn randi_with_hi_at_or_below_lo_returns_constant_lo() {
+        // Not new behavior -- pinning the existing `Rng::randi` contract
+        // (`if hi <= lo { return lo }`) so a future change to it is a
+        // deliberate decision, not an accident.
+        let it = run("x = randi(5, 5, 20)");
+        let xs = vec_of(&it, "x");
+        assert!(xs.iter().all(|&v| v == 5.0));
+
+        let it = run("x = randi(5, 2, 20)");
+        let xs = vec_of(&it, "x");
+        assert!(xs.iter().all(|&v| v == 5.0));
     }
 
     #[test]

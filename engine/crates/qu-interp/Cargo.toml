@@ -146,7 +146,7 @@ tensorflow = { version = "0.21", optional = true }
 # object round-tripped through it comes back with its keys SORTED. For a
 # table that means the columns silently reorder -- `name,age` in, `age,name`
 # out -- which is user-visible and wrong. IndexMap keeps insertion order.
-serde_json = { version = "1", features = ["preserve_order"] }
+serde_json = { version = "1", features = ["preserve_order", "float_roundtrip"] }
 # Optional, default-off, same "keep the crate dependency-free by default"
 # policy as `qu-gpu`/`tch` above: enable with `--features h5-models` for
 # `save_model(net, path)`/`load_model(path)` (docs/qu-language-spec.md

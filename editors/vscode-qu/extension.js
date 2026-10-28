@@ -1,5 +1,5 @@
 // Qu Language extension — run support + inline diagnostics.
-// Qu editor plugin 0.2.1
+// Qu editor plugin 0.2.2
 //
 // Plain CommonJS, no build step: `package.json` points `main` straight at
 // this file, so there's nothing to compile/bundle for either the "copy the
@@ -204,6 +204,9 @@ function appendVarsDumpIfPresent(varsPath) {
         } catch (_) {
             return;
         }
+        // `--emit-vars` also lists the built-in constants (pi, e, QuTab, ...)
+        // flagged `system: true`; the dump is about the script's own variables.
+        if (Array.isArray(vars)) vars = vars.filter((v) => !v.system);
         if (!Array.isArray(vars) || vars.length === 0) return;
         outputChannel.appendLine('');
         outputChannel.appendLine(

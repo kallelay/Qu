@@ -61,7 +61,7 @@ installs it for you.
 ## Running a file
 
 Command Palette → **Qu: Run File** (command id `qu.runFile`), or the
-keybinding **Ctrl+Alt+Q** (**Cmd+Alt+Q** on macOS) while a `.qu` file has
+keybinding **Ctrl+Alt+R** (**Cmd+Alt+R** on macOS; it used to be Ctrl+Alt+Q, which on a German keyboard is AltGr+Q = `@`, so typing `@` ran the script) while a `.qu` file has
 focus, or the ▶ run button in the editor title bar. This saves the file if
 it has unsaved changes, then runs `qu run --emit-vars <tmp>.json <file>` and
 streams stdout/stderr into an Output Channel named **Qu** (View → Output →

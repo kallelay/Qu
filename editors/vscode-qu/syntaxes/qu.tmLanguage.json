@@ -45,16 +45,16 @@
           "end": "\"",
           "patterns": [
             { "include": "#string-escape" },
+            { "include": "#latex-group" },
             { "include": "#string-interpolation" }
           ]
         },
         {
           "name": "string.quoted.single.qu",
-          "begin": "(?<![\\w)\\]}'])'",
+          "begin": "(?<![\\w)\\]}'.])'",
           "end": "'",
           "patterns": [
-            { "include": "#string-escape" },
-            { "include": "#string-interpolation" }
+            { "include": "#string-escape" }
           ]
         }
       ]
@@ -63,10 +63,15 @@
       "name": "constant.character.escape.qu",
       "match": "\\\\(?:[abfnrtv\\\\\"']|x[0-9A-Fa-f]{1,4}|u[0-9A-Fa-f]{4}|U[0-9A-Fa-f]{8})"
     },
+    "latex-group": {
+      "comment": "A `{` right after ^, _ or a \\macro is a LaTeX group (\"$V_{pp}$\", \"$10^{-3}$\"), not an interpolation; consumed whole so its braces do not open one.",
+      "match": "(?:[\\^_]|\\\\[A-Za-z]+)(?:\\{[^{}\"]*\\})+"
+    },
     "string-interpolation": {
       "name": "meta.interpolation.qu",
+      "comment": "Ends at `}` or, if the brace is never closed, just before the closing quote so one stray `{` cannot swallow the rest of the file.",
       "begin": "\\{",
-      "end": "\\}",
+      "end": "\\}|(?=\")",
       "beginCaptures": {
         "0": { "name": "punctuation.section.interpolation.begin.qu" }
       },
@@ -74,8 +79,17 @@
         "0": { "name": "punctuation.section.interpolation.end.qu" }
       },
       "patterns": [
+        { "include": "#format-spec" },
         { "include": "#expression" }
       ]
+    },
+    "format-spec": {
+      "comment": "`{x:0.3f}` -- a colon followed only by format-spec characters up to the closing brace (a slice like `a(1:3)` has a `)` and does not match).",
+      "match": "(:)([<>^=+\\-# 0-9.,_%A-Za-z]*)(?=\\})",
+      "captures": {
+        "1": { "name": "punctuation.separator.format-spec.qu" },
+        "2": { "name": "constant.other.format-spec.qu" }
+      }
     },
     "expression": {
       "patterns": [
@@ -128,11 +142,11 @@
       "patterns": [
         {
           "name": "keyword.control.qu",
-          "match": "\\bend\\s+(parallel|select)\\b"
+          "match": "\\bend\\s+(bench|finetune|interface|layer|model|module|monitor|parallel|project|property|scene|scene3d|schedule|select|simd|sketch|test|timeline|train|tune|window)\\b"
         },
         {
           "name": "keyword.control.qu",
-          "match": "\\b(and|as|break|by|case|cases|catch|continue|do|each|else|elseif|elsewhere|end|for|from|if|in|loop|mod|not|on|or|otherwise|repeat|return|skip|step|then|to|try|until|use|using|while|with)\\b"
+          "match": "\\b(and|as|break|by|case|cases|catch|continue|do|each|else|elseif|elsewhere|end|for|from|if|in|loop|mod|not|on|or|otherwise|repeat|return|skip|step|then|to|try|until|use|using|while|with)\\b(?!\\s*=(?!=))"
         },
         {
           "name": "keyword.control.qu",
@@ -156,7 +170,11 @@
         },
         {
           "name": "keyword.other.qu",
-          "match": "\\b(assert|async|await|backend|base|class|collect|compose|const|constant|data|def|device|dimension|distributed|ease|elemental|enum|every|export|finetune|flag|frame|function|global|hold|implements|import|inherits|inline|interface|layer|let|local|method|mesh|model|module|namespace|new|node|optional|override|project|property|pure|render|reserve|release|restore|run|scene3d|schedule|simd|sketch|stencil|sub|train|tune|unit|unsafe|vectorize|view|watch|window)\\b"
+          "match": "\\b(backend|class|const|constant|function|global|import|new|sub|unsafe)\\b(?!\\s*=(?!=))"
+        },
+        {
+          "name": "keyword.other.qu",
+          "match": "(?<![.\\w])(assert|async|await|base|collect|compose|data|def|device|dimension|distributed|ease|elemental|enum|every|export|finetune|flag|frame|hold|implements|inherits|inline|interface|layer|let|local|method|mesh|model|module|namespace|node|optional|override|pure|render|reserve|release|restore|run|scene3d|schedule|simd|sketch|stencil|train|tune|unit|vectorize|view|watch|window|bench|test|timeline|monitor|project|property)\\b(?=[ \\t]+(?!(?:in|and|or|mod|to|then|do|by|step|skip|as|if|else|elseif|end|from|with|until|where)\\b)[A-Za-z0-9_\"'\\[{@])"
         }
       ]
     },
@@ -172,7 +190,7 @@
       "patterns": [
         {
           "name": "keyword.operator.qu",
-          "match": "\\.\\*=|\\./=|:=|==|!=|<=|>=|\\+=|-=|\\*=|/=|\\.=|\\^=|=>|\\.\\^|\\*\\*|\\.\\*|\\./|\\.\\\\|\\|>|->|&&|\\|\\||\\?\\?|[=<>+\\-*/\\\\^!&|~@?]"
+          "match": "\\.\\*=|\\./=|:=|==|!=|<=|>=|\\+=|-=|\\*=|/=|\\.=|\\^=|=>|\\.\\^|\\*\\*|\\.\\*|\\./|\\.\\\\|\\.'|\\|>|->|&&|\\|\\||\\?\\?|[=<>+\\-*/\\\\^!&|~@?]"
         }
       ]
     },

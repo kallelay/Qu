@@ -386,6 +386,51 @@ fn sublime_installs_into_a_qu_package_folder() {
 }
 
 #[test]
+fn a_saved_sublime_session_naming_an_old_syntax_path_gets_a_hidden_alias() {
+    // Found on a real machine: sessions saved by older plugin versions named
+    // `Packages/Qu/Qu.sublime-syntax` and `Packages/User/Qu.sublime-syntax`;
+    // the plugin now lives in `Packages/User/Qu/`, and Sublime popped a modal
+    // "Unable to stat" for every restored view.
+    let t = Tmp::new("sub-alias");
+    let data = t.p().join("Sublime Text");
+    write(
+        &data.join("Local").join("Session.sublime_session"),
+        r#"{"views":[{"syntax": "Packages/Qu/Qu.sublime-syntax"},{"syntax": "Packages/User/Qu.sublime-syntax"},{"syntax": "Packages/User/Qu/Qu.sublime-syntax"},{"syntax": "Packages/Python/Python.sublime-syntax"}]}"#,
+    );
+    let tg = target(&data.join("Packages").join("User"), "packages-dir");
+    let log = install_target(Editor::Sublime, &tg, false).unwrap();
+    let old_a = data.join("Packages/Qu/Qu.sublime-syntax");
+    let old_b = data.join("Packages/User/Qu.sublime-syntax");
+    for p in [&old_a, &old_b] {
+        let s = std::fs::read_to_string(p).unwrap();
+        assert!(s.contains("hidden: true") && s.contains("extends: Packages/User/Qu/Qu.sublime-syntax"), "{s}");
+    }
+    assert!(log.iter().any(|l| l.contains("alias")), "{log:?}");
+    // the canonical path and someone else's package are not aliased
+    assert!(!data.join("Packages/Python").exists());
+    // a second install is quiet, and uninstall takes the aliases (and the emptied Packages/Qu) away
+    let again = install_target(Editor::Sublime, &tg, false).unwrap();
+    assert!(again.iter().all(|l| l.starts_with("unchanged")), "{again:?}");
+    uninstall_target(Editor::Sublime, &tg, false).unwrap();
+    assert!(!old_a.exists() && !old_b.exists());
+    assert!(!data.join("Packages/Qu").exists());
+    assert!(tg.dir.is_dir());
+}
+
+#[test]
+fn a_file_someone_else_put_at_an_old_syntax_path_is_left_alone() {
+    let t = Tmp::new("sub-alias2");
+    let data = t.p().join("Sublime Text");
+    write(&data.join("Local").join("Session.sublime_session"), r#"{"syntax": "Packages/User/Qu.sublime-syntax"}"#);
+    write(&data.join("Packages/User/Qu.sublime-syntax"), "my own syntax\n");
+    let tg = target(&data.join("Packages").join("User"), "packages-dir");
+    install_target(Editor::Sublime, &tg, false).unwrap();
+    assert_eq!(std::fs::read_to_string(data.join("Packages/User/Qu.sublime-syntax")).unwrap(), "my own syntax\n");
+    uninstall_target(Editor::Sublime, &tg, false).unwrap();
+    assert!(data.join("Packages/User/Qu.sublime-syntax").exists());
+}
+
+#[test]
 fn vim_and_nvim_use_the_native_package_layout() {
     for ed in [Editor::Vim, Editor::Nvim] {
         let t = Tmp::new("vim");

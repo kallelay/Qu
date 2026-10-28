@@ -33,7 +33,7 @@
 <pre class="fnsig">result = <code>pdf.add_annotation(src, page, type=, rect=, text=, [color=])</code></pre>
 <p class="fnnote">Input: src, page, type, rect, text, color &middot; Output: result</p>
 <h2>What it is</h2>
-<p>Adds a simple annotation to a page (<code>page</code> counts from 1). <code>type=</code> (<code>Str</code>) is written verbatim as the PDF <code>/Subtype</code> — this does not validate it against PDF's own list. <code>rect=</code> is <code>[x0, y0, x1, y1]</code>. <code>text=</code> (optional <code>Str</code>) becomes the annotation's <code>/Contents</code>. <code>color=</code> (optional <code>[r, g, b]</code>, each 0 to 1) sets the annotation colour. The four text-markup types <code>"Highlight"</code>, <code>"Underline"</code>, <code>"StrikeOut"</code> and <code>"Squiggly"</code> are drawn from <code>/QuadPoints</code>, which Qu writes from <code>rect=</code> so they actually show (default colours yellow, green, red, red); a <code>Highlight</code> without them exists in the file but renders as nothing. <code>"Text"</code> (a note icon) and <code>"Square"</code> draw as written.</p>
+<p>Adds a simple annotation to a page (<code>page</code> counts from 1). <code>type=</code> (<code>Str</code>) is written verbatim as the PDF <code>/Subtype</code> — this does not validate it against PDF's own list. <code>rect=</code> is <code>[x0, y0, x1, y1]</code>. <code>text=</code> (optional <code>Str</code>) becomes the annotation's <code>/Contents</code>. <code>color=</code> (optional <code>[r, g, b]</code>, each 0 to 1) sets the annotation colour (for <code>"FreeText"</code> it is the text colour, on a light-yellow callout box). The four text-markup types <code>"Highlight"</code>, <code>"Underline"</code>, <code>"StrikeOut"</code> and <code>"Squiggly"</code> are drawn from <code>/QuadPoints</code>, which Qu writes from <code>rect=</code> so they actually show (default colours yellow, green, red, red); a <code>Highlight</code> without them exists in the file but renders as nothing. <code>"Text"</code> (a note icon) and <code>"Square"</code> draw as written.</p>
 <h2>Overloads</h2>
 <p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
 <div class="tablewrap"><table class="iotable">
@@ -43,7 +43,7 @@
 <div class="ioitem"><code>type</code> <span class="iotype">Str</span><span class="iodesc"><code>type=</code> (<code>Str</code>) is written verbatim as the PDF <code>/Subtype</code> — this does not validate it against PDF's own list.</span></div>
 <div class="ioitem"><code>rect</code> <span class="iotype">&mdash;</span><span class="iodesc"><code>rect=</code> is <code>[x0, y0, x1, y1]</code>.</span></div>
 <div class="ioitem"><code>text</code> <span class="iotype">Str</span><span class="iodesc"><code>text=</code> (optional <code>Str</code>) becomes the annotation's <code>/Contents</code>.</span></div>
-<div class="ioitem"><code>color</code> <span class="iotype">optional</span><span class="iodesc"><code>color=</code> (optional <code>[r, g, b]</code>, each 0 to 1) sets the annotation colour.</span></div>
+<div class="ioitem"><code>color</code> <span class="iotype">optional</span><span class="iodesc"><code>color=</code> (optional <code>[r, g, b]</code>, each 0 to 1) sets the annotation colour (for <code>"FreeText"</code> it is the text colour, on a light-yellow callout box).</span></div>
 </td><td><div class="ioitem"><code>result</code> <span class="iotype">Vec</span></div>
 </td><td>Returns a <code>Vec</code> of bytes: save with <code>bytes_write(path, bytes)</code>.</td></tr>
 </table></div>

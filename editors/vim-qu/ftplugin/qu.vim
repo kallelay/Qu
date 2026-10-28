@@ -1,5 +1,5 @@
 " Vim filetype plugin for Qu (.qu)
-" Qu editor plugin 0.2.1
+" Qu editor plugin 0.2.2
 if exists("b:did_ftplugin")
   finish
 endif

@@ -475,9 +475,9 @@ SectionGroup "Editor plugins" SecPlugins
     ${If} $R7 != 0
       ${If} ${FileExists} "$APPDATA\Sublime Text 3\Packages\*.*"
       ${AndIfNot} ${FileExists} "$APPDATA\Sublime Text\Packages\*.*"
-        StrCpy $R5 "$APPDATA\Sublime Text 3\Packages\Qu"
+        StrCpy $R5 "$APPDATA\Sublime Text 3\Packages\User\Qu"
       ${Else}
-        StrCpy $R5 "$APPDATA\Sublime Text\Packages\Qu"
+        StrCpy $R5 "$APPDATA\Sublime Text\Packages\User\Qu"
       ${EndIf}
       SetOutPath $R5
       File "${SRCDIR}\editors\sublime-qu\Qu.sublime-syntax"

@@ -34,8 +34,12 @@ interfere with builds for any other file type.
   `qu parse <file>` instead — reports OK or the first parse error without
   executing anything.
 
-Clicking on a `parse error at LINE:COL: ...` line in the build output panel
-jumps to that location in the file (via the build system's `file_regex`).
+Clicking a `qu: parse error at file.qu:LINE:COL: ...` line (printed by the
+default `qu run` build) or an `  at file.qu:LINE` runtime-error frame in the
+build output panel jumps to that location (via the build system's
+`file_regex`). `qu parse` prints the position without a file name, so the
+Parse variant's regex has an empty file group; whether Sublime then jumps
+within the current file is untested.
 
 ### If `qu`/`qu.exe` isn't on PATH
 

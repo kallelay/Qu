@@ -10,7 +10,7 @@ description is written in exactly one place, the chapter that teaches
 the subject, and this page is a view onto it rather than a second copy
 that can drift.
 
-**1227 builtins, 1142 described.** The rest are
+**1246 builtins, 1161 described.** The rest are
 listed at the end, by name: a gap you can see is worth more than
 one quietly omitted.
 
@@ -24,7 +24,7 @@ program, and a misspelled call suggests the nearest match.
 | [`ablation_study`](../fn/ablation_study.html) | Computes one importance score per feature column of an `N`-row, `D`-column `X` and length-`N` `y`, using `cv_folds` folds (integer, default 3): the full model's cross-validated score minus.. | [Statistics & ML](statistics-ml.md) |
 | [`abs`](../fn/abs.html) | Absolute value on a real scalar/`Vec`/`Mat`; magnitude (`sqrt(re^2 + im^2)`) on a `Complex` scalar, `CVec`, or `CMat` | [Core maths](core-math.md) |
 | [`acf`](../fn/acf.html) | Returns a vector of length `max_lag+1` (lag 0 through `max_lag`), the autocorrelation function | [Signal processing](signal-processing.md) |
-| [`acos`](../fn/acos.html) | Inverse trigonometric functions, single-argument only (there is no two-argument `atan2` in this table) | [Core maths](core-math.md) |
+| [`acos`](../fn/acos.html) | Inverse trigonometric functions, single-argument only (the two-argument form is `atan2`, below) | [Core maths](core-math.md) |
 | [`acosh`](../fn/acosh.html) | Inverse hyperbolics. `asinh` is defined and finite on the whole real line | [Core maths](core-math.md) |
 | [`adadelta`](../fn/adadelta.html) | Per-parameter learning rates derived from the running gradient history, given `params` (a Tensor to optimize) and `lr` (a number, default 0.001) | [Statistics & ML](statistics-ml.md) |
 | [`adagrad`](../fn/adagrad.html) | Per-parameter learning rates derived from the running gradient history, given `params` (a Tensor to optimize) and `lr` (a number, default 0.001) | [Statistics & ML](statistics-ml.md) |
@@ -78,11 +78,12 @@ program, and a misspelled call suggests the nearest match.
 | [`arrowtext`](../fn/arrowtext.html) | Same as `arrow` — from `(x0, y0)` to `(x1, y1)` (numbers, data units) — but the arrowhead ends in a point labeled with `text` (string) | [Plotting](plotting.md) |
 | [`as_text`](../fn/as_text.html) | Returns a `List` of `Str` (each element formatted the way `print` would), so `[1, 2, 3].as_text().join(", ")` works | [Collections & strings](collections-strings.md) |
 | [`asc`](../fn/asc.html) | Returns a `number`: the code point of its first character | [Collections & strings](collections-strings.md) |
-| [`asin`](../fn/asin.html) | Inverse trigonometric functions, single-argument only (there is no two-argument `atan2` in this table) | [Core maths](core-math.md) |
+| [`asin`](../fn/asin.html) | Inverse trigonometric functions, single-argument only (the two-argument form is `atan2`, below) | [Core maths](core-math.md) |
 | [`asinh`](../fn/asinh.html) | Inverse hyperbolics. `asinh` is defined and finite on the whole real line | [Core maths](core-math.md) |
 | [`astar_mrmr`](../fn/astar_mrmr.html) | A guided (A*) search on an `N`-row, `D`-column `X` and length-`N` `y` for a feature subset of size `n_features` (integer) that is relevant to the target and not redundant with itself.. | [Statistics & ML](statistics-ml.md) |
 | [`at`](../fn/at.html) | Returns a `Record`: one row of the table by position, always positional even when the table carries a string index | [Collections & strings](collections-strings.md) |
-| [`atan`](../fn/atan.html) | Inverse trigonometric functions, single-argument only (there is no two-argument `atan2` in this table) | [Core maths](core-math.md) |
+| [`atan`](../fn/atan.html) | Inverse trigonometric functions, single-argument only (the two-argument form is `atan2`, below) | [Core maths](core-math.md) |
+| [`atan2`](../fn/atan2.html) | Four-quadrant arctangent in radians, `(-π, π]`: the angle of the point `(x, y)`, so `atan2(1, -1)` is `3π/4` where `atan(1/-1)` would say `-π/4` | [Core maths](core-math.md) |
 | [`atanh`](../fn/atanh.html) | Inverse hyperbolics. `asinh` is defined and finite on the whole real line | [Core maths](core-math.md) |
 | [`available`](../fn/available.html) | Returns an integer: bytes waiting on the OS's serial input buffer right now, without blocking | [Concurrency](concurrency.md) |
 | [`avgpool2d`](../fn/avgpool2d.html) | Downsamples an `(H, W)` matrix `x` the same way as `maxpool2d` — `size` x `size` windows, `stride` defaulting to `size` — but takes the mean of each window instead of the max | [Statistics & ML](statistics-ml.md) |
@@ -217,6 +218,7 @@ program, and a misspelled call suggests the nearest match.
 | [`create_file`](../fn/create_file.html) | `make_file` with a collision policy: `"error"` (default) refuses if `path` already exists, `"overwrite"` truncates it like `make_file` does unconditionally, `"skip"` does nothing and.. | [File I/O](file-io.md) |
 | [`crest_factor`](../fn/crest_factor.html) | `peak(x) / rms(x)`, a dimensionless ratio (a sine wave's is `sqrt(2)` ≈ 1.414) — the same quantity `sinad_estimate(bits, crest_factor)` takes as its second argument | [Core maths](core-math.md) |
 | [`crop`](../fn/crop.html) | Extracts that sub-rectangle. Returns a new `Image` of exactly `width` x `height` pixels | [Images](images.md) |
+| [`cross`](../fn/cross.html) | Cross product of two 3-element vectors, returned as a `Vec`: `cross([1, 0, 0], [0, 1, 0])` is `[0, 0, 1]` | [Core maths](core-math.md) |
 | [`cs_guarantee`](../fn/cs_guarantee.html) | Returns a single number: the largest sparsity level that the matrix's coherence alone can *prove* recoverable | [Noise](noise.md) |
 | [`cs_recover`](../fn/cs_recover.html) | Compressed-sensing reconstruction of a sparse vector `x` from an M×N sensing matrix `A` and a length-M measurement vector `y` | [Noise](noise.md) |
 | [`csch`](../fn/csch.html) | The other three hyperbolics: `coth(x) = cosh(x)/sinh(x)`, `sech(x) = 1/cosh(x)`, `csch(x) = 1/sinh(x)` | [Core maths](core-math.md) |
@@ -225,6 +227,7 @@ program, and a misspelled call suggests the nearest match.
 | [`csv2xml`](../fn/csv2xml.html) | `str` (string, CSV text) is converted to XML: exactly `xmlify(parse_csv(str))`. Returns a string | [File I/O](file-io.md) |
 | [`csvify`](../fn/csvify.html) | Converts `table` (Table) to CSV text — exactly `write_csv`'s own formatting (`Table::to_csv`), just returned as a string instead of written to a file | [File I/O](file-io.md) |
 | [`ctranspose`](../fn/ctranspose.html) | Conjugate transpose (Hermitian): transpose plus elementwise complex conjugation | [Core maths](core-math.md) |
+| [`cumprod`](../fn/cumprod.html) | Running product, same type/length as `x` (`cumprod([1, 2, 3, 4])` is `[1, 2, 6, 24]`); a `Signal` stays a `Signal`; a `Mat` is read column-major and comes back as a `Vec`, exactly like.. | [Core maths](core-math.md) |
 | [`cumsum`](../fn/cumsum.html) | Returns the running sum, same type/length as `x`; a `Signal` input stays a `Signal` with the same `Fs` | [Collections & strings](collections-strings.md) |
 | [`cumtrapz`](../fn/cumtrapz.html) | Running trapezoid integral: the result has the shape of `y`, starts at 0, and its last element equals `trapz` | [Signal processing](signal-processing.md) |
 | [`cur_dir`](../fn/cur_dir.html) | `cur_dir` says what it gives back and `pwd` is what anyone who has used a shell types first, so both spellings exist rather than one being renamed out from under existing scripts | [File I/O](file-io.md) |
@@ -330,6 +333,7 @@ program, and a misspelled call suggests the nearest match.
 | [`expinv`](../fn/expinv.html) | Inverse of `expcdf`, `-mu * log(1 - p)` | [Statistics & ML](statistics-ml.md) |
 | [`explain`](../fn/explain.html) | The report says whether that function is running the fast register-only ("soft-compiled") tier or falls back to the ordinary tree-walking interpreter, and — when interpreted — which.. | [REPL & diagnostics](repl-diagnostics.md) |
 | [`explore`](../fn/explore.html) | Writes a self-contained HTML page to `path` (string) with one slider per parameter of function `"fn"` (string) | [Plotting](plotting.md) |
+| [`expm`](../fn/expm.html) | Matrix exponential `e^A` of a real square `Mat` by scaling-and-squaring with a degree-13 Padé approximant (Higham 2005, as SciPy): `expm([0, -t; t, 0])` is the rotation `[cos t, -sin t; sin.. | [Core maths](core-math.md) |
 | [`expm1`](../fn/expm1.html) | `e^x - 1`, computed so it stays accurate for `x` near zero (`expm1(1e-15)` does not lose precision to the cancellation that `exp(x) - 1` would hit there) | [Core maths](core-math.md) |
 | [`exponential`](../fn/exponential.html) | Exponential draws. `rate` (a positive number) is the rate, not the scale: the mean is `1/rate`, and NumPy instead takes `scale = 1/rate` directly, so a value copied from NumPy needs.. | [Statistics & ML](statistics-ml.md) |
 | [`exppdf`](../fn/exppdf.html) | Exponential probability density with mean `mu` | [Statistics & ML](statistics-ml.md) |
@@ -380,6 +384,7 @@ program, and a misspelled call suggests the nearest match.
 | [`first`](../fn/first.html) | Returns the first (`first`) or last (`last`) element (same element type as `xs` holds), or `none` when `xs` is empty | [Collections & strings](collections-strings.md) |
 | [`fit`](../fn/fit.html) | Runs a pipeline Record `pipe` (from `pipeline(...)`) on an `N`-row feature matrix `X` and a length-`N` target vector `y`: applies every transform stage in order, then calls the final.. | [Statistics & ML](statistics-ml.md) |
 | [`fit_scaler`](../fn/fit_scaler.html) | Fits and stores scaling parameters from an `N`-row, `D`-column matrix (or vector, or table) `X`, for reuse on new data — the fit-once path, as opposed to the four one-shot verbs above | [Statistics & ML](statistics-ml.md) |
+| [`fix`](../fn/fix.html) | Rounds toward zero (`fix(-2.7)` is `-2`, `fix(2.7)` is `2`); the MATLAB name for `trunc` | [Core maths](core-math.md) |
 | [`flatten`](../fn/flatten.html) | Returns a flat `List`: one level of nesting removed | [Collections & strings](collections-strings.md) |
 | [`flip`](../fn/flip.html) | Reverses row order (`flipud`, `dim=1`) or column order (`fliplr`/`mirror`, `dim=2`) of `A`, a `Str`, `Vec`, `Mat`, or `Image` | [Core maths](core-math.md) |
 | [`fliplr`](../fn/fliplr.html) | Reverses row order (`flipud`, `dim=1`) or column order (`fliplr`/`mirror`, `dim=2`) of `A`, a `Str`, `Vec`, `Mat`, or `Image` | [Core maths](core-math.md) |
@@ -486,6 +491,7 @@ program, and a misspelled call suggests the nearest match.
 | [`hygepdf`](../fn/hygepdf.html) | Probability mass of the hypergeometric distribution at `k` (a number, vector or matrix, elementwise); zero at a non-integer or out-of-support `k` | [Statistics & ML](statistics-ml.md) |
 | [`hygernd`](../fn/hygernd.html) | Random draws from the hypergeometric distribution | [Statistics & ML](statistics-ml.md) |
 | [`hygestat`](../fn/hygestat.html) | Mean and variance of the hypergeometric distribution with these parameters, as a result with fields `.mean` and `.var` | [Statistics & ML](statistics-ml.md) |
+| [`hypot`](../fn/hypot.html) | `sqrt(x² + y²)` without overflow/underflow in the intermediate squares: `hypot(3, 4)` is `5`, `hypot(1e200, 1e200)` is `1.414…e200` where `sqrt(x^2 + y^2)` gives `inf` | [Core maths](core-math.md) |
 
 ## I
 
@@ -543,6 +549,9 @@ program, and a misspelled call suggests the nearest match.
 | [`is_empty`](../fn/is_empty.html) | Whether the fixed-capacity ring buffer `q` (a `Fifo` handle created by `fifo(capacity)`) currently holds nothing, or has no room left for another `push` without evicting the oldest element | [Core maths](core-math.md) |
 | [`is_full`](../fn/is_full.html) | Whether the fixed-capacity ring buffer `q` (a `Fifo` handle created by `fifo(capacity)`) currently holds nothing, or has no room left for another `push` without evicting the oldest element | [Core maths](core-math.md) |
 | [`is_stable`](../fn/is_stable.html) | Returns a boolean, `true` iff every pole lies strictly inside the unit circle — the standard causal-LTI stability criterion | [Signal processing](signal-processing.md) |
+| [`isfinite`](../fn/isfinite.html) | A scalar gives a `bool`; a `Vec`/`Signal` gives a `mask`, so `x[isfinite(x)]` drops the bad samples and `sum(isnan(x))` counts them; a `Mat` gives a flat column-major `mask` (use.. | [Core maths](core-math.md) |
+| [`isinf`](../fn/isinf.html) | A scalar gives a `bool`; a `Vec`/`Signal` gives a `mask`, so `x[isfinite(x)]` drops the bad samples and `sum(isnan(x))` counts them; a `Mat` gives a flat column-major `mask` (use.. | [Core maths](core-math.md) |
+| [`isnan`](../fn/isnan.html) | A scalar gives a `bool`; a `Vec`/`Signal` gives a `mask`, so `x[isfinite(x)]` drops the bad samples and `sum(isnan(x))` counts them; a `Mat` gives a flat column-major `mask` (use.. | [Core maths](core-math.md) |
 | [`isolation_forest`](../fn/isolation_forest.html) | Anomaly detection on an `N`-row, `D`-column matrix `X` by random partitioning (Liu, Ting & Zhou 2008): grows `n_trees` (integer, default 100) trees, each on its own subsample of.. | [Statistics & ML](statistics-ml.md) |
 | [`items`](../fn/items.html) | Returns a `List`: its keys (`keys`), its values (`values`), or `(key, value)` tuples (`items`) — insertion order, not sorted | [Collections & strings](collections-strings.md) |
 
@@ -572,6 +581,7 @@ program, and a misspelled call suggests the nearest match.
 | [`kmedians_model`](../fn/kmedians_model.html) | The outlier-resistant sibling of `kmeans_model`, same `X`/`k`/`seed=` shape: clusters by L1 distance around coordinate-wise median centres instead of means | [Statistics & ML](statistics-ml.md) |
 | [`kmedoids_model`](../fn/kmedoids_model.html) | PAM clustering on the same `X`/`k`/`seed=` shape as `kmeans_model` — every one of the `k` centres is an actual row of `X`, never an average | [Statistics & ML](statistics-ml.md) |
 | [`knn_model`](../fn/knn_model.html) | k-nearest-neighbours on an `N`-row, `D`-column `X` and a length-`N` target `y`, with integer neighbour count `k`, an optional `metric` string (distance function name), and `kind`.. | [Statistics & ML](statistics-ml.md) |
+| [`kron`](../fn/kron.html) | Kronecker product: every `A[i,j]` replaced by the block `A[i,j]·B`, so an `m×n` and a `p×q` input give `mp×nq` | [Core maths](core-math.md) |
 | [`kurtosis`](../fn/kurtosis.html) | Fourth standardized moment, population form, of a length-`N` numeric vector `x` | [Statistics & ML](statistics-ml.md) |
 
 ## L
@@ -631,6 +641,7 @@ program, and a misspelled call suggests the nearest match.
 | [`lstm_cell`](../fn/lstm_cell.html) | One LSTM timestep: `x_t` (length-`input_size` input vector), `h_prev`/`c_prev` (length-`hidden_size` previous hidden/cell state vectors), and `weights` (a Record with the twelve gate fields.. | [Statistics & ML](statistics-ml.md) |
 | [`lstm_forward`](../fn/lstm_forward.html) | Unrolls `lstm_cell` over a whole sequence: `x_sequence` an `(input_size, seq_len)` matrix (one column per timestep), `h0`/`c0` length-`hidden_size` initial states, `weights` the same.. | [Statistics & ML](statistics-ml.md) |
 | [`lstm_init`](../fn/lstm_init.html) | Builds fresh LSTM weights for an input of size `input_size` (integer, number of features per timestep) and a hidden state of size `hidden_size` (integer): Xavier-scaled weight matrices and.. | [Statistics & ML](statistics-ml.md) |
+| [`lstsq`](../fn/lstsq.html) | Minimum-norm least-squares solution of `A·x ≈ b` through the SVD pseudo-inverse, always (so a rank-deficient or under-determined `A` returns the shortest solution: `lstsq([1, 1; 1, 1], [2,.. | [Core maths](core-math.md) |
 | [`ltrim`](../fn/ltrim.html) | Same parameters as `trim`, restricted to one end only (`ltrim` the left, `rtrim` the right) | [Collections & strings](collections-strings.md) |
 | [`lu`](../fn/lu.html) | LU decomposition with partial pivoting of a square `n×n` `Mat` `A`, `P·A = L·U` | [Core maths](core-math.md) |
 
@@ -648,6 +659,7 @@ program, and a misspelled call suggests the nearest match.
 | [`matlab_exec`](../fn/matlab_exec.html) | The same contract as `python_exec`/`js_exec`, run through a local MATLAB installation instead: `code`'s result is written to an injected `qu_output_path` variable (no leading underscore —.. | [File I/O](file-io.md) |
 | [`matmul`](../fn/matmul.html) | Matrix multiplication of `A` (`r×k`) and `B` (`k×c`), both `Mat` (inner dimensions must agree) | [Core maths](core-math.md) |
 | [`max`](../fn/max.html) | In the one-argument form on a `Mat`, the optional `axis=` keyword (`0` or `1`) reduces along just that dimension instead, returning a length-`cols`/`rows` `Vec` rather than a single scalar | [Core maths](core-math.md) |
+| [`maximum`](../fn/maximum.html) | Elementwise larger/smaller of two arguments — exactly `max(a, b)` / `min(a, b)` (which already worked elementwise), under the names NumPy users type | [Core maths](core-math.md) |
 | [`maxpool2d`](../fn/maxpool2d.html) | Downsamples an `(H, W)` matrix `x` by taking the largest value in each `size` x `size` window (integer `size`), moving `stride` positions at a time (integer, defaults to `size` —.. | [Statistics & ML](statistics-ml.md) |
 | [`md2html`](../fn/md2html.html) | Converts headings, paragraphs, lists, fenced code with its language, blockquotes, pipe tables, rules, and inline code/bold/italic/links/images | [Collections & strings](collections-strings.md) |
 | [`mean`](../fn/mean.html) | Arithmetic mean of every element of `x` — a scalar, `Vec`, or `Mat`/`Signal` | [Core maths](core-math.md) |
@@ -663,6 +675,7 @@ program, and a misspelled call suggests the nearest match.
 | [`mid`](../fn/mid.html) | Plain aliases of the same implementation (`mid` exists purely for BASIC/Excel discoverability) | [Collections & strings](collections-strings.md) |
 | [`min`](../fn/min.html) | In the one-argument form on a `Mat`, the optional `axis=` keyword (`0` or `1`) reduces along just that dimension instead, returning a length-`cols`/`rows` `Vec` rather than a single scalar | [Core maths](core-math.md) |
 | [`minimize`](../fn/minimize.html) | Returns a `Model` (kind `"minimize"`) with fields `params` (length-P vector), `value` (a number), `converged` (a boolean) | [Signal processing](signal-processing.md) |
+| [`minimum`](../fn/minimum.html) | Elementwise larger/smaller of two arguments — exactly `max(a, b)` / `min(a, b)` (which already worked elementwise), under the names NumPy users type | [Core maths](core-math.md) |
 | [`minutely_profile`](../fn/minutely_profile.html) | Returns a length-60 real vector | [Signal processing](signal-processing.md) |
 | [`mirror`](../fn/mirror.html) | Reverses row order (`flipud`, `dim=1`) or column order (`fliplr`/`mirror`, `dim=2`) of `A`, a `Str`, `Vec`, `Mat`, or `Image` | [Core maths](core-math.md) |
 | [`mismatch_loss`](../fn/mismatch_loss.html) | Returns `-10 log10(1 - \|Γ\|²)` in dB: the incident power not delivered to the load | [Signal processing](signal-processing.md) |
@@ -713,6 +726,7 @@ program, and a misspelled call suggests the nearest match.
 | [`newton`](../fn/newton.html) | Returns a single number, the root | [Signal processing](signal-processing.md) |
 | [`nmf`](../fn/nmf.html) | Non-negative matrix factorization `X ≈ W H` of an `N`-row, `D`-column non-negative matrix `X`, by Lee & Seung's multiplicative updates on the Frobenius objective (a negative or non-finite.. | [Statistics & ML](statistics-ml.md) |
 | [`nnls`](../fn/nnls.html) | Non-negative least squares by Lawson-Hanson, for when a negative coefficient would be physically meaningless — a concentration, a mass, a relaxation strength | [Core maths](core-math.md) |
+| [`nnz`](../fn/nnz.html) | Number of nonzero elements of a scalar, `Vec`, `Mat` or `mask`: `nnz([0, 1, nan, 0, 2])` is `3` (`NaN` is nonzero, as in MATLAB) | [Core maths](core-math.md) |
 | [`nor`](../fn/nor.html) | Returns a `bool`: logical NOR | [Collections & strings](collections-strings.md) |
 | [`norm`](../fn/norm.html) | Euclidean (L2) norm; for a matrix this is the Frobenius norm (every element treated as one long vector), not a matrix operator norm | [Core maths](core-math.md) |
 | [`normal`](../fn/normal.html) | Draws from a Gaussian. `mu` (number) is the mean; `sigma` (number) is the standard deviation; `rows` and `cols` (numbers, optional) give the shape of the draw, one number for a vector and.. | [Statistics & ML](statistics-ml.md) |
@@ -743,6 +757,7 @@ program, and a misspelled call suggests the nearest match.
 | [`ord`](../fn/ord.html) | Returns a one-character `Str` from `chr`, and a `number` — the code point — from `ord` | [Collections & strings](collections-strings.md) |
 | [`otsu`](../fn/otsu.html) | Compute-and-apply convenience: `otsu_threshold` followed immediately by `threshold` in one call | [Images](images.md) |
 | [`otsu_threshold`](../fn/otsu_threshold.html) | Computes (does not apply) the classic Otsu optimal threshold from `x`'s histogram (`Image` reads per-pixel luma; `Vec`/`Signal` read their own values) | [Images](images.md) |
+| [`outer`](../fn/outer.html) | Outer product `u·vᵀ`: a `len(u)×len(v)` `Mat` of `u[i]·v[j]`, whatever the orientation of the two vectors | [Core maths](core-math.md) |
 | [`overshoot`](../fn/overshoot.html) | Returns a single number, a percent of the step's own size `abs(final - initial)`: `overshoot` is how far the response travels *past its settled value* in the direction the step was going,.. | [Signal processing](signal-processing.md) |
 
 ## P
@@ -911,6 +926,7 @@ program, and a misspelled call suggests the nearest match.
 | [`regionprops`](../fn/regionprops.html) | Takes that result and returns a `List` of one `Record` per blob, in label-id order, each with fields: `label` (integer id), `area` (pixel count), `centroid_x`, `centroid_y` (real.. | [Images](images.md) |
 | [`regions`](../fn/regions.html) | Added in v0.2.4. The signal's regions as a list of records with `start`, `end` and `label`, in start order | [Signal processing](signal-processing.md) |
 | [`relu`](../fn/relu.html) | Elementwise activation applied to a number, vector, or matrix `x` of any shape — `relu` clips negative values to zero, `sigmoid` squashes to `(0, 1)` | [Statistics & ML](statistics-ml.md) |
+| [`rem`](../fn/rem.html) | Remainder with the sign of the dividend (MATLAB `rem`, C `fmod`): `rem(-7, 3)` is `-1`, `rem(7, -3)` is `1` | [Core maths](core-math.md) |
 | [`remove`](../fn/remove.html) | Two overloads, picked by the type of the second argument: `text` (`Str`) deletes every occurrence of it; `start` (number, 0-based index) with optional `count` (number of characters,.. | [Collections & strings](collections-strings.md) |
 | [`remove_dir`](../fn/remove_dir.html) | Deletes the directory `path`, to the Recycle Bin/Trash by default and outright with `permanent=true`, as `remove_file` | [File I/O](file-io.md) |
 | [`remove_file`](../fn/remove_file.html) | Deletes `path` (a `Str`) to the OS Recycle Bin/Trash by default, so it can be recovered; `permanent=true` deletes it outright (*default changed in v0.4.5*; the older `recycle_bin=false`.. | [File I/O](file-io.md) |
@@ -922,6 +938,7 @@ program, and a misspelled call suggests the nearest match.
 | [`repeat_str`](../fn/repeat_str.html) | `s * n` is the shorter spelling for the same thing; the function is not called `repeat` because that is a loop keyword | [Collections & strings](collections-strings.md) |
 | [`replace`](../fn/replace.html) | Every literal (non-regex) occurrence of `old` in `s` is replaced by `new` | [Collections & strings](collections-strings.md) |
 | [`replace_outliers`](../fn/replace_outliers.html) | The same criterion, with the flagged samples patched in place | [Noise](noise.md) |
+| [`repmat`](../fn/repmat.html) | Tiles `A` `m` times down and `n` times across: `repmat([1, 2; 3, 4], 2, 3)` is `4×6` | [Core maths](core-math.md) |
 | [`resample_int`](../fn/resample_int.html) | Rational rate change by `L/M` in a single pass: zero-stuff by `L`, filter once, decimate by `M` | [Signal processing](signal-processing.md) |
 | [`resample_to`](../fn/resample_to.html) | Returns a new `Signal` at `Fs=new_fs`, whose length is whatever it takes to span the *same* start/end time as the input (generally not N) | [Signal processing](signal-processing.md) |
 | [`reset`](../fn/reset.html) | Returns the environment `env`'s starting state — a plain integer state index | [Statistics & ML](statistics-ml.md) |
@@ -1147,7 +1164,9 @@ program, and a misspelled call suggests the nearest match.
 | [`trapz`](../fn/trapz.html) | Trapezoid-rule integral of the samples `y` against `x` (unit spacing when `x` is omitted), summed with compensated (Neumaier) summation | [Signal processing](signal-processing.md) |
 | [`tree_model`](../fn/tree_model.html) | One CART decision tree on an `N`-row, `D`-column matrix `X` and a length-`N` target `y`, with `max_depth` (integer, default 20) limiting tree depth, `min_samples_split` (integer, default 2).. | [Statistics & ML](statistics-ml.md) |
 | [`triangle`](../fn/triangle.html) | Each generates one period-repeating waveform: `freq` (number, Hz), `fs` (number, sample rate in Hz), `n` (integer, sample count) are all scalars, in that order | [Plotting](plotting.md) |
+| [`tril`](../fn/tril.html) | Lower/upper triangle of `A`, other entries set to `0` | [Core maths](core-math.md) |
 | [`trim`](../fn/trim.html) | Strips characters from both ends of a string | [Collections & strings](collections-strings.md) |
+| [`triu`](../fn/triu.html) | Lower/upper triangle of `A`, other entries set to `0` | [Core maths](core-math.md) |
 | [`trnd`](../fn/trnd.html) | Random draws from the Student t distribution | [Statistics & ML](statistics-ml.md) |
 | [`tsne`](../fn/tsne.html) | t-SNE embedding of an `N`-row, `D`-column matrix `X` into `n_components` dimensions (an integer, default 2), controlled by `perplexity` (a number balancing local vs. global structure; unset.. | [Statistics & ML](statistics-ml.md) |
 | [`tstat`](../fn/tstat.html) | Mean and variance of the Student t distribution with these parameters, as a result with fields `.mean` and `.var` | [Statistics & ML](statistics-ml.md) |
@@ -1451,6 +1470,7 @@ leaves the qualified one available too.
 | [`pdf.add_bookmark`](../fn/pdf.add_bookmark.html) | Adds a new outline entry titled `title`, pointing at `page_index` (one-based) | [File I/O](file-io.md) |
 | [`pdf.add_link`](../fn/pdf.add_link.html) | Adds a `/Link` annotation over `rect=` that jumps to `target_page=` (one-based) of the SAME document | [File I/O](file-io.md) |
 | [`pdf.add_page`](../fn/pdf.add_page.html) | Inserts a blank page at `index` (numbered from 1; one past the last page appends) | [File I/O](file-io.md) |
+| [`pdf.add_text`](../fn/pdf.add_text.html) | Stamps one line of text on a page with its baseline starting at `(x, y)` in PDF points from the bottom-left of the unrotated page (`/Rotate` and `/CropBox` are not compensated) | [File I/O](file-io.md) |
 | [`pdf.annotations`](../fn/pdf.annotations.html) | A page's annotations as a `List` of `Record`s: `index` (`Num`, the handle `pdf.remove_annotation` takes), `type` (`Str`, the annotation's `/Subtype` verbatim — `"Text"`, `"Square"`,.. | [File I/O](file-io.md) |
 | [`pdf.attachments`](../fn/pdf.attachments.html) | The document's embedded files, listed via the catalog's `/Names`/`EmbeddedFiles` name tree, as a `List` of `Record`s: `filename` (`Str`) and `size` (`Num`, the decompressed byte length) | [File I/O](file-io.md) |
 | [`pdf.crop_box`](../fn/pdf.crop_box.html) | The page's `/CropBox` -- the region a viewer actually shows, which can be smaller than `/MediaBox` | [File I/O](file-io.md) |
@@ -1471,6 +1491,7 @@ leaves the qualified one available too.
 | [`pdf.page_count`](../fn/pdf.page_count.html) | Counts a PDF's pages. `src` (string path, or `Vec` of bytes) is the document | [File I/O](file-io.md) |
 | [`pdf.remove_annotation`](../fn/pdf.remove_annotation.html) | Removes the `index`-th entry of a page's `/Annots` array (the `index` `pdf.annotations` reports), deleting the underlying object too | [File I/O](file-io.md) |
 | [`pdf.render`](../fn/pdf.render.html) | Renders one page (numbered from 1) to an `Image` -- text, vector graphics, images and annotations, composited onto white -- at `dpi` dots per inch (a page is `width_in_points * dpi / 72`.. | [File I/O](file-io.md) |
+| [`pdf.replace_text`](../fn/pdf.replace_text.html) | Changes text in an existing PDF and returns the edited file as a `Vec` of bytes (save with `bytes_write`) | [File I/O](file-io.md) |
 | [`pdf.reverse_pages`](../fn/pdf.reverse_pages.html) | Reverses page order: the last page becomes the first and vice versa | [File I/O](file-io.md) |
 | [`pdf.rotate_page`](../fn/pdf.rotate_page.html) | Sets a page's `/Rotate` -- degrees a viewer turns the page CLOCKWISE before display | [File I/O](file-io.md) |
 | [`pdf.set_metadata`](../fn/pdf.set_metadata.html) | Writes into a PDF's `/Info` dictionary (creating it if the file has none), touching only the fields passed — a keyword left out is left exactly as it was, never cleared | [File I/O](file-io.md) |

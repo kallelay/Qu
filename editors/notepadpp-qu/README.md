@@ -21,7 +21,10 @@ Notepad++. An older `Qu.udl.xml` that differs is kept as `Qu.udl.xml.bak`.
 0.2.0 fixed a missing constant (`none` was not highlighted) and styles
 number+unit literals (`5mV`) as numbers. Known UDL limits: `r"""..."""` raw
 strings look like ordinary strings, and `A'` (transpose) is not told apart
-from a string start.
+from a string start (a single-quoted string ends at end of line, so one
+stray `A'` cannot colour the rest of the file as a string). The UDL cannot
+anchor a word to a position either, so contextual words such as `model`,
+`window` or `data` are always coloured as keywords, even in `model = 1`.
 
 ## Import by hand
 

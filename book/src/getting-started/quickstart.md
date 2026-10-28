@@ -221,7 +221,7 @@ Restart the editor afterwards.
 The editor extension runs `qu`, so it must find it: the VS Code setting
 `qu.executablePath` (default `qu`) is a bare name looked up on `PATH` or a full
 path. `qu editors status` says whether `qu` is on `PATH` and prints the path to
-use when it is not. In VS Code, **Qu: Run File** (Ctrl+Alt+Q) runs the file and
+use when it is not. In VS Code, **Qu: Run File** (Ctrl+Alt+R) runs the file and
 turns the `at file.qu:LINE in f()` lines of a runtime error into entries in the
 Problems panel. Notebooks in VS Code also need Microsoft's Jupyter extension;
 `status` prints the command (`code --install-extension ms-toolsai.jupyter`)

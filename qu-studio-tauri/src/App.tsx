@@ -37,6 +37,7 @@ import type { LucideIcon } from 'lucide-react';
 const MAX_TERMINAL_LINES = 5000;
 const capTerminal = (lines: string[]): string[] =>
   lines.length > MAX_TERMINAL_LINES ? lines.slice(lines.length - MAX_TERMINAL_LINES) : lines;
+import DOMPurify from 'dompurify';
 import { cn } from '@qu/ui-components';
 
 /** Resolves `catalogMeta`'s icon NAMES to real lucide components. Kept here
@@ -56,7 +57,10 @@ function reportBodyForPrint(html: string): string {
     const styles = Array.from(doc.head.querySelectorAll('style'))
       .map((s) => s.outerHTML)
       .join('\n');
-    return styles + doc.body.innerHTML;
+    // The body goes in through dangerouslySetInnerHTML, where an event-handler
+    // attribute (`<img onerror=...>`) would run. A report is built from script
+    // data, which can come from an untrusted file, so it is sanitised first.
+    return styles + DOMPurify.sanitize(doc.body.innerHTML);
   } catch {
     // Better to print the raw markup than nothing at all.
     return html;

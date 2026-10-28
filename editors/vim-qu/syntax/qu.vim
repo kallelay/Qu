@@ -1,5 +1,5 @@
 " Vim syntax file for Qu (.qu)
-" Qu editor plugin 0.2.1
+" Qu editor plugin 0.2.2
 "
 " Deliberately highlights the language itself -- keywords, constants, types,
 " numbers (with unit suffixes), strings (including r"..." / r"""...""" raw

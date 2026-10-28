@@ -162,7 +162,7 @@ lightweight integrations live under [`editors/`](editors/):
 | | Gives you | Install |
 |---|---|---|
 | **VS Code — notebooks** ([`qu-jupyter`](engine/crates/qu-jupyter)) | A real Jupyter kernel (ZeroMQ, HMAC-signed, no system libzmq needed): open a `.ipynb`, pick "Qu", get persistent state across cells, streamed output, inline figures — the same kernel works in JupyterLab/classic Jupyter too | `qu-jupyter install` registers the kernelspec; VS Code's Jupyter extension discovers it automatically |
-| [VS Code — syntax/run](editors/vscode-qu) | Syntax highlighting, run-file (▶/`Ctrl+Alt+Q`) with output streaming, live parse-error squiggles as you type | Copy the folder into your extensions directory, or package with `vsce` |
+| [VS Code — syntax/run](editors/vscode-qu) | Syntax highlighting, run-file (▶/`Ctrl+Alt+R`) with output streaming, live parse-error squiggles as you type | Copy the folder into your extensions directory, or package with `vsce` |
 | [Sublime Text](editors/sublime-qu) | Syntax highlighting, `Ctrl+B` to run, `Ctrl+Shift+B` to check syntax only | Copy two files into Sublime's Packages folder |
 | [Notepad++](editors/notepadpp-qu) | Syntax highlighting (User Defined Language), run via the built-in Run dialog or the NppExec plugin | Import one `.xml` file |
 

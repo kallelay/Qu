@@ -2,7 +2,7 @@
 ---
 # Sublime Text syntax definition for Qu (.qu).
 #
-# Qu editor plugin 0.2.1
+# Qu editor plugin 0.2.2
 # 0.2.0: r"..." / r"""...""" raw strings, #%% cell markers, number+unit
 # literals, and `A'` is transpose, not the start of a string.
 #
@@ -54,7 +54,7 @@ contexts:
       push: double-quoted-string
     # A `'` right after a value (name, number, `)`, `]`, `}`, `'`) is the
     # transpose operator, not the start of a string -- same rule as the lexer.
-    - match: "(?<![\\w)\\]}'])'"
+    - match: "(?<![\\w)\\]}'.])'"
       scope: punctuation.definition.string.begin.qu
       push: single-quoted-string
 
@@ -78,15 +78,23 @@ contexts:
       pop: true
 
   single-quoted-string:
+    # Single-quoted strings do not interpolate (spec section on strings), so
+    # only escapes apply here.
     - meta_scope: string.quoted.single.qu
-    - include: string-body
+    - include: string-escape
     - match: "'"
       scope: punctuation.definition.string.end.qu
       pop: true
 
-  string-body:
+  string-escape:
     - match: '\\(?:[abfnrtv\\"'']|x[0-9A-Fa-f]{1,4}|u[0-9A-Fa-f]{4}|U[0-9A-Fa-f]{8})'
       scope: constant.character.escape.qu
+
+  string-body:
+    - include: string-escape
+    # A `{` right after ^, _ or a \macro is a LaTeX group ("$V_{pp}$"), not
+    # an interpolation; consumed whole so its braces do not open one.
+    - match: '(?:[\^_]|\\[A-Za-z]+)(?:\{[^{}"]*\})+'
     - match: '\{'
       scope: punctuation.section.interpolation.begin.qu
       push: interpolation
@@ -97,6 +105,14 @@ contexts:
     - match: '\}'
       scope: punctuation.section.interpolation.end.qu
       pop: true
+    # An unclosed `{` ends just before the closing quote instead of
+    # swallowing the rest of the file.
+    - match: '(?=")'
+      pop: true
+    - match: '(:)([<>^=+\-# 0-9.,_%A-Za-z]*)(?=\})'
+      captures:
+        1: punctuation.separator.format-spec.qu
+        2: constant.other.format-spec.qu
     - include: numbers
     - include: types
     - include: constants
@@ -126,9 +142,9 @@ contexts:
     # Contextual keywords: coloured only where the parser treats them as
     # keywords (statement head / `end` tail / `where` not called). Elsewhere
     # they are ordinary names (builtin functions or variables).
-    - match: '\bend\s+(parallel|select)\b'
+    - match: '\bend\s+(bench|finetune|interface|layer|model|module|monitor|parallel|project|property|scene|scene3d|schedule|select|simd|sketch|test|timeline|train|tune|window)\b'
       scope: keyword.control.qu
-    - match: '\b(and|as|break|by|case|cases|catch|continue|do|each|else|elseif|elsewhere|end|for|from|if|in|loop|mod|not|on|or|otherwise|repeat|return|skip|step|then|to|try|until|use|using|while|with)\b'
+    - match: '\b(and|as|break|by|case|cases|catch|continue|do|each|else|elseif|elsewhere|end|for|from|if|in|loop|mod|not|on|or|otherwise|repeat|return|skip|step|then|to|try|until|use|using|while|with)\b(?!\s*=(?!=))'
       scope: keyword.control.qu
     - match: '\b(where)\b(?!\s*\()'
       scope: keyword.control.qu
@@ -140,7 +156,9 @@ contexts:
       scope: keyword.other.qu
     - match: '^\s*\b(type)\b(?=\s+implicit\b|\s+explicit\b)'
       scope: keyword.other.qu
-    - match: '\b(assert|async|await|backend|base|class|collect|compose|const|constant|data|def|device|dimension|distributed|ease|elemental|enum|every|export|finetune|flag|frame|function|global|hold|implements|import|inherits|inline|interface|layer|let|local|method|mesh|model|module|namespace|new|node|optional|override|project|property|pure|render|reserve|release|restore|run|scene3d|schedule|simd|sketch|stencil|sub|train|tune|unit|unsafe|vectorize|view|watch|window)\b'
+    - match: '\b(backend|class|const|constant|function|global|import|new|sub|unsafe)\b(?!\s*=(?!=))'
+      scope: keyword.other.qu
+    - match: '(?<![.\w])(assert|async|await|base|collect|compose|data|def|device|dimension|distributed|ease|elemental|enum|every|export|finetune|flag|frame|hold|implements|inherits|inline|interface|layer|let|local|method|mesh|model|module|namespace|node|optional|override|pure|render|reserve|release|restore|run|scene3d|schedule|simd|sketch|stencil|train|tune|unit|vectorize|view|watch|window|bench|test|timeline|monitor|project|property)\b(?=[ \t]+(?!(?:in|and|or|mod|to|then|do|by|step|skip|as|if|else|elseif|end|from|with|until|where)\b)[A-Za-z0-9_"''\[{@])'
       scope: keyword.other.qu
 
   functions:
@@ -148,5 +166,5 @@ contexts:
       scope: entity.name.function.qu
 
   operators:
-    - match: '\.\*=|\./=|:=|==|!=|<=|>=|\+=|-=|\*=|/=|\.=|\^=|=>|\.\^|\*\*|\.\*|\./|\.\\|\|>|->|&&|\|\||\?\?|[=<>+\-*/\\^!&|~@?]'
+    - match: '\.\*=|\./=|:=|==|!=|<=|>=|\+=|-=|\*=|/=|\.=|\^=|=>|\.\^|\*\*|\.\*|\./|\.\\|\.''|\|>|->|&&|\|\||\?\?|[=<>+\-*/\\^!&|~@?]'
       scope: keyword.operator.qu

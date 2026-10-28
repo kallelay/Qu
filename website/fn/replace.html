@@ -30,18 +30,19 @@
 <h1>replace</h1>
 <nav class="onthispage"></nav>
 <p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/collections-strings.html">Collections & strings</a></p>
-<pre class="fnsig">result = <code>replace(s, old, new, [count], [case=], [pattern=], [keep=])</code></pre>
-<p class="fnnote">Input: s, old, new, count, case, pattern, keep &middot; Output: result</p>
+<pre class="fnsig">result = <code>replace(s, old, new, [count], [skip=], [case=], [pattern=], [keep=])</code></pre>
+<p class="fnnote">Input: s, old, new, count, skip, case, pattern, keep &middot; Output: result</p>
 <h2>What it is</h2>
-<p><code>s</code> is the <code>Str</code> to search; <code>old</code> and <code>new</code> are <code>Str</code>s. Every literal (non-regex) occurrence of <code>old</code> in <code>s</code> is replaced by <code>new</code>. Optional <code>keep</code> (a <code>Str</code> or a <code>List</code> of them, in the same pattern language as <code>old</code>) leaves alone any occurrence that falls inside that text: <code>replace(s, "&lt;", "&amp;lt;", keep="&lt;br&gt;")</code>.</p>
+<p><code>s</code> is the <code>Str</code> to search; <code>old</code> and <code>new</code> are <code>Str</code>s. Every literal (non-regex) occurrence of <code>old</code> in <code>s</code> is replaced by <code>new</code>. Optional <code>keep</code> (a <code>Str</code> or a <code>List</code> of them, in the same pattern language as <code>old</code>) leaves alone any occurrence that falls inside that text: <code>replace(s, "&lt;", "&amp;lt;", keep="&lt;br&gt;")</code>. <code>count</code> (positional, or <code>count=</code>; both at once is an error) limits how many occurrences are replaced. <code>skip=N</code> leaves the first <code>N</code> occurrences untouched and replaces from the next one, so "the third one only" is sayable: <code>replace("a a a a a", "a", "X", skip=2, count=1)</code> is <code>"a a X a a"</code>. <code>skip=</code> counts occurrences that would be replaced (an occurrence inside <code>keep=</code> text is neither replaced nor counted), in whichever pattern language <code>pattern=</code> selected; skipping past the last occurrence replaces nothing and is not an error.</p>
 <h2>Overloads</h2>
 <p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
 <div class="tablewrap"><table class="iotable">
 <tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
-<tr><td class="iocode"><code>result = replace(s, old, new, [count], [case=], [pattern=], [keep=])</code></td><td><div class="ioitem"><code>s</code> <span class="iotype">Str</span><span class="iodesc"><code>s</code> is the <code>Str</code> to search.</span></div>
+<tr><td class="iocode"><code>result = replace(s, old, new, [count], [skip=], [case=], [pattern=], [keep=])</code></td><td><div class="ioitem"><code>s</code> <span class="iotype">Str</span><span class="iodesc"><code>s</code> is the <code>Str</code> to search.</span></div>
 <div class="ioitem"><code>old</code> <span class="iotype">Str</span><span class="iodesc"><code>old</code> and <code>new</code> are <code>Str</code>s.</span></div>
 <div class="ioitem"><code>new</code> <span class="iotype">Str</span><span class="iodesc"><code>old</code> and <code>new</code> are <code>Str</code>s.</span></div>
-<div class="ioitem"><code>count</code> <span class="iotype">optional</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>count</code> <span class="iotype">optional</span><span class="iodesc"><code>count</code> (positional, or <code>count=</code>.</span></div>
+<div class="ioitem"><code>skip</code> <span class="iotype">optional</span><span class="iodesc"><code>skip=N</code> leaves the first <code>N</code> occurrences untouched and replaces from the next one, so "the third one only" is sayable: <code>replace("a a a a a", "a", "X", skip=2, count=1)</code> is <code>"a a X a a"</code>.</span></div>
 <div class="ioitem"><code>case</code> <span class="iotype">optional</span><span class="iogap">not documented yet</span></div>
 <div class="ioitem"><code>pattern</code> <span class="iotype">Str or List, optional</span><span class="iodesc">Optional <code>keep</code> (a <code>Str</code> or a <code>List</code> of them, in the same pattern language as <code>old</code>) leaves alone any occurrence that falls inside that text: <code>replace(s, "&lt;", "&amp;lt;", keep="&lt;br&gt;")</code>.</span></div>
 <div class="ioitem"><code>keep</code> <span class="iotype">Str or List, optional</span><span class="iodesc">Optional <code>keep</code> (a <code>Str</code> or a <code>List</code> of them, in the same pattern language as <code>old</code>) leaves alone any occurrence that falls inside that text: <code>replace(s, "&lt;", "&amp;lt;", keep="&lt;br&gt;")</code>.</span></div>

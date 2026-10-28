@@ -12,7 +12,7 @@
 use crate::editors_assets::{files_for, fnv64_hex, marker_version, shipped_version, PluginKind, VSCODE_ID};
 use crate::editors_detect::{Editor, Target};
 use serde_json::{json, Value};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 
 pub const MANIFEST: &str = ".qu-editors-manifest.json";
@@ -227,6 +227,104 @@ fn owns_vscode_folder(p: &Path) -> bool {
         .unwrap_or(false)
 }
 
+
+/// Hidden alias syntax written where an old plugin version kept its syntax
+/// file. Older `qu editors` versions (and the installer's file-copy fallback)
+/// put `Qu.sublime-syntax` in `Packages/Qu/` or directly in `Packages/User/`;
+/// the current one uses `Packages/User/Qu/`. A saved Sublime session names the
+/// syntax by that path, and Sublime answers a missing one with a modal "Error
+/// loading syntax file ... Unable to stat" for every open view. The alias
+/// (`hidden`: not in the menu) forwards to the current syntax.
+fn sublime_alias_text(canonical: &str) -> String {
+    format!(
+        "%YAML 1.2\n---\n# Written by `qu editors install`: a saved Sublime session still names the Qu syntax\n# at this old location. This hidden alias forwards to the current one.\nname: Qu (old location)\nhidden: true\nversion: 2\nextends: {canonical}\n"
+    )
+}
+
+/// The Sublime data folder (the one holding `Packages/` and `Local/`), from
+/// the `Packages/User` target.
+fn sublime_data_dir(t: &Target) -> Option<PathBuf> {
+    t.dir.parent()?.parent().map(Path::to_path_buf)
+}
+
+/// `Packages/...Qu.sublime-syntax` paths named in Sublime's saved sessions.
+fn sublime_session_syntax_refs(data: &Path) -> BTreeSet<String> {
+    let mut refs = BTreeSet::new();
+    let Ok(rd) = std::fs::read_dir(data.join("Local")) else { return refs };
+    for e in rd.flatten() {
+        let p = e.path();
+        if p.extension().and_then(|x| x.to_str()) != Some("sublime_session") {
+            continue;
+        }
+        let Ok(text) = std::fs::read_to_string(&p) else { continue };
+        for (i, _) in text.match_indices("Packages/") {
+            let rest = &text[i..];
+            let Some(end) = rest.find('"') else { continue };
+            let cand = &rest[..end];
+            if cand.ends_with("/Qu.sublime-syntax") && !cand.contains('\\') && !cand.contains("..") {
+                refs.insert(cand.to_string());
+            }
+        }
+    }
+    refs
+}
+
+fn read_aliases(root: &Path) -> BTreeMap<String, String> {
+    let Ok(text) = std::fs::read_to_string(root.join(MANIFEST)) else { return BTreeMap::new() };
+    let Ok(v) = serde_json::from_str::<Value>(&text) else { return BTreeMap::new() };
+    v.get("aliases")
+        .and_then(|a| a.as_object())
+        .map(|o| o.iter().filter_map(|(k, v)| v.as_str().map(|s| (k.clone(), s.to_string()))).collect())
+        .unwrap_or_default()
+}
+
+/// Writes the aliases a session needs; returns `path -> hash` for the manifest.
+fn sublime_aliases(t: &Target, root: &Path, dry: bool, log: &mut Vec<String>) -> Result<BTreeMap<String, String>, String> {
+    let mut out = BTreeMap::new();
+    let Some(data) = sublime_data_dir(t) else { return Ok(out) };
+    let Ok(rel) = root.strip_prefix(data.join("Packages")) else { return Ok(out) };
+    let canonical = format!(
+        "Packages/{}/Qu.sublime-syntax",
+        rel.components().map(|c| c.as_os_str().to_string_lossy().into_owned()).collect::<Vec<_>>().join("/")
+    );
+    let text = sublime_alias_text(&canonical);
+    let want = fnv64_hex(text.as_bytes());
+    let before = read_aliases(root);
+    for r in sublime_session_syntax_refs(&data) {
+        if r == canonical {
+            continue;
+        }
+        let path = data.join(&r);
+        let key = path.to_string_lossy().into_owned();
+        match std::fs::read(&path) {
+            // Ours from an earlier install: keep tracking it (rewrite if the target moved).
+            Ok(cur) if before.get(&key).map(String::as_str) == Some(fnv64_hex(&cur).as_str()) => {
+                if cur != text.as_bytes() && !dry {
+                    std::fs::write(&path, &text).map_err(|e| format!("{}: {e}", path.display()))?;
+                }
+                out.insert(key, want.clone());
+            }
+            Ok(_) => log.push(format!("kept       {} (a file of someone else's is already there)", path.display())),
+            Err(_) => {
+                log.push(format!(
+                    "{} alias {} (a saved Sublime session still names it; forwards to {})",
+                    if dry { "would write" } else { "wrote     " },
+                    path.display(),
+                    canonical
+                ));
+                if !dry {
+                    if let Some(d) = path.parent() {
+                        std::fs::create_dir_all(d).map_err(|e| format!("{}: {e}", d.display()))?;
+                    }
+                    std::fs::write(&path, &text).map_err(|e| format!("{}: {e}", path.display()))?;
+                }
+                out.insert(key, want.clone());
+            }
+        }
+    }
+    Ok(out)
+}
+
 pub fn install_target(ed: Editor, t: &Target, dry: bool) -> Result<Vec<String>, String> {
     let kind = plugin_kind(ed).ok_or_else(|| format!("{} has no plugin files to install", ed.name()))?;
     let version = shipped_version(kind);
@@ -254,12 +352,16 @@ pub fn install_target(ed: Editor, t: &Target, dry: bool) -> Result<Vec<String>, 
         write_file(&dest, a.data.as_bytes(), known.get(a.rel).map(String::as_str), dry, &mut log)?;
         manifest_files.insert(a.rel.to_string(), fnv64_hex(a.data.as_bytes()));
     }
-    let manifest = json!({
+    let aliases = if kind == PluginKind::Sublime { sublime_aliases(t, &root, dry, &mut log)? } else { BTreeMap::new() };
+    let mut manifest = json!({
         "tool": "qu editors",
         "qu_version": env!("CARGO_PKG_VERSION"),
         "plugin_version": version,
         "files": manifest_files,
     });
+    if !aliases.is_empty() {
+        manifest["aliases"] = json!(aliases);
+    }
     let mtext = serde_json::to_string_pretty(&manifest).map_err(|e| e.to_string())?;
     // The manifest is ours by definition: no backup dance.
     let mpath = root.join(MANIFEST);
@@ -289,6 +391,23 @@ pub fn uninstall_target(ed: Editor, t: &Target, dry: bool) -> Result<Vec<String>
         }
         return Ok(log);
     };
+    for (path, hash) in read_aliases(&root) {
+        let p = PathBuf::from(&path);
+        if let Ok(cur) = std::fs::read(&p) {
+            if fnv64_hex(&cur) == hash {
+                log.push(format!("{} alias {}", if dry { "would remove" } else { "removed   " }, p.display()));
+                if !dry {
+                    let _ = std::fs::remove_file(&p);
+                    // an emptied `Packages/Qu` folder we created goes with it (never `User`)
+                    if let Some(d) = p.parent() {
+                        if d != t.dir {
+                            let _ = std::fs::remove_dir(d);
+                        }
+                    }
+                }
+            }
+        }
+    }
     for (rel, hash) in &files {
         let p = rel_path(&root, rel);
         match std::fs::read(&p) {

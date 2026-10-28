@@ -43,7 +43,7 @@ jobs:
             target: aarch64-pc-windows-msvc
             arch: arm64
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: PATH logic unit tests (strings only)
         shell: pwsh
@@ -57,7 +57,7 @@ jobs:
         with:
           targets: ${{ matrix.target }}
 
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
         if: inputs.tag == ''
         with:
           key: ${{ matrix.target }}

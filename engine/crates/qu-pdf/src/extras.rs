@@ -79,7 +79,9 @@ fn page_runs(doc: &Document, page_id: ObjectId) -> Result<Vec<Run>, String> {
         })?;
         encodings.insert(name, enc);
     }
-    let data = doc.get_page_content(page_id);
+    let data = doc
+        .get_page_content_with_limit(page_id, crate::max_content_bytes())
+        .map_err(|e| crate::content_error("to_html", &e))?;
     let content = Content::decode(&data).map_err(|e| e.to_string())?;
 
     let mut runs: Vec<Run> = Vec::new();

@@ -648,7 +648,7 @@ impl Table {
                     out.push(',');
                 }
                 match c {
-                    Column::Num(v) => out.push_str(&crate::fmt_num(v[row])),
+                    Column::Num(v) => out.push_str(&fmt_num_exact(v[row])),
                     Column::Str(v) => out.push_str(&v[row]),
                 }
             }
@@ -849,6 +849,34 @@ fn tex_escape_cell(s: &str) -> String {
     out
 }
 
+/// A number as CSV text that reads back to the SAME bits.
+///
+/// `fmt_num` is the display formatter: six decimals / six significant
+/// digits, which is right for a terminal and silently wrong for a file
+/// (`write_csv(table(a=[1/3]))` used to write 0.333333). Here: whole
+/// numbers below 1e15 print as plain integers exactly as before (3 stays
+/// 3), everything else prints with Rust's shortest round-trip digits,
+/// switching to the `e` form outside [1e-4, 1e16) so 5e-324 is not written
+/// as 324 digits. -0.0 keeps its sign. Non-finite values keep the display
+/// spelling the reader already understands.
+fn fmt_num_exact(n: f64) -> String {
+    if !n.is_finite() {
+        return crate::fmt_num(n);
+    }
+    if n == 0.0 {
+        return if n.is_sign_negative() { "-0".to_string() } else { "0".to_string() };
+    }
+    if n.fract() == 0.0 && n.abs() < 1e15 {
+        return format!("{}", n as i64);
+    }
+    let a = n.abs();
+    if a < 1e-4 || a >= 1e16 {
+        format!("{n:e}")
+    } else {
+        format!("{n}")
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -859,6 +887,29 @@ mod tests {
             ("value".to_string(), Column::Num(vec![1.0, 3.0, 10.0, 20.0])),
         ])
         .unwrap()
+    }
+
+    #[test]
+    fn csv_round_trip_is_bit_exact() {
+        let vals = vec![
+            1.0 / 3.0, 1e-300, 123456789.123456789, 5e-324, -0.0, 9007199254740992.0,
+            -9007199254740991.0, 0.5, 3.0, -2.5e-7, 1.7976931348623157e308, 0.1 + 0.2,
+            1e15, 1e16, 123456789012345680.0, f64::MIN_POSITIVE,
+        ];
+        let t = Table::from_columns(vec![("a".to_string(), Column::Num(vals.clone()))]).unwrap();
+        let text = t.to_csv();
+        let back = Table::from_csv(&text).unwrap();
+        let Some(Column::Num(got)) = back.col("a") else { panic!("not numeric: {text}") };
+        for (x, y) in vals.iter().zip(got.iter()) {
+            assert_eq!(x.to_bits(), y.to_bits(), "{x:e} came back as {y:e}
+{text}");
+        }
+        // values that already printed exactly are unchanged
+        assert!(text.contains("
+0.5
+") && text.contains("
+3
+"), "{text}");
     }
 
     #[test]
