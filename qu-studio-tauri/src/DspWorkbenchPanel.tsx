@@ -1,7 +1,8 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useState } from 'react';
 import { CodeEditor, FigureViewer } from '@qu/ui-components';
 import { AlertCircle, Play, Radio, Waves, SlidersHorizontal } from 'lucide-react';
 import type { LiveSerialPlotPanelProps } from './LiveSerialPlotPanel';
+import { FilterDesigner } from './FilterDesigner';
 
 /** Matches `ExecuteResponse` in `main.rs` -- only the fields this panel
  *  actually reads. */
@@ -187,13 +188,6 @@ ylabel("|X|")
 `;
 }
 
-type FilterKind = 'low' | 'high' | 'band' | 'stop';
-
-function filterScript(order: number, kind: FilterKind, f1: number, f2: number, fs: number): string {
-  const cutoff = kind === 'band' || kind === 'stop' ? `[${f1}, ${f2}]` : `${f1}`;
-  return `filt = butter(${order}, "${kind}", ${cutoff}, ${fs})\nfilt.fvtool()\n`;
-}
-
 /** DSP workbench: Ahmed's own ruling (2026-09-16) on what the DSP tab
  *  should be, once it turned out to be byte-identical to Code otherwise --
  *  a live spectrum/waveform panel AND an interactive filter designer.
@@ -218,7 +212,7 @@ export const DspWorkbenchPanel: React.FC<LiveSerialPlotPanelProps> = ({ theme, i
         </button>
       </div>
       <div className="flex flex-1 min-h-0 min-w-0">
-        {mode === 'spectrum' ? <SpectrumMode theme={theme} invoke={invoke} /> : <FilterMode theme={theme} invoke={invoke} />}
+        {mode === 'spectrum' ? <SpectrumMode theme={theme} invoke={invoke} /> : <FilterDesigner theme={theme} invoke={invoke} />}
       </div>
     </div>
   );
@@ -337,103 +331,6 @@ const SpectrumMode: React.FC<LiveSerialPlotPanelProps> = ({ theme, invoke }) => 
           images={plots}
           theme={theme}
           emptyHint={<>Press <strong>Run</strong> — the waveform and its spectrum are drawn here.</>}
-        />
-      </div>
-    </>
-  );
-};
-
-const FILTER_KINDS: Array<{ value: FilterKind; label: string }> = [
-  { value: 'low', label: 'Low-pass' },
-  { value: 'high', label: 'High-pass' },
-  { value: 'band', label: 'Band-pass' },
-  { value: 'stop', label: 'Band-stop' },
-];
-
-const FilterMode: React.FC<LiveSerialPlotPanelProps> = ({ theme, invoke }) => {
-  const [order, setOrder] = useState(4);
-  const [kind, setKind] = useState<FilterKind>('low');
-  const [f1, setF1] = useState(100);
-  const [f2, setF2] = useState(200);
-  const [fs, setFs] = useState(1000);
-  const { plots, error, running, run } = useRunOnce(invoke);
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const twoBand = kind === 'band' || kind === 'stop';
-  const code = useMemo(() => filterScript(order, kind, f1, f2, fs), [order, kind, f1, f2, fs]);
-
-  // Live-updates the frequency-response figure as controls change, debounced
-  // so dragging a slider doesn't spawn a `qu` process per pixel.
-  useEffect(() => {
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => void run(code), 350);
-    return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [code]);
-
-  const field = (label: string, control: React.ReactNode) => (
-    <label className="flex flex-col gap-1 text-xs">
-      <span style={{ color: 'var(--qu-muted)' }}>{label}</span>
-      {control}
-    </label>
-  );
-  const inputClass = 'px-2 py-1.5 rounded-md text-sm bg-transparent border';
-
-  return (
-    <>
-      <div className="w-[22rem] flex-shrink-0 border-r overflow-y-auto flex flex-col gap-3 p-3" style={{ borderColor: border }}>
-        <div className="flex items-center justify-between">
-          <span className="text-sm font-medium">Filter design</span>
-          <OnlineComingSoon />
-        </div>
-        {field(
-          'Type',
-          <select value={kind} onChange={(e) => setKind(e.target.value as FilterKind)} className={inputClass} style={{ borderColor: border }}>
-            {FILTER_KINDS.map((k) => (
-              <option key={k.value} value={k.value}>
-                {k.label}
-              </option>
-            ))}
-          </select>,
-        )}
-        {field(
-          'Order',
-          <input type="number" min={1} max={20} value={order} onChange={(e) => setOrder(Number(e.target.value))} className={inputClass} style={{ borderColor: border }} />,
-        )}
-        <div className="flex gap-2">
-          {field(
-            twoBand ? 'Cutoff f1 (Hz)' : 'Cutoff (Hz)',
-            <input type="number" value={f1} onChange={(e) => setF1(Number(e.target.value))} className={inputClass} style={{ borderColor: border }} />,
-          )}
-          {twoBand &&
-            field(
-              'Cutoff f2 (Hz)',
-              <input type="number" value={f2} onChange={(e) => setF2(Number(e.target.value))} className={inputClass} style={{ borderColor: border }} />,
-            )}
-        </div>
-        {field(
-          'Sample rate fs (Hz)',
-          <input type="number" value={fs} onChange={(e) => setFs(Number(e.target.value))} className={inputClass} style={{ borderColor: border }} />,
-        )}
-        {error && (
-          <div className="qu-banner" data-kind="error" style={{ borderRadius: 8, borderTopWidth: 1, borderStyle: 'solid', alignItems: 'flex-start', fontSize: 12.5, padding: '8px 10px' }}>
-            <AlertCircle size={14} className="flex-shrink-0 mt-0.5" />
-            <span className="break-words">{error}</span>
-          </div>
-        )}
-        <div className="rounded-lg p-2 text-xs font-mono overflow-x-auto" style={{ background: 'var(--qu-code-bg)', border: '1px solid var(--qu-border)', color: 'var(--qu-text)' }}>
-          {code}
-        </div>
-        <p className="text-xs" style={{ color: 'var(--qu-muted)' }}>
-          {running ? 'Updating…' : "Updates live as you change a control -- filt.fvtool() draws magnitude/phase/group-delay together."}
-        </p>
-      </div>
-      <div className="flex-1 min-w-0 overflow-auto p-3">
-        <FigureViewer
-          images={plots}
-          theme={theme}
-          emptyHint={<>Adjust a control — the response redraws here on its own.</>}
         />
       </div>
     </>

@@ -29,6 +29,7 @@ use std::sync::{Arc, Condvar, Mutex as StdMutex};
 
 /// SFNT parsing for the PDF backend's font embedding (`pdf_font::parse`).
 pub mod circuit_spec;
+pub mod dsp_info;
 pub mod pdf_font;
 /// Signatures and one-line descriptions for the builtins, joined from the
 /// stdlib chapters at build time by `tools/gen_builtin_docs.qu`. This is
@@ -30897,6 +30898,7 @@ self.eval_grad(loss, wrt)
                 let fs = arg_get(&args, 4).ok_or_else(|| EvalError {
                     msg: "cheby1(order, ripple_db, kind, cutoff, fs) needs 5 arguments".into(),
                 })?.as_num().map_err(|msg| EvalError { msg })?;
+                check_cutoff_below_nyquist("cheby1", &cutoff, fs)?;
                 let sos = numeric::filter::cheby1(order, ripple_db, kind, &cutoff, fs).map_err(|ne| EvalError { msg: ne.to_string() })?;
                 Ok(Value::Model(Arc::new(ModelHandle::new(
                     "filter",
@@ -30937,6 +30939,7 @@ self.eval_grad(loss, wrt)
                 let fs = arg_get(&args, 4).ok_or_else(|| EvalError {
                     msg: "cheby2(order, atten_db, kind, cutoff, fs) needs 5 arguments".into(),
                 })?.as_num().map_err(|msg| EvalError { msg })?;
+                check_cutoff_below_nyquist("cheby2", &cutoff, fs)?;
                 let sos = numeric::filter::cheby2(order, atten_db, kind, &cutoff, fs).map_err(|ne| EvalError { msg: ne.to_string() })?;
                 Ok(Value::Model(Arc::new(ModelHandle::new(
                     "filter",
@@ -30995,6 +30998,12 @@ self.eval_grad(loss, wrt)
                 };
                 let fs = style_num(&style, "fs").unwrap_or(2.0);
                 check_cutoff_below_nyquist("fir1", &cutoff, fs)?;
+                if n % 2 == 1 && matches!(kind, numeric::filter::FilterKind::High | numeric::filter::FilterKind::Stop) {
+                    return e(format!(
+                        "fir1: a {kind_str} filter needs an EVEN order (an odd order has a zero at Nyquist), got {n}; use {}",
+                        n + 1
+                    ));
+                }
                 let b = numeric::filter::fir1(n, kind, &cutoff, fs, &window).map_err(|ne| EvalError { msg: ne.to_string() })?;
                 Ok(Value::Model(Arc::new(ModelHandle::new(
                     "filter",
@@ -31202,6 +31211,103 @@ self.eval_grad(loss, wrt)
                 let repr = filter_repr_from_value(arg0(&args)?)?;
                 let n = arg_get(&args, 1).and_then(|v| v.as_index().ok()).unwrap_or(512).max(1);
                 Ok(Value::Vec(Arc::new(repr_group_delay(&repr, n))))
+            }
+            // `impz(filt, [n])` / `stepz(filt, [n])` -- the impulse and step
+            // response as length-`n` vectors. Without `n`: an FIR's own tap
+            // count, or an IIR's response until it has decayed (at most 4096).
+            "impz" | "stepz" => {
+                let repr = filter_repr_from_value(arg0(&args)?)?;
+                let n = match arg_get(&args, 1) {
+                    Some(v) => v.as_index().map_err(|msg| EvalError { msg })?.max(1),
+                    None => dsp_auto_len(&repr)?,
+                };
+                let mut x = vec![0.0; n];
+                x[0] = 1.0;
+                let h = repr_filt(&repr, &x)?;
+                if f == "impz" {
+                    Ok(Value::Vec(Arc::new(h)))
+                } else {
+                    let mut acc = 0.0;
+                    Ok(Value::Vec(Arc::new(h.iter().map(|v| { acc += v; acc }).collect())))
+                }
+            }
+            // `step_info(y, [fs=1])` -- rise (10-90 %), settling (2 %), overshoot,
+            // peak, tau (63.2 %) and delay (50 %) of a step response `y`.
+            "step_info" => {
+                let y = to_vec(arg0(&args)?)?;
+                let fs = arg_get(&args, 1).map(|v| v.as_num().map_err(|msg| EvalError { msg })).transpose()?.unwrap_or(1.0);
+                match dsp_info::step_info(&y, fs) {
+                    Some(s) => Ok(Value::Record(Arc::new(vec![
+                        ("final".to_string(), Value::Num(s.final_value)),
+                        ("rise_time".to_string(), Value::Num(s.rise_time)),
+                        ("settling_time".to_string(), Value::Num(s.settling_time)),
+                        ("overshoot_pct".to_string(), Value::Num(s.overshoot_pct)),
+                        ("peak".to_string(), Value::Num(s.peak)),
+                        ("peak_time".to_string(), Value::Num(s.peak_time)),
+                        ("tau".to_string(), Value::Num(s.tau)),
+                        ("delay_time".to_string(), Value::Num(s.delay_time)),
+                    ]))),
+                    None => e("step_info: the response is empty or settles to zero, so there is no final value to measure against".to_string()),
+                }
+            }
+            // `filter_info(filt, [n=2048])` -- the numbers next to a filter's
+            // plots, in one record: delay (DC group delay), impulse length,
+            // step timing, tau (step 63.2 % and dominant pole), -3 dB cutoff,
+            // DC gain, stability distance. Times in seconds (samples if no `fs`).
+            "filter_info" => {
+                let filt_val = arg0(&args)?.clone();
+                let repr = filter_repr_from_value(&filt_val)?;
+                let n = arg_get(&args, 1).and_then(|v| v.as_index().ok()).unwrap_or(2048).max(8);
+                let fs = as_model(&filt_val)?.field("fs").and_then(|v| v.as_num().ok()).unwrap_or(1.0);
+                let h_len = dsp_auto_len(&repr)?;
+                let mut x = vec![0.0; h_len];
+                x[0] = 1.0;
+                let h = repr_filt(&repr, &x)?;
+                let mut acc = 0.0;
+                let step: Vec<f64> = h.iter().map(|v| { acc += v; acc }).collect();
+                let resp = repr_freqz(&repr, n);
+                let freqs: Vec<f64> = (0..n).map(|k| fs * 0.5 * k as f64 / (n - 1) as f64).collect();
+                let mag: Vec<f64> = resp.iter().map(|c| c.magnitude()).collect();
+                let gd = repr_group_delay(&repr, n);
+                let radii: Vec<f64> = repr_poles(&repr).iter().map(|p| p.magnitude()).collect();
+                let max_r = radii.iter().cloned().fold(0.0_f64, f64::max);
+                let num = |v: f64| Value::Num(v);
+                let opt = |v: Option<f64>| Value::Num(v.unwrap_or(f64::NAN));
+                // The step response settles to H(1), the DC gain: measure
+                // against that, not the tail of a possibly truncated response.
+                let dc = resp[0].re;
+                let si = dsp_info::step_info_to(&step, fs, dc);
+                let sf = |f: fn(&dsp_info::StepInfo) -> f64| Value::Num(si.as_ref().map(f).unwrap_or(f64::NAN));
+                let edges = dsp_info::band_edges_3db(&freqs, &mag);
+                let (lo, hi, pass_delay, delay_spread) = match &edges {
+                    Some((lo, hi, a, b)) => {
+                        let band = &gd[*a..=*b];
+                        let mean = band.iter().sum::<f64>() / band.len() as f64;
+                        let spread = band.iter().cloned().fold(f64::MIN, f64::max) - band.iter().cloned().fold(f64::MAX, f64::min);
+                        (*lo, *hi, mean, spread)
+                    }
+                    None => (None, None, f64::NAN, f64::NAN),
+                };
+                Ok(Value::Record(Arc::new(vec![
+                    ("fs".to_string(), num(fs)),
+                    ("stable".to_string(), Value::Bool(max_r < 1.0 - 1e-9)),
+                    ("stability_margin".to_string(), num(1.0 - max_r)),
+                    ("dc_gain".to_string(), num(mag[0])),
+                    ("dc_gain_db".to_string(), num(20.0 * mag[0].max(1e-300).log10())),
+                    ("delay".to_string(), num(pass_delay / fs)),
+                    ("delay_samples".to_string(), num(pass_delay)),
+                    ("delay_spread_samples".to_string(), num(delay_spread)),
+                    ("impulse_length".to_string(), num(dsp_info::impulse_length(&h, 1e-3) as f64)),
+                    ("cutoff_3db".to_string(), opt(dsp_info::cutoff_3db(&freqs, &mag))),
+                    ("edge_low".to_string(), opt(lo)),
+                    ("edge_high".to_string(), opt(hi)),
+                    ("bandwidth".to_string(), opt(match (lo, hi) { (Some(l), Some(h)) => Some(h - l), _ => None })),
+                    ("tau".to_string(), sf(|s| s.tau)),
+                    ("tau_pole".to_string(), opt(dsp_info::dominant_tau(&radii, fs))),
+                    ("rise_time".to_string(), sf(|s| s.rise_time)),
+                    ("settling_time".to_string(), sf(|s| s.settling_time)),
+                    ("overshoot_pct".to_string(), sf(|s| s.overshoot_pct)),
+                ])))
             }
             // `fvtool(filt, [n=512])` — MATLAB's own name (Filter
             // Visualization Tool): a 2x2 diagnostic figure (magnitude/"gain"
@@ -46614,73 +46720,76 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "compile", "complex", "cond", "conformal", "confusion_matrix", "conj", "contains", "contour",
     "contourf", "conv", "conv1d", "conv2d", "convert_unit", "copy_file", "corr", "corr_heatmap",
     "corrcoef", "corrmat", "corrplot", "cos", "cosh", "coth", "count", "cov", "coverage", "cpe",
-    "cqt", "crc", "crc32", "crc_check", "create_file", "created_at", "crest_factor", "crop", "cross",
-    "cs_guarantee", "cs_recover", "csch", "csd", "csv2json", "csv2xml", "csvify", "ctranspose", "cumprod",
-    "cumsum", "cumtrapz", "cur_dir", "curve_fit", "cut", "cv_stability", "cwt", "daily_profile", "db", "db2mag",
-    "db2pow", "db_power", "dbfs", "dbscan", "dct", "dec2bin", "dec2hex", "decode_can", "decode_i2c",
-    "decode_spi", "decode_uart", "dedent", "delay", "delta_e", "dense", "dense_layer", "describe",
-    "det", "detect_saturation", "detrend", "device_used", "dft", "diag", "diagram_pipeline", "dict",
-    "diff", "diff_lines", "dir", "dir_exists", "disk", "disp", "distinct", "distort", "div", "dominant_frequency",
-    "donut", "dot", "double_buffer", "downsample", "draw_arrow", "draw_circle", "draw_line",
-    "draw_rect", "draw_scale_bar", "drop", "drop_row", "dropout", "dropout_layer", "duration",
-    "duty_cycle", "dwt", "ecdf", "echo", "eda", "edge_detect", "edges", "eig", "elapsed", "elediv",
-    "elemul", "elepow", "ellip", "ellipse", "emd", "emf", "end_time", "ends_with", "energy", "enob",
+    "cqt", "crc", "crc32", "crc_check", "create_file", "created_at", "crest_factor", "crop",
+    "cross", "cs_guarantee", "cs_recover", "csch", "csd", "csv2json", "csv2xml", "csvify",
+    "ctranspose", "cumprod", "cumsum", "cumtrapz", "cur_dir", "curve_fit", "cut", "cv_stability",
+    "cwt", "daily_profile", "db", "db2mag", "db2pow", "db_power", "dbfs", "dbscan", "dct",
+    "dec2bin", "dec2hex", "decode_can", "decode_i2c", "decode_spi", "decode_uart", "dedent",
+    "delay", "delta_e", "dense", "dense_layer", "describe", "det", "detect_saturation", "detrend",
+    "device_used", "dft", "diag", "diagram_pipeline", "dict", "diff", "diff_lines", "dir",
+    "dir_exists", "disk", "disp", "distinct", "distort", "div", "dominant_frequency", "donut",
+    "dot", "double_buffer", "downsample", "draw_arrow", "draw_circle", "draw_line", "draw_rect",
+    "draw_scale_bar", "drop", "drop_row", "dropout", "dropout_layer", "duration", "duty_cycle",
+    "dwt", "ecdf", "echo", "eda", "edge_detect", "edges", "eig", "elapsed", "elediv", "elemul",
+    "elepow", "ellip", "ellipse", "emd", "emf", "end_time", "ends_with", "energy", "enob",
     "enob_estimate", "entropy", "enum_values", "eof", "erf", "erfc", "error", "errorbar",
     "estimate", "estimate_complexity", "estimate_frequency", "exec", "exit", "exp", "exp2",
-    "expcdf", "expfit", "expinv", "explain", "explore", "expm", "expm1", "exponential", "exppdf", "exprnd",
-    "expstat", "extend", "eye", "f1", "fall_time", "falling_edges", "fcdf", "fft", "fftc", "fftr", "fifo",
-    "figure", "figure_background", "figure_size", "file_exists", "file_history", "file_info",
-    "file_size", "file_versioning", "fill_between", "fill_missing", "filter", "filter_ba",
-    "filter_init", "filter_next", "filtfilt", "find", "find_clipping", "find_edges", "find_hex",
-    "find_missing", "find_outliers", "find_peaks", "find_pulses", "find_trigger",
-    "find_zero_crossings", "findpeaks", "finv", "fir1", "firls", "first", "fit", "fit_scaler", "fix",
-    "flatten", "flip", "fliplr", "flipud", "floor", "fold", "fontfamily", "fontsize", "fopen",
-    "foreground_mask", "format", "forward", "fpdf", "freqz", "frnd", "fstat", "fuzzy_pid_init",
-    "fvtool", "fzero", "gain", "gamcdf", "gamfit", "gaminv", "gamma", "gampdf", "gamrnd", "gamstat",
-    "gaussian_process", "generate", "geocdf", "geofit", "geoinv", "geopdf", "geornd", "geostat",
-    "gerischer", "get", "get_bit", "getenv", "glob", "gmm_model", "goertzel", "goertzel_freq",
-    "gpu_matmul", "gpu_probe_info", "grad", "gradient_boosting_model", "graph", "grayscale", "grep",
-    "grid", "gridworld_env", "group_by_agg", "group_delay", "groupbar", "gru_cell", "gru_forward",
-    "gru_init", "h5info", "h5read", "hamming", "hamming74_decode", "hamming74_encode", "hampel", "hann", "has_edge",
-    "has_key", "havriliak_negami", "head", "heatmap", "help", "hessian", "hex2dec", "hex_decode",
-    "hex_encode", "hexbin", "hexdump", "high_time", "hilbert", "hist", "histeq", "histogram",
-    "hit_miss", "hline", "hmm", "hourly_profile", "hsl", "hstack", "hsv", "html2md", "http_get",
-    "huffman_decode", "huffman_encode", "hum", "hurst_exponent", "hygecdf", "hygeinv", "hygepdf",
-    "hygernd", "hygestat", "hypot", "ica", "ica_model", "idct", "identity", "idft", "idwt", "ifft", "im",
+    "expcdf", "expfit", "expinv", "explain", "explore", "expm", "expm1", "exponential", "exppdf",
+    "exprnd", "expstat", "extend", "eye", "f1", "fall_time", "falling_edges", "fcdf", "fft", "fftc",
+    "fftr", "fifo", "figure", "figure_background", "figure_size", "file_exists", "file_history",
+    "file_info", "file_size", "file_versioning", "fill_between", "fill_missing", "filter",
+    "filter_ba", "filter_info", "filter_init", "filter_next", "filtfilt", "find", "find_clipping",
+    "find_edges", "find_hex", "find_missing", "find_outliers", "find_peaks", "find_pulses",
+    "find_trigger", "find_zero_crossings", "findpeaks", "finv", "fir1", "firls", "first", "fit",
+    "fit_scaler", "fix", "flatten", "flip", "fliplr", "flipud", "floor", "fold", "fontfamily",
+    "fontsize", "fopen", "foreground_mask", "format", "forward", "fpdf", "freqz", "frnd", "fstat",
+    "fuzzy_pid_init", "fvtool", "fzero", "gain", "gamcdf", "gamfit", "gaminv", "gamma", "gampdf",
+    "gamrnd", "gamstat", "gaussian_process", "generate", "geocdf", "geofit", "geoinv", "geopdf",
+    "geornd", "geostat", "gerischer", "get", "get_bit", "getenv", "glob", "gmm_model", "goertzel",
+    "goertzel_freq", "gpu_matmul", "gpu_probe_info", "grad", "gradient_boosting_model", "graph",
+    "grayscale", "grep", "grid", "gridworld_env", "group_by_agg", "group_delay", "groupbar",
+    "gru_cell", "gru_forward", "gru_init", "h5info", "h5read", "hamming", "hamming74_decode",
+    "hamming74_encode", "hampel", "hann", "has_edge", "has_key", "havriliak_negami", "head",
+    "heatmap", "help", "hessian", "hex2dec", "hex_decode", "hex_encode", "hexbin", "hexdump",
+    "high_time", "hilbert", "hist", "histeq", "histogram", "hit_miss", "hline", "hmm",
+    "hourly_profile", "hsl", "hstack", "hsv", "html2md", "http_get", "huffman_decode",
+    "huffman_encode", "hum", "hurst_exponent", "hygecdf", "hygeinv", "hygepdf", "hygernd",
+    "hygestat", "hypot", "ica", "ica_model", "idct", "identity", "idft", "idwt", "ifft", "im",
     "imadjust", "imag", "image", "image_from_matrix", "image_new", "image_regions", "imagesc",
     "imbothat", "imclose", "imdilate", "imequalize", "imerode", "imfilter", "imhist", "imnoise",
-    "imopen", "impedance", "impedance_from_reflection", "impulse", "imrotate", "imscale", "imshow",
-    "imtophat", "imtranslate", "imwarp", "inch", "indent", "index", "index_of", "indexof",
+    "imopen", "impedance", "impedance_from_reflection", "impulse", "impz", "imrotate", "imscale",
+    "imshow", "imtophat", "imtranslate", "imwarp", "inch", "indent", "index", "index_of", "indexof",
     "inductor", "input", "insert", "insert_column", "insert_row", "interp1", "interp2",
     "interpolate_at", "interpolate_nan", "inv", "inverse_transform", "invert", "iqr", "irfft",
-    "is_clipped", "is_empty", "is_full", "is_readonly", "is_stable", "isfinite", "isinf", "isnan", "isolation_forest", "items",
-    "jacobian", "join", "js_exec", "json2csv", "json2xml", "json_delete", "json_get", "json_set",
-    "jsonify", "k_fold", "kaiser", "kalman_init", "kapur_threshold", "keys", "kfold", "kill",
-    "kmeans", "kmeans_centers", "kmeans_model", "kmedians_model", "kmedoids_model", "knn_model", "kron",
-    "kurtosis", "lab", "label_blobs", "last", "last_index_of", "layer_norm", "lcase", "lda_model",
-    "least_squares", "left", "legend", "len", "length", "levenshtein", "lfilter", "lgamma", "like",
-    "line", "line_at", "line_col", "line_count", "line_delete", "line_insert", "line_range",
-    "line_set", "lines", "linked_list", "linspace", "list_dir", "list_files", "listdir",
-    "listen_pool", "llm_load", "lms_init", "ln", "load", "load_image", "load_library", "load_model",
-    "load_svg", "log", "log10", "log1p", "log2", "logistic_model", "loglog", "logncdf", "lognfit",
-    "logninv", "lognpdf", "lognrnd", "lognstat", "logspace", "logsumexp", "low_time", "lower",
-    "lr_adaptive", "lr_plateau", "lse", "lstm_cell", "lstm_forward", "lstm_init", "lstsq", "ltrim", "lu",
-    "mae", "mag2db", "magnitude", "make_file", "map", "markers", "markov_chain", "matlab_exec",
-    "matmul", "max", "maximum", "maxpool2d", "md2html", "mean", "measure_snr", "medfilt", "medfilt2", "median",
-    "median_filter", "mel_spectrogram", "mem_usage", "meshgrid", "metadata", "mid", "min",
-    "minimize", "minimum", "minutely_profile", "mirror", "mismatch_loss", "mkdir", "mlp_classifier", "mm",
-    "mmap_len", "mmap_open", "mmap_read", "mod", "mode", "modified_at", "monte_carlo",
-    "monthly_profile", "move", "move_file", "mse", "mtimes", "mul", "multi_head_attention",
-    "multi_otsu", "multisine", "multithreshold", "mutex", "mutex_add", "mutex_get", "mutex_set",
-    "mutex_update", "mutual_info_classif", "mvnpdf", "nadam", "naive_bayes_model", "nand",
-    "native_call", "nbincdf", "nbinfit", "nbininv", "nbinpdf", "nbinrnd", "nbinstat", "nbytes",
-    "ncol", "neighbors", "nesterov_sgd", "newton", "nmf", "nnls", "nnz", "nor", "norm", "normal",
-    "normalize", "normcdf", "normfit", "norminv", "normpdf", "normrnd", "normstat", "now", "nrow",
-    "numel", "nyquist", "ode23", "ode45", "ode_stiff", "ols_model", "ones", "ones_like", "optimizer_step", "or", "ord", "otsu",
-    "otsu_threshold", "outer", "overshoot", "pack", "pad_bytes", "pad_left", "pad_right", "palette", "panel",
-    "parallel", "param", "parse_as", "parse_csv", "parse_json", "parse_xml", "particle_filter",
-    "particle_filter_init", "path_absolute", "path_extension", "path_join", "path_name",
-    "path_normalize", "path_parent", "path_relative_to", "path_stem", "pause", "pca",
+    "is_clipped", "is_empty", "is_full", "is_readonly", "is_stable", "isfinite", "isinf", "isnan",
+    "isolation_forest", "items", "jacobian", "join", "js_exec", "json2csv", "json2xml",
+    "json_delete", "json_get", "json_set", "jsonify", "k_fold", "kaiser", "kalman_init",
+    "kapur_threshold", "keys", "kfold", "kill", "kmeans", "kmeans_centers", "kmeans_model",
+    "kmedians_model", "kmedoids_model", "knn_model", "kron", "kurtosis", "lab", "label_blobs",
+    "last", "last_index_of", "layer_norm", "lcase", "lda_model", "least_squares", "left", "legend",
+    "len", "length", "levenshtein", "lfilter", "lgamma", "like", "line", "line_at", "line_col",
+    "line_count", "line_delete", "line_insert", "line_range", "line_set", "lines", "linked_list",
+    "linspace", "list_dir", "list_files", "listdir", "listen_pool", "llm_load", "lms_init", "ln",
+    "load", "load_image", "load_library", "load_model", "load_svg", "log", "log10", "log1p", "log2",
+    "logistic_model", "loglog", "logncdf", "lognfit", "logninv", "lognpdf", "lognrnd", "lognstat",
+    "logspace", "logsumexp", "low_time", "lower", "lr_adaptive", "lr_plateau", "lse", "lstm_cell",
+    "lstm_forward", "lstm_init", "lstsq", "ltrim", "lu", "mae", "mag2db", "magnitude", "make_file",
+    "map", "markers", "markov_chain", "matlab_exec", "matmul", "max", "maximum", "maxpool2d",
+    "md2html", "mean", "measure_snr", "medfilt", "medfilt2", "median", "median_filter",
+    "mel_spectrogram", "mem_usage", "meshgrid", "metadata", "mid", "min", "minimize", "minimum",
+    "minutely_profile", "mirror", "mismatch_loss", "mkdir", "mlp_classifier", "mm", "mmap_len",
+    "mmap_open", "mmap_read", "mod", "mode", "modified_at", "monte_carlo", "monthly_profile",
+    "move", "move_file", "mse", "mtimes", "mul", "multi_head_attention", "multi_otsu", "multisine",
+    "multithreshold", "mutex", "mutex_add", "mutex_get", "mutex_set", "mutex_update",
+    "mutual_info_classif", "mvnpdf", "nadam", "naive_bayes_model", "nand", "native_call", "nbincdf",
+    "nbinfit", "nbininv", "nbinpdf", "nbinrnd", "nbinstat", "nbytes", "ncol", "neighbors",
+    "nesterov_sgd", "newton", "nmf", "nnls", "nnz", "nor", "norm", "normal", "normalize", "normcdf",
+    "normfit", "norminv", "normpdf", "normrnd", "normstat", "now", "nrow", "numel", "nyquist",
+    "ode23", "ode45", "ode_stiff", "ols_model", "ones", "ones_like", "optimizer_step", "or", "ord",
+    "otsu", "otsu_threshold", "outer", "overshoot", "pack", "pad_bytes", "pad_left", "pad_right",
+    "palette", "panel", "parallel", "param", "parse_as", "parse_csv", "parse_json", "parse_xml",
+    "particle_filter", "particle_filter_init", "path_absolute", "path_extension", "path_join",
+    "path_name", "path_normalize", "path_parent", "path_relative_to", "path_stem", "pause", "pca",
     "pca_components", "pca_explained_variance", "pca_model", "peak", "peek", "peek_byte",
     "peek_char", "peek_line", "percentile", "periodic_profile", "periodogram",
     "permutation_importance", "phase", "pid_init", "pie", "pinv", "pipeline", "plot", "pls_model",
@@ -46692,63 +46801,64 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "processor", "prod", "profile_end", "profile_start", "profile_stats", "profiling_mode",
     "progress", "proper", "psd", "pt", "pulse_frequency", "pulse_period", "pulse_width",
     "pump_watches", "push", "push_back", "push_front", "pwd", "pwl", "pwm", "python_exec", "pzplot",
-    "q_learning", "qam_demodulate", "qam_modulate", "qda_model", "qr", "quad", "quad_info", "quantile",
-    "quantile_normalize", "queue", "quick_mlp", "r2", "raincloud", "rand", "randi", "randn",
-    "random_forest_model", "random_walk", "range", "range_decode", "range_encode", "rank",
+    "q_learning", "qam_demodulate", "qam_modulate", "qda_model", "qr", "quad", "quad_info",
+    "quantile", "quantile_normalize", "queue", "quick_mlp", "r2", "raincloud", "rand", "randi",
+    "randn", "random_forest_model", "random_walk", "range", "range_decode", "range_encode", "rank",
     "rans_decode", "rans_encode", "re", "read", "read_all", "read_all_text", "read_array",
     "read_bin", "read_bit", "read_byte", "read_bytes", "read_char", "read_chars", "read_csv",
     "read_double", "read_float", "read_input", "read_int", "read_int16", "read_int32", "read_int64",
-    "read_line", "read_mat", "read_npy", "read_npz", "read_struct", "read_structs", "read_uint16", "read_uint32",
-    "read_uint64", "read_until", "read_values", "read_version", "real", "recall", "rect",
-    "rectangle", "reduce", "reflection_coefficient", "regex_count", "regex_find", "regex_find_all",
-    "regex_groups", "regex_match", "regex_replace", "regex_split", "regionprops", "regions", "relu", "rem",
-    "remove", "remove_dir", "remove_file", "remove_nan", "remove_noise", "remove_outliers",
-    "remove_small_blobs", "rename_file", "repeat_str", "replace", "replace_bytes",
-    "replace_outliers", "repmat", "resample_int", "resample_to", "reset", "reshape", "residual_acf",
-    "resistor", "resize", "restart", "restore_version", "return_loss", "reverse", "reverse_bytes",
-    "rewind", "rfe", "rfft", "rgb", "rgba", "ridge", "ridge_model", "right", "rise_time",
-    "rising_edges", "rk4", "rlkk_extrapolate", "rlkk_reconstruct", "rlkk_validate", "rms", "rmse",
-    "rmsprop", "robust_scale", "roc_auc", "rolling_max", "rolling_mean", "rolling_min",
-    "rolling_rms", "rolling_std", "rot90", "round", "row_mean", "row_sum", "rows", "rtrim",
-    "run_for", "sample_to_time", "sandbox_mode", "sarsa", "sauvola_threshold", "save", "save_all",
-    "save_image", "save_model", "save_svg", "savefig", "savgol", "sawtooth",
-    "scaled_dot_product_attention", "scan", "scatter", "scatterfit", "sci", "score", "sech", "seed",
-    "seek", "select", "semaphore", "semaphore_acquire", "semaphore_available", "semaphore_release",
-    "semilogx", "semilogy", "sequential", "sequential_split", "serial_open", "serial_ports",
-    "series", "set", "set_bit", "set_metadata", "set_start_time", "setenv", "sfdr", "sgd", "sha256",
-    "shape", "sharpen", "shell", "shortest_path", "sigma_delta", "sigmoid", "sign", "signal",
-    "signal_slice_time", "signal_unit", "similar", "simple_cnn", "simple_rnn_classifier", "simpson",
-    "simulate", "sin", "sinad", "sinad_estimate", "sine", "sinh", "size", "sizeof", "skewness",
-    "sleep", "slice_at", "smc_init", "smith", "smooth", "smoothmax", "snr", "sns_bar", "sns_box",
-    "sns_scatter", "softmax", "softmax_rows", "solve", "sort", "sort_by", "sosfilt", "spawn",
-    "spectral_coherence", "spectral_entropy", "spectrogram", "spectrum", "spectrum_at",
-    "spectrum_normalize", "spectrum_unnormalize", "spiderplot", "spl", "splice", "splineplot",
-    "split", "split_time", "sprintf", "sqrt", "square", "stackbar", "stair", "stamp", "standardize", "start",
-    "start_time", "starts_with", "stationary", "std", "ste", "steer_delays", "stem", "step", "stft",
-    "stop", "stop_grad", "str", "stratified_split", "strip_ansi", "subplot", "substr", "subtract",
-    "sum", "summary", "svd", "svm_model", "svr_model", "swap", "swap_endian", "sweep", "sysid",
-    "sysinfo", "table", "tail", "take", "tan", "tanh", "tape_reset", "tcdf", "tcp_accept",
+    "read_line", "read_mat", "read_npy", "read_npz", "read_struct", "read_structs", "read_uint16",
+    "read_uint32", "read_uint64", "read_until", "read_values", "read_version", "real", "recall",
+    "rect", "rectangle", "reduce", "reflection_coefficient", "regex_count", "regex_find",
+    "regex_find_all", "regex_groups", "regex_match", "regex_replace", "regex_split", "regionprops",
+    "regions", "relu", "rem", "remove", "remove_dir", "remove_file", "remove_nan", "remove_noise",
+    "remove_outliers", "remove_small_blobs", "rename_file", "repeat_str", "replace",
+    "replace_bytes", "replace_outliers", "repmat", "resample_int", "resample_to", "reset",
+    "reshape", "residual_acf", "resistor", "resize", "restart", "restore_version", "return_loss",
+    "reverse", "reverse_bytes", "rewind", "rfe", "rfft", "rgb", "rgba", "ridge", "ridge_model",
+    "right", "rise_time", "rising_edges", "rk4", "rlkk_extrapolate", "rlkk_reconstruct",
+    "rlkk_validate", "rms", "rmse", "rmsprop", "robust_scale", "roc_auc", "rolling_max",
+    "rolling_mean", "rolling_min", "rolling_rms", "rolling_std", "rot90", "round", "row_mean",
+    "row_sum", "rows", "rtrim", "run_for", "sample_to_time", "sandbox_mode", "sarsa",
+    "sauvola_threshold", "save", "save_all", "save_image", "save_model", "save_svg", "savefig",
+    "savgol", "sawtooth", "scaled_dot_product_attention", "scan", "scatter", "scatterfit", "sci",
+    "score", "sech", "seed", "seek", "select", "semaphore", "semaphore_acquire",
+    "semaphore_available", "semaphore_release", "semilogx", "semilogy", "sequential",
+    "sequential_split", "serial_open", "serial_ports", "series", "set", "set_bit", "set_metadata",
+    "set_start_time", "setenv", "sfdr", "sgd", "sha256", "shape", "sharpen", "shell",
+    "shortest_path", "sigma_delta", "sigmoid", "sign", "signal", "signal_slice_time", "signal_unit",
+    "similar", "simple_cnn", "simple_rnn_classifier", "simpson", "simulate", "sin", "sinad",
+    "sinad_estimate", "sine", "sinh", "size", "sizeof", "skewness", "sleep", "slice_at", "smc_init",
+    "smith", "smooth", "smoothmax", "snr", "sns_bar", "sns_box", "sns_scatter", "softmax",
+    "softmax_rows", "solve", "sort", "sort_by", "sosfilt", "spawn", "spectral_coherence",
+    "spectral_entropy", "spectrogram", "spectrum", "spectrum_at", "spectrum_normalize",
+    "spectrum_unnormalize", "spiderplot", "spl", "splice", "splineplot", "split", "split_time",
+    "sprintf", "sqrt", "square", "stackbar", "stair", "stamp", "standardize", "start", "start_time",
+    "starts_with", "stationary", "std", "ste", "steer_delays", "stem", "step", "step_info", "stepz",
+    "stft", "stop", "stop_grad", "str", "stratified_split", "strip_ansi", "subplot", "substr",
+    "subtract", "sum", "summary", "svd", "svm_model", "svr_model", "swap", "swap_endian", "sweep",
+    "sysid", "sysinfo", "table", "tail", "take", "tan", "tanh", "tape_reset", "tcdf", "tcp_accept",
     "tcp_close", "tcp_connect", "tcp_listen", "tcp_port", "tcp_recv", "tcp_send", "tell", "tex",
     "text", "thd", "thd_n", "theme", "threshold", "tic", "time_to_sample", "timer", "timestamps",
     "tinv", "title", "tkeo", "tmp_file", "to_bool", "to_cmyk", "to_digital", "to_float", "to_hsl",
     "to_hsv", "to_int", "to_lab", "to_rgb", "to_unit", "to_vec", "toc", "toggle_bit", "tolower",
     "touch", "toupper", "tpdf", "trace", "track", "train_loop", "train_test_split",
     "train_val_test_split", "transfer_function", "transform", "transformer_block", "transpose",
-    "trapz", "tree_model", "triangle", "tril", "trim", "triu", "trnd", "tsne", "tstat", "tv_denoise", "type", "ucase",
-    "ui_button", "ui_checkbox", "ui_number", "ui_select", "ui_slider", "ui_text", "undershoot",
-    "unidcdf", "unidinv", "unidpdf", "unidrnd", "unidstat", "unifcdf", "unifinv", "unifit",
-    "uniform", "unifpdf", "unifrnd", "unifstat", "unique", "unit_scale", "unpack", "unsetenv",
-    "update", "upper", "upsample", "val", "value_and_grad", "values", "vanicek", "var",
-    "verify_signal", "violin", "viterbi", "vline", "vmap", "vmd", "voronoi", "vstack", "vswr",
-    "warburg", "warburg_open", "warburg_short", "warn", "waterfall", "wblcdf", "wblfit", "wblinv",
-    "wblpdf", "wblrnd", "wblstat", "welch", "where", "wigner_ville", "word_wrap", "worker_done",
-    "wrap", "write", "write_array", "write_bin", "write_bit", "write_byte", "write_char",
-    "write_csv", "write_double", "write_float", "write_int", "write_int16", "write_int32",
-    "write_int64", "write_line", "write_npy", "write_npz", "write_report", "write_text", "write_uint16", "write_uint32",
-    "write_uint64", "writeline", "xbreak", "xcorr", "xlabel", "xlim", "xml2csv", "xml2json",
-    "xmlify", "xor", "xscale", "xspan", "xticklabels", "xticks", "ybreak", "ylabel", "ylim",
-    "yscale", "yspan", "yticklabels", "yticks", "zeros", "zeros_like", "zip", "zlib_decompress",
-    "zoom_inset",
+    "trapz", "tree_model", "triangle", "tril", "trim", "triu", "trnd", "tsne", "tstat",
+    "tv_denoise", "type", "ucase", "ui_button", "ui_checkbox", "ui_number", "ui_select",
+    "ui_slider", "ui_text", "undershoot", "unidcdf", "unidinv", "unidpdf", "unidrnd", "unidstat",
+    "unifcdf", "unifinv", "unifit", "uniform", "unifpdf", "unifrnd", "unifstat", "unique",
+    "unit_scale", "unpack", "unsetenv", "update", "upper", "upsample", "val", "value_and_grad",
+    "values", "vanicek", "var", "verify_signal", "violin", "viterbi", "vline", "vmap", "vmd",
+    "voronoi", "vstack", "vswr", "warburg", "warburg_open", "warburg_short", "warn", "waterfall",
+    "wblcdf", "wblfit", "wblinv", "wblpdf", "wblrnd", "wblstat", "welch", "where", "wigner_ville",
+    "word_wrap", "worker_done", "wrap", "write", "write_array", "write_bin", "write_bit",
+    "write_byte", "write_char", "write_csv", "write_double", "write_float", "write_int",
+    "write_int16", "write_int32", "write_int64", "write_line", "write_npy", "write_npz",
+    "write_report", "write_text", "write_uint16", "write_uint32", "write_uint64", "writeline",
+    "xbreak", "xcorr", "xlabel", "xlim", "xml2csv", "xml2json", "xmlify", "xor", "xscale", "xspan",
+    "xticklabels", "xticks", "ybreak", "ylabel", "ylim", "yscale", "yspan", "yticklabels", "yticks",
+    "zeros", "zeros_like", "zip", "zlib_decompress", "zoom_inset",
 ];
 
 fn reduce_axis(f: &str, m: &Matrix, axis: usize, extra: Option<&Value>, style: &[(String, Value)]) -> R<Value> {
@@ -52684,7 +52794,18 @@ fn apply_fitted_scaler(m: &ModelHandle, new_x: &Value, per_column: impl Fn(&Colu
 /// cutoff (both edges for `"band"`/`"stop"`).
 fn check_cutoff_below_nyquist(fn_name: &str, cutoff: &[f64], fs: f64) -> R<()> {
     let nyquist = fs / 2.0;
+    if !(fs.is_finite() && fs > 0.0) {
+        return e(format!("{fn_name}: the sample rate fs must be a positive number, got {fs}"));
+    }
+    if cutoff.len() == 2 && cutoff[0].is_finite() && cutoff[1].is_finite() && cutoff[0] >= cutoff[1] {
+        return e(format!(
+            "{fn_name}: a band needs [low, high] with low < high, got [{}, {}]", cutoff[0], cutoff[1]
+        ));
+    }
     for &c in cutoff {
+        if !c.is_finite() || c <= 0.0 {
+            return e(format!("{fn_name}: cutoff must be a finite frequency above 0 Hz, got {c}"));
+        }
         if c >= nyquist {
             return e(format!(
                 "{fn_name}: cutoff {c} Hz exceeds Nyquist frequency {nyquist} Hz for fs={fs} Hz — cutoff must be below fs/2"
@@ -52899,6 +53020,19 @@ fn repr_filtfilt(repr: &FilterRepr, x: &[f64]) -> R<Vec<f64>> {
         FilterRepr::Iir(sos) => Ok(numeric::filter::filtfilt(sos, x)),
         FilterRepr::Fir(b) => numeric::filter::fir_filtfilt(b, x).map_err(|ne| EvalError { msg: ne.to_string() }),
     }
+}
+
+/// Default length for `impz`/`stepz`/`filter_info`: an FIR's tap count, or for
+/// an IIR about 14 time constants of its slowest pole (down to ~1e-6 of its
+/// peak; floor 64, capped at 200000).
+fn dsp_auto_len(repr: &FilterRepr) -> R<usize> {
+    if let FilterRepr::Fir(b) = repr {
+        return Ok(b.len().max(1));
+    }
+    // ~14 time constants of the slowest pole bring the response down to 1e-6.
+    let r = repr_poles(repr).iter().map(|p| p.magnitude()).filter(|r| *r < 1.0).fold(0.0_f64, f64::max);
+    let len = if r > 1e-9 { 14.0 * (-1.0 / r.ln()) } else { 64.0 };
+    Ok((len.ceil() as usize).clamp(64, 200_000))
 }
 
 fn repr_freqz(repr: &FilterRepr, n: usize) -> Vec<Complex64> {
@@ -83092,6 +83226,78 @@ end for");
         let mut it = Interp::new();
         let err = it.run("f = fir1(20, 0.3, kind=\"bogus\")").unwrap_err();
         assert!(err.msg.contains("bogus"), "got: {}", err.msg);
+    }
+
+    #[test]
+    fn designs_that_used_to_come_back_broken_are_now_errors() {
+        // cheby1/cheby2 skipped the Nyquist check: this was an unstable filter
+        for src in ["f = cheby1(4, 1, \"low\", 600, 1000)", "f = cheby2(4, 40, \"low\", 500, 1000)"] {
+            let err = Interp::new().run(src).unwrap_err();
+            assert!(err.msg.to_lowercase().contains("nyquist"), "{src}: {}", err.msg);
+        }
+        // a zero, negative or reversed edge, and a non-positive fs
+        for src in [
+            "f = butter(4, \"low\", 0, 1000)",
+            "f = butter(4, \"low\", -10, 1000)",
+            "f = butter(4, \"band\", [300, 100], 1000)",
+            "f = butter(4, \"low\", 100, 0)",
+        ] {
+            assert!(Interp::new().run(src).is_err(), "{src} should be rejected");
+        }
+        // an odd-order FIR high-pass has a zero at Nyquist: taps of 1e16
+        let err = Interp::new().run("f = fir1(5, 0.5, kind=\"high\")").unwrap_err();
+        assert!(err.msg.contains("EVEN"), "got: {}", err.msg);
+    }
+
+    #[test]
+    fn filter_info_reads_a_butterworth_lowpass_correctly() {
+        let it = run(
+            "fs = 1000
+             filt = butter(4, \"low\", 100, fs)
+             info = filter_info(filt)
+             cutoff = info.cutoff_3db
+             dc = info.dc_gain
+             stable = info.stable
+             tau = info.tau
+             h = impz(filt)
+             s = stepz(filt)
+             last = s[length(s) - 1]",
+        );
+        assert!((num(&it, "cutoff") - 100.0).abs() < 0.5, "cutoff {}", num(&it, "cutoff"));
+        assert!((num(&it, "dc") - 1.0).abs() < 1e-9);
+        assert!(matches!(it.get("stable"), Some(Value::Bool(true))));
+        assert!(num(&it, "tau") > 0.0 && num(&it, "tau") < 0.05, "tau {}", num(&it, "tau"));
+        assert!((num(&it, "last") - 1.0).abs() < 1e-3, "step settles to the DC gain, got {}", num(&it, "last"));
+        let Some(Value::Vec(h)) = it.get("h") else { panic!("impz returns a vector") };
+        assert!(h.len() >= 64);
+    }
+
+    #[test]
+    fn filter_info_of_a_linear_phase_fir_has_flat_delay_of_half_the_order() {
+        let it = run(
+            "filt = fir1(40, 100, kind=\"low\", fs=1000)
+             info = filter_info(filt)
+             d = info.delay_samples
+             spread = info.delay_spread_samples
+             n = length(impz(filt))",
+        );
+        assert!((num(&it, "d") - 20.0).abs() < 0.01, "delay {}", num(&it, "d"));
+        assert!(num(&it, "spread") < 0.01);
+        assert_eq!(num(&it, "n"), 41.0);
+    }
+
+    #[test]
+    fn step_info_matches_the_first_order_lag_textbook_values() {
+        let it = run(
+            "y = 1 - exp(-(0 to 599) / 20)
+             si = step_info(y)
+             tau = si.tau
+             over = si.overshoot_pct",
+        );
+        assert!((num(&it, "tau") - 20.0).abs() < 0.2, "tau {}", num(&it, "tau"));
+        assert!(num(&it, "over") < 1e-6);
+        let err = run_err("si = step_info([0, 0, 0, 0])");
+        assert!(err.msg.contains("zero"), "got: {}", err.msg);
     }
 
     #[test]
