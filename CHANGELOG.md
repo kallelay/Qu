@@ -10,6 +10,10 @@ changes are called out.
 
 ## [Unreleased]
 
+- `group_delay` (and `fvtool`'s delay panel, and the delay in `filter_info`) is now exact: it is computed in closed form instead of unwrapping a sampled phase, which aliased whenever the delay was long relative to the number of points (`group_delay(fir1(2000, 0.3))` returned -22 at the default 512 points, the right answer is 1000; `fir1(20, 0.3)` at 9 or 11 points returned values between -6 and 5, the right answer is 10).
+
+- Qu Studio: Run Cell runs only that cell in the session's kernel. It used to re-send every earlier cell, so their prints and plots fired again and `x = x + 1` was applied twice. Terminal lines no longer show a doubled glyph.
+
 - New filter-measurement builtins: `impz(filt, [n])` and `stepz(filt, [n])` (impulse and step response), `step_info(y, [fs])` (rise 10-90 %, settling 2 %, overshoot, peak, tau at 63.2 %, delay), and `filter_info(filt)`, one record with the numbers a filter designer shows beside its plots: passband delay and its spread, impulse length, tau (from the step response and from the slowest pole), -3 dB edges and bandwidth, DC gain, stability margin. The step numbers are measured against the filter's DC gain, so a slow filter is not misread from a truncated response; high-pass and band-pass filters, which have no DC gain, report them as `nan`.
 
 - Filter design now rejects what used to produce a broken filter: `cheby1`/`cheby2` skipped the Nyquist check (`cheby1(4, 1, "low", 600, 1000)` returned an unstable filter), every design accepted a zero, negative, NaN or reversed band edge, and `fir1` with an odd order and `"high"`/`"stop"` returned taps around 1e16. Each is now an error that names the problem.

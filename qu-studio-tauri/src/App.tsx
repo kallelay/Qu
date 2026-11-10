@@ -1564,25 +1564,30 @@ function App() {
     setAiReview(null);
   }, []);
 
-  // Run a single `#%%` cell. `payload.prefixCode` is already cells
-  // [0..cell.index] concatenated (see qu-ui-components' `utils/cells.ts`
-  // `getPrefixSource`) -- `execute_code` spawns a fresh `qu.exe run
-  // <tempfile>` process per call with no persistent state between calls,
-  // so re-running every earlier cell in the same process is how a later
-  // cell actually sees an earlier cell's variables. That means prior
-  // cells' side effects (prints, plots) re-fire on every "Run Cell", which
-  // is a deliberate, documented trade-off (see BACKLOG.md), not a bug.
+  // Run a single `#%%` cell in the session's persistent kernel (`repl_run`),
+  // which already holds the variables earlier cells and runs defined -- so only
+  // THIS cell's lines are sent. (Re-sending every earlier cell, as was needed
+  // when each run was a fresh process, would fire their prints and plots again
+  // and re-apply things like `x = x + 1`.) The earlier lines are blanked, not
+  // dropped, so an error's `at file:LINE` still points at the right line. If
+  // nothing has run in this session yet, run the cells above first.
   const handleRunCell = useCallback((payload: RunCellPayload) => {
     const label = payload.cell.title || `#${payload.cell.index + 1}`;
-    addTerminalLine(`> Running cell ${label} (re-executing cells 1-${payload.cell.index + 1})`);
-    executeCode(payload.prefixCode);
+    addTerminalLine(`> Running cell ${label}`);
+    const own = payload.prefixCode
+      .split('\n')
+      .map((line, i) => (i < payload.cell.startLine - 1 ? '' : line))
+      .join('\n');
+    executeCode(own);
   }, [executeCode]);
 
   // The terminal keeps the newest MAX_TERMINAL_LINES lines: every added
   // line copies the list, so an endless, chatty script would otherwise make
   // each print slower than the one before until the window stopped responding.
   const addTerminalLine = (line: string, type: 'info' | 'error' | 'success' = 'info') => {
-    const prefix = type === 'error' ? '❌ ' : type === 'success' ? '✓ ' : '';
+    // Many callers already start the line with the glyph; don't double it.
+    const glyph = type === 'error' ? '❌ ' : type === 'success' ? '✓ ' : '';
+    const prefix = line.startsWith(glyph.trim()) ? '' : glyph;
     setTerminalLines(prev => capTerminal([...prev, `${prefix}${line}`]));
   };
 

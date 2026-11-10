@@ -929,59 +929,42 @@ pub fn freqz(sos: &Sos, n: usize) -> Vec<crate::Complex64> {
         .collect()
 }
 
-/// Group delay (in samples), `-dφ/dω` where `φ = arg(H(e^{jω}))` — the
-/// standard definition, computed practically: unwrap the phase from
-/// [`freqz`] (remove spurious `±2π` jumps between adjacent samples before
-/// differentiating — the classic pitfall of differentiating `atan2`'s
-/// `(-π, π]`-wrapped output directly) then take a central-difference
-/// derivative (forward/backward at the two endpoints), negated. An exact
-/// closed-form method exists (differentiating the numerator/denominator
-/// polynomials directly, avoiding unwrapping entirely) but needs per-
-/// section polynomial derivatives for comparatively little practical
-/// benefit — this is accurate everywhere except very close to a response
-/// null, where every group-delay definition is acutely sensitive anyway.
+/// Group delay (in samples), `-dφ/dω` where `φ = arg(H(e^{jω}))`, at the same
+/// `n` points as [`freqz`]. Computed in closed form per section (see
+/// `poly_group_delay`), so it is exact and cannot alias for a long filter.
 pub fn group_delay(sos: &Sos, n: usize) -> Vec<f64> {
-    group_delay_from_response(&freqz(sos, n), n)
-}
-
-/// The shared unwrap-then-differentiate machinery [`group_delay`] and
-/// [`fir_group_delay`] both use, factored out so it operates on an already-
-/// sampled frequency response rather than assuming an `Sos` — the same
-/// general phase-derivative definition applies to any filter representation
-/// (IIR or FIR), not just the biquad-cascade one, and `fir_group_delay`
-/// reuses it exactly rather than duplicating the unwrap logic.
-fn group_delay_from_response(h: &[crate::Complex64], n: usize) -> Vec<f64> {
-    let mut phase: Vec<f64> = h.iter().map(|c| c.arg()).collect();
-    for i in 1..phase.len() {
-        let mut diff = phase[i] - phase[i - 1];
-        while diff > PI {
-            phase[i] -= 2.0 * PI;
-            diff -= 2.0 * PI;
-        }
-        while diff < -PI {
-            phase[i] += 2.0 * PI;
-            diff += 2.0 * PI;
-        }
-    }
-    let n_pts = phase.len();
-    if n_pts == 0 {
-        return Vec::new();
-    }
-    let domega = PI / (n.max(2) - 1) as f64;
-    (0..n_pts)
-        .map(|i| {
-            let dphi = if n_pts == 1 {
-                0.0
-            } else if i == 0 {
-                phase[1] - phase[0]
-            } else if i == n_pts - 1 {
-                phase[i] - phase[i - 1]
-            } else {
-                (phase[i + 1] - phase[i - 1]) / 2.0
-            };
-            -dphi / domega
+    let denom = (n.max(2) - 1) as f64;
+    (0..n.max(1))
+        .map(|k| {
+            let omega = PI * k as f64 / denom;
+            sos.sections
+                .iter()
+                .map(|bq| poly_group_delay(&[bq.b0, bq.b1, bq.b2], omega) - poly_group_delay(&[1.0, bq.a1, bq.a2], omega))
+                .sum()
         })
         .collect()
+}
+
+/// Group delay contribution of the polynomial `P(z^-1) = sum_k c_k z^-k`
+/// at `omega`: `Re( sum_k k c_k e^{-jk omega} / P(e^{j omega}) )`. This is
+/// `-d arg(P) / d omega` computed exactly, so it cannot alias however long the
+/// filter is (unwrapping a sampled phase fails once the delay exceeds about
+/// the number of sample points). A zero ON the unit circle makes the delay
+/// undefined there; it contributes 0 at that exact frequency.
+fn poly_group_delay(c: &[f64], omega: f64) -> f64 {
+    let mut p = crate::Complex64::real(0.0);
+    let mut dp = crate::Complex64::real(0.0);
+    let mut mag = 0.0;
+    for (k, &ck) in c.iter().enumerate() {
+        let term = crate::Complex64::from_polar(ck, -omega * k as f64);
+        p = p.add(term);
+        dp = dp.add(term.scale(k as f64));
+        mag += ck.abs();
+    }
+    if p.magnitude() <= 1e-12 * mag.max(1e-300) {
+        return 0.0;
+    }
+    dp.div(p).re
 }
 
 // ---- FIR design (windowed-sinc) and analysis ----
@@ -1249,14 +1232,11 @@ pub fn fir_freqz(b: &[f64], n: usize) -> Vec<crate::Complex64> {
         .collect()
 }
 
-/// FIR group delay, sharing [`group_delay`]'s own unwrap-then-differentiate
-/// machinery via `group_delay_from_response` rather than a separate
-/// implementation -- the same general phase-derivative definition applies
-/// regardless of representation. For a `fir1`-designed (symmetric, linear-
-/// phase) filter this is exactly constant at `n/2` samples by construction;
-/// this numeric path also works for a non-symmetric FIR, where it wouldn't be.
+/// FIR group delay at the same `n` points as [`fir_freqz`], in closed form. For a
+/// `fir1`-designed (symmetric, linear-phase) filter it is exactly `order/2`.
 pub fn fir_group_delay(b: &[f64], n: usize) -> Vec<f64> {
-    group_delay_from_response(&fir_freqz(b, n), n)
+    let denom = (n.max(2) - 1) as f64;
+    (0..n.max(1)).map(|k| poly_group_delay(b, PI * k as f64 / denom)).collect()
 }
 
 /// Causal FIR filtering: exactly `conv(x, b, Full)` truncated to `len(x)` --

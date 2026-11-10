@@ -83250,6 +83250,30 @@ end for");
     }
 
     #[test]
+    fn group_delay_does_not_alias_for_a_long_filter() {
+        // Unwrapping a phase sampled at 512 points returned -22 for this.
+        let it = run(
+            "f = fir1(2000, 0.3)
+             gd = group_delay(f)
+             lo = min(gd[0:100])
+             hi = max(gd[0:100])",
+        );
+        assert!((num(&it, "lo") - 1000.0).abs() < 1e-3, "lo {}", num(&it, "lo"));
+        assert!((num(&it, "hi") - 1000.0).abs() < 1e-3, "hi {}", num(&it, "hi"));
+    }
+
+    #[test]
+    fn group_delay_of_a_coarse_grid_matches_a_fine_one() {
+        // fir1(20, ...) at 9 and 11 points used to return -6, 0, 5 and so on.
+        let it = run(
+            "f = fir1(20, 0.3)
+             a = max(group_delay(f, 9)[0:3])
+             b = max(group_delay(f, 11)[0:3])",
+        );
+        assert!((num(&it, "a") - 10.0).abs() < 1e-6 && (num(&it, "b") - 10.0).abs() < 1e-6);
+    }
+
+    #[test]
     fn filter_info_reads_a_butterworth_lowpass_correctly() {
         let it = run(
             "fs = 1000
