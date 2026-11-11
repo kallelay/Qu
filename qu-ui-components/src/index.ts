@@ -7,7 +7,7 @@
 
 // Core Components
 export { CodeEditor } from './components/CodeEditor';
-export type { CodeEditorProps, Language, RunCellPayload } from './components/CodeEditor';
+export type { CodeEditorProps, Language, RunCellPayload, RunSelectionPayload } from './components/CodeEditor';
 
 export { PlotViewer } from './components/PlotViewer';
 export type { PlotViewerProps, PlotType, PlotData } from './components/PlotViewer';
@@ -73,6 +73,10 @@ export { cn } from './utils/cn';
 export { glassStyle } from './utils/glassStyle';
 export { parseCells, findCellAtLine, getPrefixSource } from './utils/cells';
 export type { QuCell } from './utils/cells';
+export { scanOutline, nestOutline } from './utils/outline';
+export { parseErrorLocation } from './utils/errorLocation';
+export type { QuErrorLocation } from './utils/errorLocation';
+export type { QuSymbol, QuSymbolKind, QuSymbolNode } from './utils/outline';
 export { classifyStat, confirmChange, hasLocalEdits } from './utils/diskWatch';
 export type { DiskStat, DiskBaseline, StatVerdict, DiskChange } from './utils/diskWatch';
 export { columnSelectionRanges } from './utils/columnSelect';

@@ -8,6 +8,7 @@ import { glassStyle } from '../utils/glassStyle';
 import { parseCells, getPrefixSource, QuCell } from '../utils/cells';
 import { planSnippetInsert } from '../utils/snippetInsert';
 import { columnSelectionRanges } from '../utils/columnSelect';
+import { nestOutline, scanOutline, QuSymbolNode } from '../utils/outline';
 
 // ---- Monaco is BUNDLED, not fetched ----
 // `@monaco-editor/react`'s default loader pulls Monaco from
@@ -58,6 +59,18 @@ export interface RunCellPayload {
   prefixCode: string;
 }
 
+/** Payload delivered to `onRunSelection` (Alt+Enter, "Run line"). */
+export interface RunSelectionPayload {
+  /** The selected text, or the whole current line when nothing is selected. */
+  code: string;
+  /**
+   * 1-based line of the buffer that `code`'s first line is. A trace from
+   * running `code` names lines of `code`; add `startLine - 1` to get the
+   * buffer's line.
+   */
+  startLine: number;
+}
+
 /**
  * One parse-error diagnostic, as reported by a `check_syntax`-style backend
  * command wrapping `qu_syntax::parse`'s `Result<Program, ParseError>` (see
@@ -84,6 +97,11 @@ export interface CodeEditorProps extends Omit<EditorProps, 'language' | 'theme' 
    * render either way, since they're just a harmless visual aid.
    */
   onRunCell?: (payload: RunCellPayload) => void;
+  /**
+   * Alt+Enter: run the selection, or the current line when nothing is
+   * selected. A blank line runs nothing. Omit to leave Alt+Enter unbound.
+   */
+  onRunSelection?: (payload: RunSelectionPayload) => void;
   /**
    * F1: context help for the symbol under the cursor. Called with the word
    * at the caret, or `null` when the caret is not on one (whitespace, a
@@ -147,6 +165,12 @@ export interface CodeEditorProps extends Omit<EditorProps, 'language' | 'theme' 
     token: number;
   } | null;
   /**
+   * One-shot "jump to this line" (the Studio sidebar's outline list). Same
+   * `token`-bump contract as `insertRequest`: the caret moves, the line is
+   * centred and the editor takes focus once per distinct token.
+   */
+  revealLineRequest?: { line: number; token: number } | null;
+  /**
    * Fires whenever the editor's selection changes, with the exact selected
    * text and its range -- `null` when the selection is empty/collapsed to a
    * caret. This is how a host app knows what to send as "the selected code"
@@ -174,6 +198,14 @@ export interface CodeEditorProps extends Omit<EditorProps, 'language' | 'theme' 
    * milliseconds, not seconds.
    */
   onCheckSyntax?: (code: string) => Promise<QuDiagnostic[]>;
+  /**
+   * Errors from the last RUN (as opposed to `onCheckSyntax`'s as-you-type
+   * parse errors), each squiggled across its whole line. Kept under its own
+   * marker owner so a clean parse does not erase "this line failed when you
+   * ran it". The host decides when one is stale (typically: on the next
+   * edit or run) and passes an empty list / omits the prop.
+   */
+  runtimeMarkers?: Array<{ line: number; message: string }>;
   showLineNumbers?: boolean;
   showMinimap?: boolean;
   readOnly?: boolean;
@@ -210,6 +242,10 @@ const DIAGNOSTICS_DEBOUNCE_MS = 300;
 // any other feature (a linter, a different provider) might set on the same
 // model under its own owner.
 const DIAGNOSTICS_MARKER_OWNER = 'qu-diagnostics';
+
+// Owner for `runtimeMarkers` -- separate from the parse-error owner above
+// for exactly the reason that comment gives.
+const RUNTIME_MARKER_OWNER = 'qu-runtime';
 
 const QU_LANGUAGE_CONFIG = {
   id: 'qu',
@@ -386,14 +422,17 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
   onRun,
   onSave,
   onRunCell,
+  onRunSelection,
   onHelpRequest,
   onInlineComplete,
   autoTriggerInlineComplete = true,
   insertRequest,
   replaceRangeRequest,
+  revealLineRequest,
   onSelectionChange,
   onCursorPositionChange,
   onCheckSyntax,
+  runtimeMarkers,
   showLineNumbers = true,
   showMinimap = true,
   readOnly = false,
@@ -405,10 +444,17 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
   const [monacoInstance, setMonacoInstance] = useState<any>(null);
   const editorRef = useRef<any>(null);
   const onRunCellRef = useRef(onRunCell);
+  // `onRun` too: the Ctrl+Enter command is registered once, at mount, so
+  // calling the `onRun` prop it closed over would call the FIRST render's
+  // callback -- in Studio, an `executeCode` holding the buffer as it was
+  // when the editor mounted.
+  const onRunRef = useRef(onRun);
+  const onRunSelectionRef = useRef(onRunSelection);
   const onHelpRequestRef = useRef(onHelpRequest);
   const cellDecorationIdsRef = useRef<string[]>([]);
   const codeLensDisposableRef = useRef<{ dispose: () => void } | null>(null);
   const foldingDisposableRef = useRef<{ dispose: () => void } | null>(null);
+  const symbolDisposableRef = useRef<{ dispose: () => void } | null>(null);
   const inlineCompletionDisposableRef = useRef<{ dispose: () => void } | null>(null);
   const slashCommandDisposableRef = useRef<{ dispose: () => void } | null>(null);
   const onInlineCompleteRef = useRef(onInlineComplete);
@@ -425,8 +471,10 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
   // render.
   useEffect(() => {
     onRunCellRef.current = onRunCell;
+    onRunRef.current = onRun;
+    onRunSelectionRef.current = onRunSelection;
     onHelpRequestRef.current = onHelpRequest;
-  }, [onRunCell, onHelpRequest]);
+  }, [onRunCell, onRun, onRunSelection, onHelpRequest]);
 
   useEffect(() => {
     onInlineCompleteRef.current = onInlineComplete;
@@ -672,15 +720,24 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
       onSave?.(editor.getValue());
     });
 
-    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyEnter, () => {
-      onRun?.();
+    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => {
+      onRunRef.current?.();
     });
 
-    editor.addCommand(monaco.KeyMod.Alt | monaco.KeyCode.KeyEnter, () => {
-      // Run current line
-      const lineNumber = editor.getPosition()?.lineNumber || 1;
-      const line = editor.getModel()?.getLineContent(lineNumber) || '';
-      console.log('Run line:', line);
+    // Run line: the selection, or the caret's line when nothing is selected.
+    editor.addCommand(monaco.KeyMod.Alt | monaco.KeyCode.Enter, () => {
+      const handler = onRunSelectionRef.current;
+      const model = editor.getModel();
+      if (!handler || !model) return;
+      const selection = editor.getSelection();
+      if (selection && !selection.isEmpty()) {
+        const code = model.getValueInRange(selection);
+        if (code.trim()) handler({ code, startLine: selection.startLineNumber });
+        return;
+      }
+      const lineNumber = editor.getPosition()?.lineNumber ?? 1;
+      const code = model.getLineContent(lineNumber);
+      if (code.trim()) handler({ code, startLine: lineNumber });
     });
 
     // ---- #%% cell execution ----
@@ -689,10 +746,18 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
     // anything. Both the CodeLens command below and the Shift+Enter
     // keybinding funnel through this one function.
     const runCellAtLine = (lineNumber: number) => {
-      const handler = onRunCellRef.current;
       const model = editor.getModel();
-      if (!handler || !model) return;
+      if (!model) return;
       const source = model.getValue();
+      // A file with no `#%%` marker has no cells to speak of: run it as a
+      // file (what Run does), rather than as an implicit "cell #1" or not
+      // at all when the host has no cell handler.
+      if (!/^#%%/m.test(source)) {
+        onRunRef.current?.();
+        return;
+      }
+      const handler = onRunCellRef.current;
+      if (!handler) return;
       const currentCells = parseCells(source);
       const cell =
         currentCells.find((c) => c.startLine === lineNumber) ??
@@ -830,6 +895,47 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
             }));
         },
       });
+    }
+
+    // ---- Code outline (Ctrl+Shift+O "Go to Symbol", sticky scroll) ----
+    // The scan itself lives in `utils/outline.ts` (pure, unit tested) and
+    // is the same one the host's sidebar outline list uses. Registered
+    // outside the `runCellCommandId` branch above: an outline has nothing
+    // to do with whether cells can be run.
+    if (language === 'qu') {
+      const SymbolKind = monaco.languages.SymbolKind;
+      const kindOf = { function: SymbolKind.Function, cell: SymbolKind.Module, section: SymbolKind.Namespace };
+      const toSymbol = (model: any, node: QuSymbolNode): any => {
+        const endLine = Math.min(node.endLine, model.getLineCount());
+        const nameEnd = node.kind === 'function' ? node.column + node.name.length : model.getLineMaxColumn(node.line);
+        return {
+          name: node.name,
+          detail: node.detail,
+          kind: kindOf[node.kind],
+          tags: [],
+          range: {
+            startLineNumber: node.line,
+            startColumn: 1,
+            endLineNumber: endLine,
+            endColumn: model.getLineMaxColumn(endLine),
+          },
+          selectionRange: {
+            startLineNumber: node.line,
+            startColumn: node.kind === 'function' ? node.column : 1,
+            endLineNumber: node.line,
+            endColumn: nameEnd,
+          },
+          children: node.children.map((c) => toSymbol(model, c)),
+        };
+      };
+      symbolDisposableRef.current = monaco.languages.registerDocumentSymbolProvider('qu', {
+        displayName: 'Qu',
+        provideDocumentSymbols: (model: any) =>
+          nestOutline(scanOutline(model.getValue())).map((n) => toSymbol(model, n)),
+      });
+      // Ctrl+Shift+O needs no binding here: standalone Monaco's own
+      // `editor.action.quickOutline` already owns that chord and reads
+      // this provider.
     }
 
     // ---- LLM-backed inline (ghost-text) autocomplete ----
@@ -1087,6 +1193,7 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
     return () => {
       codeLensDisposableRef.current?.dispose();
       foldingDisposableRef.current?.dispose();
+      symbolDisposableRef.current?.dispose();
       inlineCompletionDisposableRef.current?.dispose();
       slashCommandDisposableRef.current?.dispose();
       selectionDisposableRef.current?.dispose();
@@ -1156,6 +1263,20 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
     ]);
     editor.focus();
   }, [replaceRangeRequest, editorInstance]);
+
+  // Jump-to-line for the host's outline list.
+  const lastRevealTokenRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (!revealLineRequest || !editorInstance) return;
+    if (lastRevealTokenRef.current === revealLineRequest.token) return;
+    lastRevealTokenRef.current = revealLineRequest.token;
+    const model = editorInstance.getModel();
+    if (!model) return;
+    const line = Math.min(Math.max(1, revealLineRequest.line), model.getLineCount());
+    editorInstance.setPosition({ lineNumber: line, column: 1 });
+    editorInstance.revealLineInCenterIfOutsideViewport(line);
+    editorInstance.focus();
+  }, [revealLineRequest, editorInstance]);
 
   // Subtle horizontal separator above each `#%%` marker line. Decorations
   // (not a language token) so they show regardless of what Monarch grammar
@@ -1231,6 +1352,28 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
       monacoInstance.editor.setModelMarkers(model, DIAGNOSTICS_MARKER_OWNER, []);
     }
   }, [onCheckSyntax, editorInstance, monacoInstance]);
+
+  // ---- Run-time error markers ----
+  // Depends on `value` as well: Monaco drops/moves markers itself as the
+  // text changes, so they are re-asserted (or cleared) against the host's
+  // current list on every edit rather than trusted to still be right.
+  useEffect(() => {
+    if (!editorInstance || !monacoInstance) return;
+    const model = editorInstance.getModel();
+    if (!model) return;
+    const lineCount = model.getLineCount();
+    const markers = (runtimeMarkers ?? [])
+      .filter((m) => m.line >= 1 && m.line <= lineCount)
+      .map((m) => ({
+        severity: monacoInstance.MarkerSeverity.Error,
+        message: m.message,
+        startLineNumber: m.line,
+        startColumn: model.getLineFirstNonWhitespaceColumn(m.line) || 1,
+        endLineNumber: m.line,
+        endColumn: Math.max(model.getLineMaxColumn(m.line), 2),
+      }));
+    monacoInstance.editor.setModelMarkers(model, RUNTIME_MARKER_OWNER, markers);
+  }, [runtimeMarkers, value, editorInstance, monacoInstance]);
 
   const resolvedTheme = theme === 'system' 
     ? window.matchMedia('(prefers-color-scheme: dark)').matches ? 'qu-dark' : 'qu-light'

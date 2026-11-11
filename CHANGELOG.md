@@ -10,6 +10,12 @@ changes are called out.
 
 ## [Unreleased]
 
+- Qu Studio has a code outline: a sidebar list of the file's functions, `#%%` cells and `# ---` sections (click to jump), and Ctrl+Shift+O / breadcrumbs in the editor. Syntax errors now show as squiggles as you type, and a run that fails puts a marker on the line it failed at.
+
+- Qu Studio: Ctrl+Enter and Alt+Enter did nothing in the editor (they were bound to a key code that does not exist in the bundled Monaco), and Ctrl+Enter ran the buffer as it was when the editor opened. Ctrl+Enter now runs the current buffer, Alt+Enter runs the selection or the current line, and Shift+Enter in a file without `#%%` runs the whole file.
+
+- Qu Studio's built-in templates K-Means, Neural Network and Spectrogram ran with an error or drew no figure, and FFT Analysis skipped the DC bin; all four are fixed and each template now runs cleanly.
+
 - `group_delay` (and `fvtool`'s delay panel, and the delay in `filter_info`) is now exact: it is computed in closed form instead of unwrapping a sampled phase, which aliased whenever the delay was long relative to the number of points (`group_delay(fir1(2000, 0.3))` returned -22 at the default 512 points, the right answer is 1000; `fir1(20, 0.3)` at 9 or 11 points returned values between -6 and 5, the right answer is 10).
 
 - Qu Studio: Run Cell runs only that cell in the session's kernel. It used to re-send every earlier cell, so their prints and plots fired again and `x = x + 1` was applied twice. Terminal lines no longer show a doubled glyph.

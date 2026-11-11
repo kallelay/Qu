@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { CodeEditor } from '@qu/ui-components';
+import { CodeEditor, scanOutline, parseErrorLocation } from '@qu/ui-components';
 import { FigureViewer, readFigureTarget, setFigureTarget, insertPlotCode, buildFigureFiles } from '@qu/ui-components';
 import { FileTree } from '@qu/ui-components';
-import type { FileNode, RunCellPayload } from '@qu/ui-components';
+import type { FileNode, RunCellPayload, RunSelectionPayload } from '@qu/ui-components';
 import { Terminal } from '@qu/ui-components';
 import { VersionHistoryPanel } from '@qu/ui-components';
 import { HelpBrowser } from '@qu/ui-components';
@@ -390,14 +390,20 @@ plot(t, x)
 title('Time Domain Signal')
 xlabel('Time (s)')
 
-# Plot frequency domain
+# Plot frequency domain. Indexing is 0-based and a slice includes both of
+# its ends, so the one-sided spectrum (0 Hz up to just below Fs/2) is bins
+# 0 to N/2-1 -- not 1 to N/2, which drops DC and runs one bin past Nyquist.
+half = N/2 - 1
 subplot(2, 1, 2)
-plot(f[1:N/2], X[1:N/2])
+plot(f[0:half], X[0:half])
 title('Frequency Spectrum')
 xlabel('Frequency (Hz)')
 grid on
 
-print "FFT peaks at: {f[where(X > max(X)*0.1)][1:5]}"`
+# The tones are the peaks of the one-sided spectrum (to the nearest bin,
+# Fs/N = 2.44 Hz wide here).
+pk = findpeaks(X[0:half], min_peak_height=max(X)*0.1)
+print "FFT peaks at: {f[pk.locations]} Hz"`
   },
   {
     id: 'filter_design',
@@ -460,14 +466,19 @@ x = chirp(f0, f1, Fs, length(t))
 # directly (there's no [S, f, time] = ... bracket-destructuring return --
 # Qu doesn't support that syntax, and this builtin doesn't hand back S/f/time
 # separately anyway), so just call it and label the axes.
+#
+# The arguments are spectrogram(x, nfft, hop, fs): the third is the HOP --
+# how far the window advances per frame -- not the overlap. They are related
+# by hop = nfft - overlap, so a 75% overlap of a 256-sample window is hop 64.
 window_size = 256
-overlap = 128
-spectrogram(x, window_size, overlap, Fs)
+hop = 64
+s = spectrogram(x, window_size, hop, Fs)
 title('Spectrogram')
 xlabel('Time (s)')
 ylabel('Frequency (Hz)')
 
-print "Spectrogram computed: {length(x)} samples, chirp {f0}-{f1} Hz"`
+# s.db is the frequency-by-time matrix in dB; s.freq and s.time are its axes.
+print "Spectrogram computed: {length(x)} samples, chirp {f0}-{f1} Hz, {len(s.time)} frames x {len(s.freq)} bins"`
   },
   {
     id: 'convolution',
@@ -574,7 +585,9 @@ X = vstack(randn(100, 2) + [2, 2], randn(100, 2) + [-2, -2], randn(100, 2) + [2,
 # are 0-based, so valid row indices into X run 0..N-1.
 max_iters = 50
 centroids = X[randi(0, N-1, k, 1), :]
-labels = zeros(N, 1)
+# labels is a plain vector (zeros(N)), not an N-by-1 matrix (zeros(N, 1)):
+# \`labels == j\` has to produce a mask that where() accepts.
+labels = zeros(N)
 
 for iter = 1:max_iters
     # Assign points to nearest centroid. min(x, [], dim) with a MATLAB-style
@@ -610,19 +623,19 @@ for iter = 1:max_iters
     centroids = new_centroids
 end
 
-# Plot clusters. Qu's [...] literal is numeric-only (no string arrays), so
-# rather than indexing into a colors list, just let each scatter call pick
-# up the next color in the automatic per-series color cycle.
+# Plot clusters. Each scatter call picks up the next color in the automatic
+# per-series color cycle; label= names it for the legend.
 for j = 0:k-1
     cluster = X[where(labels == j), :]
-    scatter(cluster[:, 0], cluster[:, 1])
+    scatter(cluster[:, 0], cluster[:, 1], label="Cluster {j+1}")
     hold on
+    print "Cluster {j+1}: {size(cluster)[0]} points, centroid ({centroids[j, 0]:.2f}, {centroids[j, 1]:.2f})"
 end
 
 # Plot centroids
-scatter(centroids[:, 0], centroids[:, 1], marker='x', color='k', markersize=15)
-title("K-Means Clustering (k=" + k + ")")
-legend('Cluster 1', 'Cluster 2', 'Cluster 3', 'Centroids')`
+scatter(centroids[:, 0], centroids[:, 1], marker='x', color='black', markersize=15, label='Centroids')
+title("K-Means Clustering (k={k})")
+legend()`
   },
   {
     id: 'pca',
@@ -770,10 +783,17 @@ accuracy = mean(matches) * 100
 
 print "Training complete! Accuracy: {accuracy:.2f}%"
 
-# Plot decision boundary
-scatter(X[:, 0], X[:, 1], c=y)
-title('Neural Network Classification')
-colorbar`
+# Plot the points coloured by the class the network predicts. scatter has
+# no c= (colour-by-value) keyword, so draw one series per class instead.
+is_one = where(pred_class > 0.5)
+is_zero = where(pred_class < 0.5)
+scatter(X[is_one, 0], X[is_one, 1], label='Predicted class 1')
+hold on
+scatter(X[is_zero, 0], X[is_zero, 1], label='Predicted class 0')
+title("Neural Network Classification ({accuracy:.1f}% correct)")
+xlabel('x1')
+ylabel('x2')
+legend()`
   }
 ];
 
@@ -833,6 +853,29 @@ function App() {
   // so Run/Save/format paths can never treat a drawing as a script.
   const isViewerTab = currentTab?.kind === 'svg' || currentTab?.kind === 'pdf';
   const code = isViewerTab ? '' : currentTab?.content ?? '';
+  // Sidebar outline: the same scan the editor's Ctrl+Shift+O list uses.
+  const outline = useMemo(() => scanOutline(code), [code]);
+  const [revealLineRequest, setRevealLineRequest] = useState<{ line: number; token: number } | null>(null);
+  // The line the last run failed on. Pinned to the exact text that was run
+  // (`content`): one edit and the line number may no longer mean that line,
+  // so the marker is simply not shown for any other text -- no separate
+  // "clear on change" path to forget.
+  const [runtimeError, setRuntimeError] = useState<{ fileId: string | null; content: string; line: number; message: string } | null>(null);
+  const runtimeMarkers = useMemo(
+    () =>
+      runtimeError && runtimeError.fileId === activeFileId && runtimeError.content === code
+        ? [{ line: runtimeError.line, message: runtimeError.message }]
+        : [],
+    [runtimeError, activeFileId, code]
+  );
+  // Parse errors as you type: `check_syntax` wraps `qu_syntax::parse`. Only
+  // for Qu text -- the editor also shows .txt/.csv/.md tabs, where every
+  // line would be a "syntax error".
+  const checkSyntax = useCallback(
+    (source: string) => invoke<Array<{ message: string; line: number; column: number }>>('check_syntax', { code: source }),
+    []
+  );
+  const isQuSource = !isViewerTab && (!currentTab || !/\.[A-Za-z0-9]+$/.test(currentTab.name) || /\.qu$/i.test(currentTab.name));
 
   const [replMode, setReplMode] = useState<ReplMode>(loadReplMode);
   useEffect(() => {
@@ -1175,8 +1218,9 @@ function App() {
   // `fromPrompt`: a line typed at the terminal's `qu>` prompt. It runs in
   // the same session as Run (so it sees the file's variables) and is echoed
   // like a REPL line instead of announced as a run.
-  const executeCode = useCallback(async (codeToRun: string = code, opts?: { fromPrompt?: boolean }) => {
+  const executeCode = useCallback(async (codeToRun: string = code, opts?: { fromPrompt?: boolean; lineOffset?: number }) => {
     const fromPrompt = opts?.fromPrompt ?? false;
+    if (!fromPrompt) setRuntimeError(null);
     const session = replSessionRef.current;
     // Claim this run. Anything that returns holding an older token is a
     // run the user has already superseded.
@@ -1274,6 +1318,20 @@ function App() {
         // keeps its shape instead of collapsing into one wrapped line.
         const errorLines = String(response.error).split(/\r?\n/).filter((l) => l.trim() !== '');
         errorLines.forEach((l, i) => addTerminalLine(i === 0 ? `❌ Error: ${l}` : l, 'error'));
+        // ...and that location becomes a squiggle on the line. Not for the
+        // terminal prompt: its line 1 is not the file's line 1.
+        // `lineOffset` is for a run of part of the file (a selection).
+        if (!fromPrompt) {
+          const loc = parseErrorLocation(String(response.error), filePath);
+          if (loc) {
+            setRuntimeError({
+              fileId: activeFileId,
+              content: code,
+              line: loc.line + (opts?.lineOffset ?? 0),
+              message: loc.message,
+            });
+          }
+        }
       } else {
         setExecutionState({ 
           isRunning: false, 
@@ -1293,7 +1351,7 @@ function App() {
       setLastError(error.message);
       addTerminalLine(`❌ Execution failed: ${error.message}`, 'error');
     }
-  }, [code, keepFigures]);
+  }, [code, keepFigures, activeFileId]);
 
   const submitPrompt = useCallback(() => {
     const line = promptInput;
@@ -1579,6 +1637,13 @@ function App() {
       .map((line, i) => (i < payload.cell.startLine - 1 ? '' : line))
       .join('\n');
     executeCode(own);
+  }, [executeCode]);
+
+  // Alt+Enter: run the selection (or the caret's line) in the file's
+  // session. `lineOffset` puts a failure's squiggle on the buffer's line,
+  // not on line N of the snippet.
+  const handleRunSelection = useCallback((payload: RunSelectionPayload) => {
+    executeCode(payload.code, { lineOffset: payload.startLine - 1 });
   }, [executeCode]);
 
   // The terminal keeps the newest MAX_TERMINAL_LINES lines: every added
@@ -2814,6 +2879,29 @@ function App() {
           >
             {activeTab === 'code' && (
               <div className="p-3">
+                {outline.length > 0 && (
+                  <div className="mb-4">
+                    <div className="qu-side-heading">Outline</div>
+                    {outline.map((sym) => (
+                      <button
+                        key={`${sym.line}:${sym.name}`}
+                        onClick={() => setRevealLineRequest({ line: sym.line, token: Date.now() })}
+                        className="qu-side-row flex w-full items-baseline gap-2 px-2 py-1 text-left text-xs"
+                        style={{ paddingLeft: sym.kind === 'cell' ? 8 : 18 }}
+                        title={`Line ${sym.line}`}
+                      >
+                        <span className="w-3 flex-shrink-0 text-center font-mono" style={{ color: 'var(--qu-muted)' }}>
+                          {sym.kind === 'function' ? 'ƒ' : sym.kind === 'cell' ? '▸' : '§'}
+                        </span>
+                        <span className={`min-w-0 flex-1 truncate ${sym.kind === 'function' ? 'font-mono' : 'font-medium'}`}>
+                          {sym.name}
+                          {sym.detail && <span style={{ color: 'var(--qu-muted)' }}>{sym.detail}</span>}
+                        </span>
+                        <span className="flex-shrink-0 tabular-nums" style={{ color: 'var(--qu-muted)' }}>{sym.line}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
                 <div className="qu-side-heading">
                   Signal Processing
                 </div>
@@ -3001,10 +3089,14 @@ function App() {
             language="qu"
             onRun={() => executeCode()}
             onRunCell={handleRunCell}
+            onRunSelection={handleRunSelection}
             onHelpRequest={handleHelpRequest}
             onSave={() => handleSave()}
             insertRequest={snippetInsertRequest}
             replaceRangeRequest={replaceRangeRequest}
+            revealLineRequest={revealLineRequest}
+            onCheckSyntax={isQuSource ? checkSyntax : undefined}
+            runtimeMarkers={runtimeMarkers}
             onSelectionChange={setSelection}
             onCursorPositionChange={(line, column) =>
               setCursorPosition((p) => (p.line === line && p.column === column ? p : { line, column }))

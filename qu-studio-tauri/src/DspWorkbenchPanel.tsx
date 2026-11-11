@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { CodeEditor, FigureViewer } from '@qu/ui-components';
-import { AlertCircle, Play, Radio, Waves, SlidersHorizontal } from 'lucide-react';
+import { AlertCircle, Play, Waves, SlidersHorizontal } from 'lucide-react';
 import type { LiveSerialPlotPanelProps } from './LiveSerialPlotPanel';
 import { FilterDesigner } from './FilterDesigner';
 
@@ -241,21 +241,6 @@ function useRunOnce(invoke: LiveSerialPlotPanelProps['invoke']) {
   return { plots, error, running, run };
 }
 
-/** A dashed-outline box reads as a drop target or a disabled button --
- *  two things a user might try to interact with. This is neither: it is a
- *  note about scope, sitting beside the panel title where the eye lands
- *  first. Same words, no box, muted, so it informs without competing
- *  with the control it sits next to. */
-const OnlineComingSoon: React.FC = () => (
-  <span
-    style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--qu-muted)' }}
-    title="Continuous streaming mode -- scoped out of this pass, offline (one-shot) is complete"
-  >
-    <Radio size={11} />
-    Online: coming soon
-  </span>
-);
-
 const SpectrumMode: React.FC<LiveSerialPlotPanelProps> = ({ theme, invoke }) => {
   const [source, setSource] = useState(DEFAULT_SIGNAL);
   // Examples already call their own subplot/plot -- Run should send them
@@ -270,7 +255,6 @@ const SpectrumMode: React.FC<LiveSerialPlotPanelProps> = ({ theme, invoke }) => 
       <div className="w-[26rem] flex-shrink-0 border-r overflow-y-auto flex flex-col gap-3 p-3" style={{ borderColor: border }}>
         <div className="flex items-center justify-between">
           <span className="text-sm font-medium">Signal</span>
-          <OnlineComingSoon />
         </div>
         <select
           value=""
