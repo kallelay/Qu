@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { PlotViewer } from '@qu/ui-components';
 import type { PlotData } from '@qu/ui-components';
-import { AlertCircle, Copy } from 'lucide-react';
+import { AlertCircle, Copy, FileCode2 } from 'lucide-react';
 import type { LiveSerialPlotPanelProps } from './LiveSerialPlotPanel';
 import {
   FAMILIES,
@@ -12,7 +12,25 @@ import {
   validateDesign,
   type DesignSpec,
   type FilterNumbers,
+  type SignalVariable,
 } from './filterDesign';
+
+export interface FilterDesignerProps extends LiveSerialPlotPanelProps {
+  /** Numeric vectors of the Code tab's last run, usable as the input signal. */
+  signalVars?: SignalVariable[];
+  /** Every sample of one of `signalVars` (from the session's interpreter). */
+  loadSignal?: (name: string) => Promise<(number | null)[]>;
+  /** Opens `code` as a new editor buffer named `name` in the Code tab. */
+  onOpenInEditor?: (code: string, name: string) => void;
+}
+
+const DEFAULT_SPEC: DesignSpec = {
+  family: 'butter', kind: 'low', order: 4, f1: 100, f2: 200, fs: 1000, ripple: 1, atten: 40, signal: 'tones', source: 'example', varName: '',
+};
+// The designer unmounts whenever another top-level tab is shown; without this
+// a trip to the Code tab and back threw the design away.
+let remembered: { spec: DesignSpec; tab: Tab } = { spec: DEFAULT_SPEC, tab: 'response' };
+let signalFileSeq = 0;
 
 interface VarShape {
   name: string;
@@ -127,6 +145,8 @@ const ResponseChart: React.FC<{
 
 const fmt = (v: number | null | undefined, unit = '', digits = 4): string => {
   if (v == null || !Number.isFinite(v)) return 'n/a';
+  // A gain of exactly zero arrives as 20*log10(1e-300) = -6000 dB.
+  if (unit === 'dB' && v <= -300) return '-inf dB';
   if (Math.abs(v) < 1e-9) return unit ? `0 ${unit}` : '0';
   const a = Math.abs(v);
   const s = a !== 0 && (a < 1e-3 || a >= 1e5) ? v.toExponential(2) : String(Number(v.toPrecision(digits)));
@@ -163,30 +183,94 @@ const NumbersCard: React.FC<{ n: FilterNumbers | null; fs: number }> = ({ n, fs 
   );
 };
 
-export const FilterDesigner: React.FC<LiveSerialPlotPanelProps> = ({ theme, invoke }) => {
-  const [spec, setSpec] = useState<DesignSpec>({
-    family: 'butter', kind: 'low', order: 4, f1: 100, f2: 200, fs: 1000, ripple: 1, atten: 40, signal: 'tones',
-  });
-  const [tab, setTab] = useState<Tab>('response');
+export const FilterDesigner: React.FC<FilterDesignerProps> = ({ theme, invoke, signalVars = [], loadSignal, onOpenInEditor }) => {
+  const [spec, setSpec] = useState<DesignSpec>(remembered.spec);
+  const [tab, setTab] = useState<Tab>(remembered.tab);
+  useEffect(() => {
+    remembered = { spec, tab };
+  }, [spec, tab]);
   const [series, setSeries] = useState<Series>({});
   const [error, setError] = useState('');
   const [running, setRunning] = useState(false);
   const [copied, setCopied] = useState(false);
+  // What a number field shows while it is being typed in. The design only
+  // takes values that parse, so without this an emptied field snapped back
+  // to its old value at once and could not be cleared to type a new one.
+  const [drafts, setDrafts] = useState<Partial<Record<keyof DesignSpec, string>>>({});
+  // `source: 'variable'`: the variable's samples, written to a file the
+  // hidden run reads (see buildFilterScript).
+  const [signalFile, setSignalFile] = useState('');
+  const [signalNote, setSignalNote] = useState('');
   const runId = useRef(0);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const own = spec.source === 'variable';
   const problem = useMemo(() => validateDesign(spec), [spec]);
-  const code = useMemo(() => buildFilterScript(spec), [spec]);
+  const code = useMemo(() => buildFilterScript(spec, true, signalFile), [spec, signalFile]);
   const shown = useMemo(() => buildFilterScript(spec, false), [spec]);
   const family = FAMILIES.find((f) => f.id === spec.family)!;
   const twoBand = spec.kind === 'band' || spec.kind === 'stop';
   const set = (patch: Partial<DesignSpec>) => setSpec((s) => ({ ...s, ...patch }));
   const num = (key: keyof DesignSpec) => (e: React.ChangeEvent<HTMLInputElement>) => {
     const raw = e.target.value;
-    if (raw === '' || raw === '-') return;
+    setDrafts((d) => ({ ...d, [key]: raw }));
+    if (raw.trim() === '') return;
     const v = Number(raw);
     if (Number.isFinite(v)) set({ [key]: v } as Partial<DesignSpec>);
   };
+  const setFamily = (id: DesignSpec['family']) => {
+    // An order-4 FIR is a 5-tap filter that barely filters at all, and a
+    // high-order IIR is numerically fragile: moving between the two kinds
+    // of family starts from an order that suits the new one.
+    const toFir = FAMILIES.find((f) => f.id === id)!.fir;
+    setDrafts((d) => ({ ...d, order: undefined }));
+    setSpec((s) => {
+      const wasFir = FAMILIES.find((f) => f.id === s.family)!.fir;
+      let order = s.order;
+      if (toFir && !wasFir && order < 16) order = 32;
+      if (!toFir && wasFir && order > 12) order = 4;
+      return { ...s, family: id, order };
+    });
+  };
+
+  // The chosen variable's data, re-read after every Code-tab run (a new
+  // `signalVars` list) so the designer filters what the variable holds now.
+  const chosen = own ? signalVars.find((v) => v.name === spec.varName) : undefined;
+  useEffect(() => {
+    if (!own || !spec.varName || !loadSignal) {
+      setSignalFile('');
+      setSignalNote('');
+      return;
+    }
+    let live = true;
+    setSignalNote(`Loading ${spec.varName}…`);
+    (async () => {
+      try {
+        const data = await loadSignal(spec.varName!);
+        const buf = new Float64Array(data.length);
+        data.forEach((x, i) => (buf[i] = x == null ? NaN : x));
+        const { writeBinaryFile, createDir, removeFile } = await import('@tauri-apps/api/fs');
+        const { appCacheDir, join } = await import('@tauri-apps/api/path');
+        const dir = await appCacheDir();
+        await createDir(dir, { recursive: true }).catch(() => undefined);
+        const file = await join(dir, `filter-designer-signal-${++signalFileSeq}.f64`);
+        await writeBinaryFile(file, new Uint8Array(buf.buffer));
+        if (!live) return;
+        setSignalFile((prev) => {
+          if (prev) void removeFile(prev).catch(() => undefined);
+          return file;
+        });
+        setSignalNote(`${spec.varName}: ${data.length} samples, filtered at fs = ${spec.fs} Hz`);
+      } catch (err) {
+        if (live) setSignalNote(`Could not read ${spec.varName}: ${err}`);
+      }
+    })();
+    return () => {
+      live = false;
+    };
+    // spec.fs only feeds the note; re-reading the data for it is not needed.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [own, spec.varName, signalVars, loadSignal]);
 
   const run = useCallback(async (source: string) => {
     const mine = ++runId.current;
@@ -211,12 +295,12 @@ export const FilterDesigner: React.FC<LiveSerialPlotPanelProps> = ({ theme, invo
 
   useEffect(() => {
     if (timer.current) clearTimeout(timer.current);
-    if (problem) return;
+    if (problem || (own && !signalFile)) return;
     timer.current = setTimeout(() => void run(code), 300);
     return () => {
       if (timer.current) clearTimeout(timer.current);
     };
-  }, [code, problem, run]);
+  }, [code, problem, run, own, signalFile]);
 
   const numbers = useMemo(() => parseFilterNumbers(series['fi']), [series]);
   const col = (name: string) => series[name] ?? [];
@@ -278,7 +362,9 @@ export const FilterDesigner: React.FC<LiveSerialPlotPanelProps> = ({ theme, invo
         const t = col('x');
         return (
           <>
-            {pv([line(t, col('sig'), 'input'), line(t, col('y'), 'filtered', '#f5a524')], { xlabel: 'time (s)', ylabel: 'amplitude', title: 'Test signal, before and after (first 0.2 s)', xlim: [0, 0.2], height: 340 })}
+            {own
+              ? pv([line(t, col('sig'), spec.varName ?? 'input'), line(t, col('y'), 'filtered', '#f5a524')], { xlabel: 'time (s)', ylabel: 'amplitude', title: `${spec.varName}, before and after`, height: 340 })
+              : pv([line(t, col('sig'), 'input'), line(t, col('y'), 'filtered', '#f5a524')], { xlabel: 'time (s)', ylabel: 'amplitude', title: 'Test signal, before and after (first 0.2 s)', xlim: [0, 0.2], height: 340 })}
             {pv([line(col('sf'), col('sx'), 'input'), line(col('sf'), col('sy'), 'filtered')], { xlabel: 'Hz', ylabel: '|X|', title: 'Spectrum, before and after', height: 340 })}
           </>
         );
@@ -298,15 +384,33 @@ export const FilterDesigner: React.FC<LiveSerialPlotPanelProps> = ({ theme, invo
     </label>
   );
   const numInput = (key: keyof DesignSpec, extra: React.InputHTMLAttributes<HTMLInputElement> = {}) => (
-    <input type="number" value={spec[key] as number} onChange={num(key)} className={inputClass} style={{ borderColor: border }} {...extra} />
+    <input
+      type="number"
+      value={drafts[key] ?? (spec[key] as number)}
+      onChange={num(key)}
+      onBlur={() => setDrafts((d) => ({ ...d, [key]: undefined }))}
+      className={inputClass}
+      style={{ borderColor: border }}
+      {...extra}
+    />
   );
+  const sourceOptions = [
+    { id: 'example', label: 'Example' },
+    { id: 'variable', label: 'Variable from last run' },
+  ];
+  const varOptions = [
+    ...(spec.varName && !chosen ? [{ id: spec.varName, label: `${spec.varName} (not in the last run)` }] : []),
+    ...signalVars.map((v) => ({ id: v.name, label: `${v.name} (${v.length})` })),
+  ];
 
   return (
     <>
-      <div className="w-[22rem] flex-shrink-0 border-r overflow-y-auto flex flex-col gap-3 p-3" style={{ borderColor: border }}>
+      {/* Every child keeps its natural height (flex-shrink-0): in a column
+          that scrolls, shrinking squashed the code box to two clipped lines. */}
+      <div className="w-[22rem] flex-shrink-0 border-r overflow-y-auto flex flex-col gap-3 p-3 [&>*]:flex-shrink-0" style={{ borderColor: border }}>
         <span className="text-sm font-medium">Filter design</span>
         <div className="flex gap-2">
-          {field('Family', select(spec.family, (v) => set({ family: v as DesignSpec['family'] }), FAMILIES))}
+          {field('Family', select(spec.family, (v) => setFamily(v as DesignSpec['family']), FAMILIES))}
           {field('Type', select(spec.kind, (v) => set({ kind: v as DesignSpec['kind'] }), FILTER_KINDS))}
         </div>
         <div className="flex gap-2">
@@ -323,7 +427,21 @@ export const FilterDesigner: React.FC<LiveSerialPlotPanelProps> = ({ theme, invo
             {family.atten && field('Stopband atten. (dB)', numInput('atten', { min: 1 }))}
           </div>
         )}
-        {field('Test signal', select(spec.signal, (v) => set({ signal: v as DesignSpec['signal'] }), SIGNALS))}
+        <div className="flex gap-2">
+          {field('Signal source', select(spec.source ?? 'example', (v) => {
+            const source = v as DesignSpec['source'];
+            // Default to the first usable variable rather than to nothing.
+            set(source === 'variable' && !spec.varName && signalVars[0] ? { source, varName: signalVars[0].name } : { source });
+          }, sourceOptions))}
+          {own
+            ? field('Variable', varOptions.length
+              ? select(spec.varName ?? '', (v) => set({ varName: v }), spec.varName ? varOptions : [{ id: '', label: 'Pick one…' }, ...varOptions])
+              : <span className="text-xs py-1.5" style={{ color: 'var(--qu-muted)' }}>None yet: run a script in the Code tab.</span>)
+            : field('Test signal', select(spec.signal, (v) => set({ signal: v as DesignSpec['signal'] }), SIGNALS))}
+        </div>
+        {own && signalNote && (
+          <p className="text-xs" style={{ color: 'var(--qu-muted)' }}>{signalNote}. Set fs above to the rate it was sampled at.</p>
+        )}
         {(problem || error) && (
           <div className="qu-banner" data-kind="error" style={{ borderRadius: 8, borderTopWidth: 1, borderStyle: 'solid', alignItems: 'flex-start', fontSize: 12.5, padding: '8px 10px' }}>
             <AlertCircle size={14} className="flex-shrink-0 mt-0.5" />
@@ -345,6 +463,16 @@ export const FilterDesigner: React.FC<LiveSerialPlotPanelProps> = ({ theme, invo
           {shown}
           {copied && <span style={{ color: 'var(--qu-ok)' }}> copied</span>}
         </div>
+        {onOpenInEditor && (
+          <button
+            className="qu-side-action w-full"
+            disabled={!!problem}
+            title={own ? `Open this design in a new editor tab; it filters ${spec.varName} from the session` : 'Open this design in a new editor tab'}
+            onClick={() => onOpenInEditor(shown, `filter_${spec.family}_${spec.kind}.qu`)}
+          >
+            <FileCode2 size={13} /> Open in editor
+          </button>
+        )}
         <p className="text-xs" style={{ color: 'var(--qu-muted)' }}>
           {running ? 'Updating…' : 'Drag a dashed cutoff on the Response tab, or edit a field: everything redraws from real Qu.'}
         </p>

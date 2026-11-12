@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { CodeEditor, scanOutline, parseErrorLocation } from '@qu/ui-components';
+import { CodeEditor, scanOutline, scanCallGraph, parseErrorLocation } from '@qu/ui-components';
 import { FigureViewer, readFigureTarget, setFigureTarget, insertPlotCode, buildFigureFiles } from '@qu/ui-components';
 import { FileTree } from '@qu/ui-components';
 import type { FileNode, RunCellPayload, RunSelectionPayload } from '@qu/ui-components';
@@ -73,6 +73,7 @@ import { InteractiveModePanel } from './InteractiveModePanel';
 import { LiveSerialPlotPanel } from './LiveSerialPlotPanel';
 import { GuiDesignerPanel } from './GuiDesignerPanel';
 import { DspWorkbenchPanel } from './DspWorkbenchPanel';
+import { signalVariables } from './filterDesign';
 import { LlmProviderSettings } from './LlmProviderSettings';
 import { groupCatalog, catalogTitle, CATEGORY_ICON, type CatalogCategory } from './catalogMeta';
 // MathJax is vendored under `public/vendor/mathjax/` and served from the
@@ -855,6 +856,8 @@ function App() {
   const code = isViewerTab ? '' : currentTab?.content ?? '';
   // Sidebar outline: the same scan the editor's Ctrl+Shift+O list uses.
   const outline = useMemo(() => scanOutline(code), [code]);
+  // Sidebar call graph: which of the file's functions each one calls.
+  const callGraph = useMemo(() => scanCallGraph(code), [code]);
   const [revealLineRequest, setRevealLineRequest] = useState<{ line: number; token: number } | null>(null);
   // The line the last run failed on. Pinned to the exact text that was run
   // (`content`): one edit and the line number may no longer mean that line,
@@ -2229,6 +2232,23 @@ function App() {
     }
   }, [pushToast]);
 
+  // The DSP filter designer's "Variable from last run" source: the numeric
+  // vectors of the Code tab's session, every sample read on demand.
+  const signalVars = useMemo(() => signalVariables(numericVariables), [numericVariables]);
+  const loadSignal = useCallback(async (name: string) => {
+    const r = await invoke<{ success?: boolean; error?: string; data?: (number | null)[] }>(
+      'repl_var',
+      { name, start: 0, count: null, session: replSessionRef.current },
+    );
+    if (!r?.success || !r.data) throw new Error(r?.error ?? `no numeric variable named ${name}`);
+    return r.data;
+  }, []);
+  // "Open in editor" from a generated design: a new tab in the Code view.
+  const openCodeInEditor = useCallback((content: string, name: string) => {
+    openOrFocusTab({ id: `generated:${Date.now()}`, name, path: null, content });
+    setActiveTab('code');
+  }, [openOrFocusTab]);
+
   /** A drop of several OS paths: open what is supported, toast the rest. */
   const openDroppedPaths = useCallback(async (paths: string[]) => {
     const { accepted, rejected } = routeDroppedPaths(paths);
@@ -2868,7 +2888,13 @@ function App() {
         ) : activeTab === 'designer' ? (
           <GuiDesignerPanel theme={resolvedTheme as 'light' | 'dark'} invoke={invoke} />
         ) : activeTab === 'dsp' ? (
-          <DspWorkbenchPanel theme={resolvedTheme as 'light' | 'dark'} invoke={invoke} />
+          <DspWorkbenchPanel
+            theme={resolvedTheme as 'light' | 'dark'}
+            invoke={invoke}
+            signalVars={signalVars}
+            loadSignal={loadSignal}
+            onOpenInEditor={openCodeInEditor}
+          />
         ) : (
         <>
         {/* Sidebar - Templates */}
@@ -2900,6 +2926,50 @@ function App() {
                         <span className="flex-shrink-0 tabular-nums" style={{ color: 'var(--qu-muted)' }}>{sym.line}</span>
                       </button>
                     ))}
+                  </div>
+                )}
+                {callGraph.functions.length > 0 && (
+                  <div className="mb-4" aria-label="Call graph">
+                    <div className="qu-side-heading" title="Which of this file's functions each one calls. ƒ jumps to the definition, → to the first call.">Call graph</div>
+                    {[{ name: null as string | null, line: 0, calls: callGraph.script, callers: [] as string[], recursive: false }, ...callGraph.functions]
+                      .filter((fn) => fn.name !== null || fn.calls.length > 0)
+                      .map((fn) => (
+                        <div key={fn.name ?? '(script)'} className="mb-1">
+                          {fn.name === null ? (
+                            <div className="px-2 py-1 text-xs font-medium" style={{ color: 'var(--qu-muted)' }}>script (top level)</div>
+                          ) : (
+                            <button
+                              onClick={() => setRevealLineRequest({ line: fn.line, token: Date.now() })}
+                              className="qu-side-row flex w-full items-baseline gap-2 px-2 py-1 text-left text-xs"
+                              title={`Defined on line ${fn.line}${fn.callers.length ? `; called by ${fn.callers.join(', ')}` : '; not called by another function in this file'}`}
+                            >
+                              <span className="w-3 flex-shrink-0 text-center font-mono" style={{ color: 'var(--qu-muted)' }}>ƒ</span>
+                              <span className="min-w-0 flex-1 truncate font-mono">
+                                {fn.name}
+                                {fn.recursive && <span style={{ color: 'var(--qu-muted)' }}> ↻</span>}
+                              </span>
+                              <span className="flex-shrink-0 tabular-nums" style={{ color: 'var(--qu-muted)' }}>
+                                {fn.callers.length ? `${fn.callers.length} caller${fn.callers.length > 1 ? 's' : ''}` : ''}
+                              </span>
+                            </button>
+                          )}
+                          {fn.calls.filter((c) => c.name !== fn.name).map((c) => (
+                            <button
+                              key={c.name}
+                              onClick={() => setRevealLineRequest({ line: c.line, token: Date.now() })}
+                              className="qu-side-row flex w-full items-baseline gap-2 py-0.5 pr-2 text-left text-xs"
+                              style={{ paddingLeft: 26 }}
+                              title={`${c.kind === 'ref' ? 'Passed as a value' : 'Called'} on line ${c.line}${c.count > 1 ? ` (${c.count} places)` : ''}`}
+                            >
+                              <span className="flex-shrink-0" style={{ color: 'var(--qu-muted)' }}>{c.kind === 'ref' ? '⇢' : '→'}</span>
+                              <span className="min-w-0 flex-1 truncate font-mono">{c.name}</span>
+                              <span className="flex-shrink-0 tabular-nums" style={{ color: 'var(--qu-muted)' }}>
+                                {c.count > 1 ? `×${c.count} ` : ''}{c.line}
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                      ))}
                   </div>
                 )}
                 <div className="qu-side-heading">

@@ -6,14 +6,20 @@
 // folder into ~/.vscode/extensions" install path or the `vsce package` path
 // this extension's README already documents.
 //
-// Two features live here:
+// Features that live here:
+//   0. Language intelligence — hover, completion, signature help, outline
+//      (Ctrl+Shift+O, breadcrumbs), go-to-definition and diagnostics, all
+//      served by `qu lsp` (engine/crates/qu-cli/src/lsp.rs) through the
+//      small client in lspClient.js. If the `qu` found is too old to have
+//      `lsp`, or the server stops, feature 2 below takes over diagnostics
+//      and the rest is simply absent.
 //   1. "Qu: Run File" (command `qu.runFile`) — shells out to `qu run`
 //      (see engine/crates/qu-cli/src/main.rs's `cmd_run`) and streams
 //      stdout/stderr into an Output Channel. Also passes `--emit-vars` and,
 //      once the process exits, prints that JSON dump as a clearly-labeled
 //      "post-run" section — NOT a debugger (see the README's Debugging
 //      section for why Qu has no stepping/breakpoint protocol today).
-//   2. Live parse diagnostics — debounced on open/change/save, shells out
+//   2. Live parse diagnostics (the fallback when `qu lsp` is not running) — debounced on open/change/save, shells out
 //      to `qu parse --json` (added alongside this extension specifically so
 //      there's a machine-readable diagnostic to parse here — see that
 //      command's own doc comment in qu-cli/src/main.rs) and reports the
@@ -34,6 +40,7 @@ const cp = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const { QuLspClient } = require('./lspClient');
 
 const DIAGNOSTIC_DEBOUNCE_MS = 400;
 
@@ -47,6 +54,14 @@ let runDiagnosticCollection;
 const debounceTimers = new Map();
 /** @type {string} set once in activate(); needed to locate the bundled scripts/ dir */
 let extensionPath;
+/** @type {QuLspClient | null} the running, initialized `qu lsp`; null means "use the fallback" */
+let lsp = null;
+/** @type {vscode.Disposable[]} the providers registered against `lsp` */
+let lspProviders = [];
+/** @type {Set<string>} URIs the server has been sent didOpen for */
+const lspOpen = new Set();
+/** Bumped by every (re)start, so a start that lost a race can tell. */
+let lspGeneration = 0;
 
 function activate(context) {
     extensionPath = context.extensionPath;
@@ -59,10 +74,22 @@ function activate(context) {
     context.subscriptions.push(vscode.commands.registerCommand('qu.htmlDiff', htmlDiffWithFile));
 
     context.subscriptions.push(
-        vscode.workspace.onDidOpenTextDocument(scheduleCheck),
-        vscode.workspace.onDidChangeTextDocument((e) => scheduleCheck(e.document)),
+        vscode.workspace.onDidOpenTextDocument((doc) => {
+            lspDidOpen(doc);
+            scheduleCheck(doc);
+        }),
+        vscode.workspace.onDidChangeTextDocument((e) => {
+            lspDidChange(e.document);
+            scheduleCheck(e.document);
+        }),
         vscode.workspace.onDidSaveTextDocument(scheduleCheck),
+        vscode.workspace.onDidChangeConfiguration((e) => {
+            if (e.affectsConfiguration('qu.executablePath') || e.affectsConfiguration('qu.languageServer.enable')) {
+                startLanguageServer();
+            }
+        }),
         vscode.workspace.onDidCloseTextDocument((doc) => {
+            lspDidClose(doc);
             diagnosticCollection.delete(doc.uri);
             const key = doc.uri.toString();
             clearTimeout(debounceTimers.get(key));
@@ -71,13 +98,272 @@ function activate(context) {
     );
 
     // Any .qu files already open when the extension activates should get
-    // diagnostics immediately, not just on the next edit.
+    // diagnostics immediately, not just on the next edit. (These fallback
+    // checks are dropped again if the language server comes up first.)
     vscode.workspace.textDocuments.forEach(scheduleCheck);
+
+    // Returned so a caller (VS Code ignores it; the tests await it) can tell
+    // when the language server is up or has been given up on.
+    return startLanguageServer();
 }
 
 function deactivate() {
     debounceTimers.forEach((t) => clearTimeout(t));
     debounceTimers.clear();
+    return stopLanguageServer();
+}
+
+// ------------------------------------------------------------------ language server
+
+/**
+ * Start `qu lsp` and register the providers it backs. Never throws and
+ * never shows a pop-up: a `qu` without `lsp` (older than the release that
+ * added it) is a normal situation, reported as one line in the Qu output
+ * channel, after which the `qu parse --json` diagnostics keep working as
+ * they did before the server existed.
+ */
+async function startLanguageServer() {
+    await stopLanguageServer();
+    const generation = ++lspGeneration;
+    if (!vscode.workspace.getConfiguration('qu').get('languageServer.enable', true)) return;
+    const quPath = resolveQuExecutable();
+    if (!quPath) return; // the run/diagnostics paths already report a missing qu
+
+    const client = new QuLspClient(quPath);
+    client.on('stderr', (text) => outputChannel.append(`[qu lsp] ${text}`));
+    client.on('error', (err) => outputChannel.appendLine(`[qu lsp: ${err.message}]`));
+    client.on('notification', (method, params) => {
+        if (method === 'textDocument/publishDiagnostics' && lsp === client) applyServerDiagnostics(params);
+    });
+    client.on('exit', (code) => {
+        if (lsp !== client) return; // stopped on purpose, or never became current
+        lsp = null;
+        disposeLspProviders();
+        lspOpen.clear();
+        outputChannel.appendLine(
+            `[qu lsp stopped (exit code ${code}); hover, completion and the outline are off until the window is reloaded. Diagnostics continue through qu parse --json.]`
+        );
+        vscode.workspace.textDocuments.forEach(scheduleCheck);
+    });
+
+    try {
+        await client.start({
+            textDocument: {
+                synchronization: { didSave: false },
+                publishDiagnostics: { versionSupport: true },
+                hover: { contentFormat: ['markdown', 'plaintext'] },
+                completion: { completionItem: { documentationFormat: ['markdown', 'plaintext'] } },
+                signatureHelp: {
+                    signatureInformation: {
+                        documentationFormat: ['markdown', 'plaintext'],
+                        parameterInformation: { labelOffsetSupport: true },
+                    },
+                },
+                documentSymbol: { hierarchicalDocumentSymbolSupport: true },
+                definition: {},
+            },
+        });
+    } catch (err) {
+        outputChannel.appendLine(
+            `[qu lsp did not start (${err.message}) using "${quPath}". Hover, completion and the outline need a qu that has the lsp command; diagnostics continue through qu parse --json.]`
+        );
+        return;
+    }
+    if (generation !== lspGeneration) {
+        client.stop(); // a newer start (settings changed meanwhile) owns the session
+        return;
+    }
+    lsp = client;
+    // The server publishes diagnostics from here on: drop pending fallback checks.
+    debounceTimers.forEach((t) => clearTimeout(t));
+    debounceTimers.clear();
+    registerLspProviders();
+    vscode.workspace.textDocuments.forEach(lspDidOpen);
+}
+
+async function stopLanguageServer() {
+    const client = lsp;
+    lsp = null;
+    disposeLspProviders();
+    lspOpen.clear();
+    if (client) await client.stop();
+}
+
+function disposeLspProviders() {
+    lspProviders.forEach((d) => d.dispose());
+    lspProviders = [];
+}
+
+function lspDidOpen(document) {
+    if (!lsp || !document || document.languageId !== 'qu') return;
+    const uri = document.uri.toString();
+    if (lspOpen.has(uri)) return;
+    lspOpen.add(uri);
+    lsp.notify('textDocument/didOpen', {
+        textDocument: { uri, languageId: 'qu', version: document.version, text: document.getText() },
+    });
+}
+
+function lspDidChange(document) {
+    if (!lsp || !document || document.languageId !== 'qu') return;
+    const uri = document.uri.toString();
+    if (!lspOpen.has(uri)) {
+        lspDidOpen(document);
+        return;
+    }
+    // The server asked for full-text sync (TextDocumentSyncKind.Full).
+    lsp.notify('textDocument/didChange', {
+        textDocument: { uri, version: document.version },
+        contentChanges: [{ text: document.getText() }],
+    });
+}
+
+function lspDidClose(document) {
+    if (!lsp || !document) return;
+    const uri = document.uri.toString();
+    if (!lspOpen.delete(uri)) return;
+    lsp.notify('textDocument/didClose', { textDocument: { uri } });
+}
+
+function toRange(r) {
+    return new vscode.Range(r.start.line, r.start.character, r.end.line, r.end.character);
+}
+
+function toMarkdown(content) {
+    if (!content) return undefined;
+    if (typeof content === 'string') return content;
+    return content.kind === 'markdown' ? new vscode.MarkdownString(content.value) : content.value;
+}
+
+function applyServerDiagnostics(params) {
+    const uri = vscode.Uri.parse(params.uri);
+    if (!vscode.workspace.getConfiguration('qu').get('diagnostics.enable', true)) {
+        diagnosticCollection.delete(uri);
+        return;
+    }
+    const diagnostics = (params.diagnostics || []).map((d) => {
+        // LSP severities are 1..4 (Error..Hint), VS Code's are 0..3.
+        const out = new vscode.Diagnostic(toRange(d.range), d.message, Math.max(0, (d.severity || 1) - 1));
+        out.source = d.source || 'qu';
+        return out;
+    });
+    diagnosticCollection.set(uri, diagnostics);
+}
+
+function registerLspProviders() {
+    const selector = { language: 'qu' };
+    const caps = (lsp && lsp.capabilities) || {};
+    const at = (document, position) => ({
+        textDocument: { uri: document.uri.toString() },
+        position: { line: position.line, character: position.character },
+    });
+    // A failed or orphaned request (the server stopped) is "no result",
+    // never an error surfaced in the editor.
+    const ask = (method, params) => (lsp ? lsp.request(method, params).catch(() => null) : Promise.resolve(null));
+
+    if (caps.hoverProvider) {
+        lspProviders.push(
+            vscode.languages.registerHoverProvider(selector, {
+                async provideHover(document, position) {
+                    const r = await ask('textDocument/hover', at(document, position));
+                    if (!r || !r.contents) return undefined;
+                    return new vscode.Hover(toMarkdown(r.contents), r.range ? toRange(r.range) : undefined);
+                },
+            })
+        );
+    }
+
+    if (caps.completionProvider) {
+        lspProviders.push(
+            vscode.languages.registerCompletionItemProvider(
+                selector,
+                {
+                    async provideCompletionItems(document, position) {
+                        const r = await ask('textDocument/completion', at(document, position));
+                        if (!r) return undefined;
+                        const list = Array.isArray(r) ? { isIncomplete: false, items: r } : r;
+                        const items = (list.items || []).map((i) => {
+                            // CompletionItemKind: LSP is 1-based, VS Code 0-based, same order.
+                            const item = new vscode.CompletionItem(i.label, i.kind ? i.kind - 1 : undefined);
+                            if (i.detail) item.detail = i.detail;
+                            if (i.documentation) item.documentation = toMarkdown(i.documentation);
+                            if (i.sortText) item.sortText = i.sortText;
+                            if (i.insertText) item.insertText = i.insertText;
+                            return item;
+                        });
+                        return new vscode.CompletionList(items, !!list.isIncomplete);
+                    },
+                },
+                // VS Code already asks on every word character; `.` is for `module.member`.
+                '.'
+            )
+        );
+    }
+
+    if (caps.signatureHelpProvider) {
+        const triggers = caps.signatureHelpProvider.triggerCharacters || ['(', ','];
+        lspProviders.push(
+            vscode.languages.registerSignatureHelpProvider(
+                selector,
+                {
+                    async provideSignatureHelp(document, position) {
+                        const r = await ask('textDocument/signatureHelp', at(document, position));
+                        if (!r || !r.signatures || !r.signatures.length) return undefined;
+                        const help = new vscode.SignatureHelp();
+                        help.signatures = r.signatures.map((s) => {
+                            const info = new vscode.SignatureInformation(s.label, toMarkdown(s.documentation));
+                            info.parameters = (s.parameters || []).map(
+                                (p) => new vscode.ParameterInformation(p.label, toMarkdown(p.documentation))
+                            );
+                            return info;
+                        });
+                        help.activeSignature = r.activeSignature || 0;
+                        help.activeParameter = r.activeParameter || 0;
+                        return help;
+                    },
+                },
+                ...triggers
+            )
+        );
+    }
+
+    if (caps.documentSymbolProvider) {
+        // SymbolKind: LSP is 1-based, VS Code 0-based, same order.
+        const toSymbol = (s) => {
+            const out = new vscode.DocumentSymbol(
+                s.name,
+                s.detail || '',
+                s.kind - 1,
+                toRange(s.range),
+                toRange(s.selectionRange)
+            );
+            out.children = (s.children || []).map(toSymbol);
+            return out;
+        };
+        lspProviders.push(
+            vscode.languages.registerDocumentSymbolProvider(selector, {
+                async provideDocumentSymbols(document) {
+                    const r = await ask('textDocument/documentSymbol', {
+                        textDocument: { uri: document.uri.toString() },
+                    });
+                    return Array.isArray(r) ? r.map(toSymbol) : undefined;
+                },
+            })
+        );
+    }
+
+    if (caps.definitionProvider) {
+        lspProviders.push(
+            vscode.languages.registerDefinitionProvider(selector, {
+                async provideDefinition(document, position) {
+                    const r = await ask('textDocument/definition', at(document, position));
+                    if (!r) return undefined;
+                    const toLocation = (l) => new vscode.Location(vscode.Uri.parse(l.uri), toRange(l.range));
+                    return Array.isArray(r) ? r.map(toLocation) : toLocation(r);
+                },
+            })
+        );
+    }
 }
 
 // ------------------------------------------------------------------ run
@@ -311,6 +597,9 @@ async function htmlDiffWithFile(contextUri) {
 
 function scheduleCheck(document) {
     if (!document || document.languageId !== 'qu') return;
+    // With the language server running, diagnostics come from it (see
+    // applyServerDiagnostics); this `qu parse --json` path is the fallback.
+    if (lsp) return;
     if (!vscode.workspace.getConfiguration('qu').get('diagnostics.enable', true)) {
         diagnosticCollection.delete(document.uri);
         return;

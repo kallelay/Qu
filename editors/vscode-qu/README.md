@@ -87,7 +87,43 @@ runtime error. **Qu: Run File** turns the `at` line into an error entry on that
 line (carrying the error message) and each `called from` line in the same file
 into an information entry.
 
+## Language server (hover, completion, outline)
+
+The extension starts `qu lsp`, the language server built into `qu`, and
+connects VS Code's own features to it:
+
+- **Hover** over a builtin shows its signature and one-line summary; over one
+  of your functions, its header line and the comment above it.
+- **Completion** offers builtins (with signature and summary), the functions
+  and variables of the current file, and keywords. After `xlsx.` it lists that
+  module's members.
+- **Signature help** appears after `(` and `,` and marks the parameter you are on.
+- **Outline / breadcrumbs / Ctrl+Shift+O** list functions, `#%%` cells and
+  `# --- title` sections.
+- **Go to Definition** (F12) jumps to a function defined in the same file, or
+  to a variable's first assignment.
+- **Diagnostics** come from the server too, on every change.
+
+Set `qu.languageServer.enable` to `false` to turn all of this off. If the
+`qu` the extension finds is too old to have the `lsp` command, or the server
+stops, the Qu output channel says so in one line and diagnostics fall back to
+the `qu parse --json` path described in the next section; the other features
+are then absent. Everything is per file: nothing here looks across files.
+
+The client is `lspClient.js` in this folder, about 200 lines with no
+dependencies, rather than `vscode-languageclient`, so the extension is still
+a folder you can copy with no build step. `test/lsp_client_selftest.js` and
+`test/extension_glue_selftest.js` (in the repository, not shipped) check it
+against a real `qu`: `node test/lsp_client_selftest.js <path-to-qu>`. The
+second one uses a stub of the `vscode` API. `test/vscode_host_test.js` runs
+inside a real extension host and asks VS Code's own provider commands; its
+header gives the launch command. It passed in VSCodium 1.107.1 (2026-11-11);
+it is a manual run, and the rendered pop-ups were not looked at.
+
 ## Diagnostics (syntax-error squiggles)
+
+With the language server running, diagnostics come from it and the rest of
+this section describes the fallback.
 
 While `qu.diagnostics.enable` is on (the default), the extension re-parses
 the active `.qu` file's current in-editor text about 400ms after you stop

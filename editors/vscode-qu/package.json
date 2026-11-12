@@ -1,7 +1,7 @@
 {
   "name": "qu-language",
   "displayName": "Qu Language",
-  "description": "Syntax highlighting for the Qu scientific scripting language (.qu files).",
+  "description": "Qu scientific scripting language (.qu files): syntax highlighting, run command, and hover, completion, signature help, outline and diagnostics from the qu language server.",
   "version": "0.2.2",
   "publisher": "qu-project",
   "license": "Apache-2.0",
@@ -87,7 +87,12 @@
         "qu.diagnostics.enable": {
           "type": "boolean",
           "default": true,
-          "description": "Show live parse-error diagnostics (squiggles + Problems panel) for .qu files, via `qu parse --json`."
+          "description": "Show live parse-error diagnostics (squiggles + Problems panel) for .qu files, from the language server (`qu lsp`) or, when it is not running, via `qu parse --json`."
+        },
+        "qu.languageServer.enable": {
+          "type": "boolean",
+          "default": true,
+          "description": "Start `qu lsp` for hover, completion, signature help, the outline, go-to-definition and diagnostics. Needs a qu that has the `lsp` command; with an older qu (or with this off) only syntax highlighting, Run File and `qu parse --json` diagnostics are available."
         }
       }
     }

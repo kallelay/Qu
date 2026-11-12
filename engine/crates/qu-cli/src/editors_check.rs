@@ -591,9 +591,17 @@ fn vscode_package_check() -> Result<String, String> {
         return Err(format!("version {ver:?} is not X.Y.Z"));
     }
     let ext = asset(VSCODE_FILES, "extension.js");
-    for needle in ["qu.executablePath", "module.exports", "'parse', '--json'", "called from"] {
+    for needle in ["qu.executablePath", "module.exports", "'parse', '--json'", "called from", "require('./lspClient')"] {
         if !ext.contains(needle) {
             return Err(format!("extension.js does not mention {needle}"));
+        }
+    }
+    // extension.js requires it at load time: without the file the whole
+    // extension fails to activate, highlighting aside.
+    let client = asset(VSCODE_FILES, "lspClient.js");
+    for needle in ["Content-Length", "'lsp', '--stdio'", "module.exports"] {
+        if !client.contains(needle) {
+            return Err(format!("lspClient.js does not mention {needle}"));
         }
     }
     Ok(format!("language qu for .qu, scope source.qu, version {ver}, setting qu.executablePath"))

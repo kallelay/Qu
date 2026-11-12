@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { CodeEditor, FigureViewer } from '@qu/ui-components';
 import { AlertCircle, Play, Waves, SlidersHorizontal } from 'lucide-react';
 import type { LiveSerialPlotPanelProps } from './LiveSerialPlotPanel';
-import { FilterDesigner } from './FilterDesigner';
+import { FilterDesigner, type FilterDesignerProps } from './FilterDesigner';
 
 /** Matches `ExecuteResponse` in `main.rs` -- only the fields this panel
  *  actually reads. */
@@ -196,8 +196,21 @@ ylabel("|X|")
  *  Offline complete beats rushing a half-working live path. Both modes
  *  never compute DSP math themselves; they always run real Qu through
  *  `execute_code` and show the resulting figure. */
-export const DspWorkbenchPanel: React.FC<LiveSerialPlotPanelProps> = ({ theme, invoke }) => {
-  const [mode, setMode] = useState<'spectrum' | 'filter'>('spectrum');
+// Both modes unmount whenever another top-level tab is shown; this keeps what
+// was on screen for the trip back (the mode, the signal source, its figures).
+const remembered: { mode: 'spectrum' | 'filter'; source: string; verbatim: boolean; plots: string[] } = {
+  mode: 'spectrum',
+  source: DEFAULT_SIGNAL,
+  verbatim: false,
+  plots: [],
+};
+
+export const DspWorkbenchPanel: React.FC<FilterDesignerProps> = ({ theme, invoke, ...designer }) => {
+  const [mode, setModeState] = useState<'spectrum' | 'filter'>(remembered.mode);
+  const setMode = (m: 'spectrum' | 'filter') => {
+    remembered.mode = m;
+    setModeState(m);
+  };
 
   return (
     <div className="qu-inspector flex flex-1 flex-col min-w-0 min-h-0" data-theme={theme}>
@@ -212,7 +225,7 @@ export const DspWorkbenchPanel: React.FC<LiveSerialPlotPanelProps> = ({ theme, i
         </button>
       </div>
       <div className="flex flex-1 min-h-0 min-w-0">
-        {mode === 'spectrum' ? <SpectrumMode theme={theme} invoke={invoke} /> : <FilterDesigner theme={theme} invoke={invoke} />}
+        {mode === 'spectrum' ? <SpectrumMode theme={theme} invoke={invoke} /> : <FilterDesigner theme={theme} invoke={invoke} {...designer} />}
       </div>
     </div>
   );
@@ -222,7 +235,11 @@ export const DspWorkbenchPanel: React.FC<LiveSerialPlotPanelProps> = ({ theme, i
  *  both modes generate different source but need the identical
  *  execute/error/plots handling, so it lives once. */
 function useRunOnce(invoke: LiveSerialPlotPanelProps['invoke']) {
-  const [plots, setPlots] = useState<string[]>([]);
+  const [plots, setPlotsState] = useState<string[]>(remembered.plots);
+  const setPlots = (p: string[]) => {
+    remembered.plots = p;
+    setPlotsState(p);
+  };
   const [error, setError] = useState('');
   const [running, setRunning] = useState(false);
   const run = async (code: string) => {
@@ -242,12 +259,20 @@ function useRunOnce(invoke: LiveSerialPlotPanelProps['invoke']) {
 }
 
 const SpectrumMode: React.FC<LiveSerialPlotPanelProps> = ({ theme, invoke }) => {
-  const [source, setSource] = useState(DEFAULT_SIGNAL);
+  const [source, setSourceState] = useState(remembered.source);
+  const setSource = (v: string) => {
+    remembered.source = v;
+    setSourceState(v);
+  };
   // Examples already call their own subplot/plot -- Run should send them
   // straight to `execute_code`, not through the x/sig/fs wrapper meant for
   // the plain-signal default. Editing the box after loading one flips this
   // back, since a hand-edit is no longer necessarily a complete script.
-  const [runVerbatim, setRunVerbatim] = useState(false);
+  const [runVerbatim, setRunVerbatimState] = useState(remembered.verbatim);
+  const setRunVerbatim = (v: boolean) => {
+    remembered.verbatim = v;
+    setRunVerbatimState(v);
+  };
   const { plots, error, running, run } = useRunOnce(invoke);
 
   return (

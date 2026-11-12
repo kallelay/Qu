@@ -227,8 +227,53 @@ Problems panel. Notebooks in VS Code also need Microsoft's Jupyter extension;
 `status` prints the command (`code --install-extension ms-toolsai.jupyter`)
 but never runs it. `qu editors install --editor jupyter` registers the Qu
 kernelspec using the `qu-jupyter` binary that ships next to `qu`, and `check`
-verifies that kernel can start. JetBrains, Zed, Helix and Emacs are not
-supported yet (see `editors/README.md`).
+verifies that kernel can start. JetBrains, Zed, Helix and Emacs have no
+plugin yet (see `editors/README.md`); those with an LSP client can still use
+the language server described next.
+
+### Language server -- `qu lsp` (*new in v0.4.12*)
+
+`qu lsp` is a Language Server Protocol server. An editor starts it, sends it
+the text you are editing, and gets back what it needs to show:
+
+- syntax errors as you type, from the same parser `qu run` uses;
+- on hover, a builtin's signature and one-line summary (`butter(order, kind,
+  cutoff, fs)`), or the header line of a function you wrote;
+- completion of builtins, of the functions and variables in the file, and of
+  keywords; after `xlsx.`, that module's members;
+- the parameter list while you type a call, with the current parameter marked;
+- an outline of the file: functions, `#%%` cells and `# --- title` sections;
+- go to definition, for a function or variable defined in the same file.
+
+The VS Code extension (`qu editors install`) starts it for you. In any other
+editor with an LSP client, tell the client to run this command for `*.qu` files:
+
+```bash
+qu lsp          # speaks LSP on stdin/stdout; not meant to be run by hand
+```
+
+For Neovim that is, in `init.lua`:
+
+```lua
+vim.api.nvim_create_autocmd('FileType', {
+  pattern = 'qu',
+  callback = function(args)
+    vim.lsp.start({
+      name = 'qu-lsp',
+      cmd = { 'qu', 'lsp' },
+      root_dir = vim.fs.dirname(vim.api.nvim_buf_get_name(args.buf)),
+    })
+  end,
+})
+```
+
+`editors/README.md` has the same for Helix, Sublime Text (LSP package), Kate
+and JetBrains IDEs (LSP4IJ), and says which were tested: the server and the VS
+Code extension are, but the configurations for the other editors, including
+the Neovim one above, have not been run inside the editor yet. The server works on one file at a time
+(nothing is resolved across `import`s), reports the parser's first error
+rather than all of them, and does not rename, find references or format
+(`qu fmt` formats).
 
 ### `qu run` flags for running untrusted or unattended scripts
 

@@ -15,6 +15,7 @@ pub const VSCODE_ID: &str = "qu-project.qu-language";
 pub const VSCODE_FILES: &[Asset] = &[
     Asset { rel: "package.json", data: include_str!("../../../../editors/vscode-qu/package.json") },
     Asset { rel: "extension.js", data: include_str!("../../../../editors/vscode-qu/extension.js") },
+    Asset { rel: "lspClient.js", data: include_str!("../../../../editors/vscode-qu/lspClient.js") },
     Asset {
         rel: "language-configuration.json",
         data: include_str!("../../../../editors/vscode-qu/language-configuration.json"),

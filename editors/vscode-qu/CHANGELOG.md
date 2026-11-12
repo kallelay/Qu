@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- VS Code extension: hover, completion, signature help, the outline
+  (Ctrl+Shift+O, breadcrumbs), go-to-definition and diagnostics now come from
+  `qu lsp`, the language server in the `qu` binary, through a small built-in
+  client (`lspClient.js`, no dependencies). New setting
+  `qu.languageServer.enable` (default on). With a `qu` that has no `lsp`
+  command the extension logs one line and keeps the `qu parse --json`
+  diagnostics. Checked in a VSCodium 1.107.1 extension host through the
+  provider commands (`test/vscode_host_test.js`); not checked by eye.
 - Grammar (TextMate + Sublime): `.'` is an operator, not the start of a
   string (`y = A.'` used to open a string that swallowed the rest of the
   file and inverted every later string/code colour); single-quoted strings

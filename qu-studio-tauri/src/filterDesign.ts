@@ -6,6 +6,9 @@
 export type FilterKind = 'low' | 'high' | 'band' | 'stop';
 export type FilterFamily = 'butter' | 'cheby1' | 'cheby2' | 'ellip' | 'fir1';
 export type SignalId = 'tones' | 'noisy' | 'chirp' | 'step' | 'impulse';
+/** Where the filtered signal comes from: a generated example, or a numeric
+ *  vector from the Code tab's session (the last run's variables). */
+export type SignalSource = 'example' | 'variable';
 
 export interface DesignSpec {
   family: FilterFamily;
@@ -17,7 +20,38 @@ export interface DesignSpec {
   ripple: number;
   atten: number;
   signal: SignalId;
+  source?: SignalSource;
+  /** With `source: 'variable'`: the session variable's name. */
+  varName?: string;
 }
+
+/** A session variable usable as the designer's input: a real, 1-D numeric
+ *  vector long enough to filter. */
+export interface SignalVariable {
+  name: string;
+  length: number;
+}
+
+/** The numeric variables of a run that the designer can filter: real
+ *  vectors (one row or one column) of at least 8 samples. */
+export function signalVariables(
+  vars: Array<{ name: string; type?: string; shape?: number[]; length?: number; data?: unknown[] }>,
+): SignalVariable[] {
+  const out: SignalVariable[] = [];
+  for (const v of vars) {
+    if (/complex/i.test(v.type ?? '')) continue;
+    const shape = v.shape ?? [];
+    if (shape.length > 2 || (shape.length === 2 && Math.min(shape[0], shape[1]) !== 1)) continue;
+    const n = v.length ?? (shape.length === 2 ? shape[0] * shape[1] : v.data?.length ?? 0);
+    if (n >= 8) out.push({ name: v.name, length: n });
+  }
+  return out;
+}
+
+/** True for a name Qu reads as a variable: `sig`, or a record field the
+ *  Variables panel lists as `res.field`. */
+export const isIdentifier = (name: string | undefined): name is string =>
+  !!name && /^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)?$/.test(name);
 
 export const FAMILIES: Array<{ id: FilterFamily; label: string; ripple: boolean; atten: boolean; fir: boolean }> = [
   { id: 'butter', label: 'Butterworth (flat)', ripple: false, atten: false, fir: false },
@@ -58,6 +92,9 @@ export function validateDesign(s: DesignSpec): string | null {
   const fam = FAMILIES.find((f) => f.id === s.family)!;
   if (fam.ripple && !(s.ripple > 0)) return 'Passband ripple must be above 0 dB.';
   if (fam.atten && !(s.atten > 0)) return 'Stopband attenuation must be above 0 dB.';
+  if (s.source === 'variable' && !isIdentifier(s.varName)) {
+    return 'Pick a variable from the last run (run a script in the Code tab first).';
+  }
   if (fam.fir && s.order % 2 === 1 && (s.kind === 'high' || s.kind === 'stop')) {
     return 'A high-pass or band-stop FIR needs an even order.';
   }
@@ -97,14 +134,25 @@ function signalLines(id: SignalId, fs: number): string {
   }
 }
 
-/** The Qu program. With `full = false` only the part worth showing and
- *  copying (the design and a one-line check); with `full = true` the hidden
- *  footer that binds every vector the views draw. */
-export function buildFilterScript(s: DesignSpec, full = true): string {
+/** The Qu program. With `full = false` only the part worth showing, copying
+ *  and opening in the editor (the design, a one-line check, and the filtering
+ *  of the user's own variable when that is the source); with `full = true`
+ *  the hidden footer that binds every vector the views draw.
+ *
+ *  `signalFile`: with `source: 'variable'` the hidden run cannot see the
+ *  Code tab's session (it is a separate process), so the variable's samples
+ *  are handed over as a raw little-endian f64 file the script reads back. */
+export function buildFilterScript(s: DesignSpec, full = true, signalFile = ''): string {
   const head = `fs = ${s.fs}\n${designLine(s)}\n`;
-  if (!full) return `${head}info = filter_info(filt)\nfilt.fvtool()\n`;
-  return `${head}x = 0 to 0.999 step 1 / fs
-${signalLines(s.signal, s.fs)}
+  const own = s.source === 'variable' && isIdentifier(s.varName);
+  if (!full) {
+    const tail = own ? `sig = ${s.varName}\ny = sosfilt(filt, sig)\n` : '';
+    return `${head}info = filter_info(filt)\n${tail}`;
+  }
+  const signal = own
+    ? `sig = read_array("${signalFile.split('\\').join('/')}")\nx = (0 to length(sig) - 1) / fs`
+    : `x = 0 to 0.999 step 1 / fs\n${signalLines(s.signal, s.fs)}`;
+  return `${head}${signal}
 y = sosfilt(filt, sig)
 H = freqz(filt, 512)
 f = (0 to 511) * (fs / 2) / 511
@@ -154,6 +202,14 @@ export function parseFilterNumbers(fi: (number | null)[] | undefined): FilterNum
   if (!fi || fi.length < 16) return null;
   const v = (i: number) => fi[i];
   const n = (i: number) => (v(i) == null ? NaN : (v(i) as number));
+  // Step-response measures are relative to the step's final value, which is
+  // the DC gain. A filter that blocks DC (high-pass, band-pass) settles at
+  // ~0, so "63 % of final", "10-90 % rise" and "% overshoot" divide by
+  // nothing: the engine still returns numbers (0 ms, 2011 %), which read as
+  // measurements. Below -20 dB of DC gain they are not shown.
+  const dc = v(13);
+  const blocksDc = dc == null || dc < -20;
+  const step = (i: number) => (blocksDc ? null : v(i));
   return {
     delay: n(0),
     delaySamples: n(1),
@@ -163,11 +219,11 @@ export function parseFilterNumbers(fi: (number | null)[] | undefined): FilterNum
     edgeLow: v(5),
     edgeHigh: v(6),
     bandwidth: v(7),
-    tau: v(8),
+    tau: step(8),
     tauPole: v(9),
-    rise: v(10),
-    settle: v(11),
-    overshoot: v(12),
+    rise: step(10),
+    settle: step(11),
+    overshoot: step(12),
     dcGainDb: v(13),
     stabilityMargin: v(14),
     stable: v(15) === 1,

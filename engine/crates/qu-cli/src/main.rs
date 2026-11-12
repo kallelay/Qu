@@ -122,6 +122,10 @@
 //!                       full protocol. Strictly additive: no existing
 //!                       subcommand's behavior changes, and nothing but
 //!                       `cmd_kernel` itself reads or writes this protocol.
+//!   qu lsp [--stdio]     Language Server Protocol server on stdin/stdout
+//!                       (diagnostics, hover, completion, signature help,
+//!                       document symbols, go-to-definition) for any editor
+//!                       with an LSP client -- see `lsp.rs`.
 //!
 //! Kept intentionally thin: everything real lives in the library crates so the
 //! same core can later be driven from a WASM/browser front-end.
@@ -137,6 +141,7 @@ mod editors_jupyter;
 mod editors_tests;
 mod fmt_cmd;
 mod gui;
+mod lsp;
 mod mcp;
 mod report;
 mod resource;
@@ -226,6 +231,7 @@ fn run() -> ExitCode {
         "repl" => cmd_repl(&args[1..]),
         "kernel" => cmd_kernel(),
         "mcp" => mcp::cmd_mcp(&args[1..]),
+        "lsp" => lsp::cmd_lsp(&args[1..]),
         "version" | "--version" | "-V" => {
             println!("qu {}", env!("CARGO_PKG_VERSION"));
             Ok(())
@@ -509,7 +515,7 @@ fn run_embedded_bundle(
 /// the end of the run push it out. Unbuffered, 300k `print`s into a pipe
 /// took 1.26s against 0.19s.
 const COMMANDS: &[&str] = &[
-    "run", "build", "gui", "parse", "tokens", "ast", "eval", "diary", "docs", "repl", "kernel", "mcp", "test", "fmt", "editors",
+    "run", "build", "gui", "parse", "tokens", "ast", "eval", "diary", "docs", "repl", "kernel", "mcp", "lsp", "test", "fmt", "editors",
     "version", "help",
 ];
 
@@ -2234,6 +2240,9 @@ fn print_help() {
          mcp [--allow-write] [--timeout <s>] [--memory <MB>] [--root <dir>]\n  \
                            Model Context Protocol server on stdin/stdout, so an\n  \
                            assistant can run Qu instead of guessing at it\n  \
+         lsp [--stdio]     Language Server Protocol server on stdin/stdout: diagnostics, hover,\n  \
+                           completion, signature help, outline and go-to-definition for any\n  \
+                           editor with an LSP client (see editors/README.md)\n  \
          test [paths] [--filter <s>] [--fail-fast] [--json]   run every top-level test_*() function\n  \
                            (fresh interpreter per file; a file with none runs as a script);\n  \
                            exit 1 on any failure, 2 if no tests were found\n  \

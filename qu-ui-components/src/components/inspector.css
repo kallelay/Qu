@@ -292,6 +292,14 @@
 .qu-section-header {
   padding: 14px 14px 10px;
 }
+/* The figure panel's header carries up to five controls once a run has
+   figures (Keep, SVG, PNG, Screen, Publication); in the Code view's side
+   column they do not fit on one line, and without wrapping "Publication"
+   was clipped off the right edge. */
+.qu-figures > .qu-section-header {
+  flex-wrap: wrap;
+  row-gap: 6px;
+}
 .qu-section-header h2 {
   margin: 0;
   font-size: 12px;

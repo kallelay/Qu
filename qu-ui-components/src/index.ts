@@ -74,6 +74,8 @@ export { glassStyle } from './utils/glassStyle';
 export { parseCells, findCellAtLine, getPrefixSource } from './utils/cells';
 export type { QuCell } from './utils/cells';
 export { scanOutline, nestOutline } from './utils/outline';
+export { scanCallGraph, blankStringsAndComments } from './utils/callGraph';
+export type { CallGraph, CallGraphFunction, CallSite, CallKind } from './utils/callGraph';
 export { parseErrorLocation } from './utils/errorLocation';
 export type { QuErrorLocation } from './utils/errorLocation';
 export type { QuSymbol, QuSymbolKind, QuSymbolNode } from './utils/outline';

@@ -10,6 +10,10 @@ changes are called out.
 
 ## [Unreleased]
 
+## [0.4.12] - 2026-11-12
+
+- New `qu lsp`: a Language Server Protocol server on stdin/stdout, so any editor with an LSP client gets the same Qu intelligence. It serves syntax-error diagnostics on every change, hover (a builtin's signature and summary, or a user function's header), completion (builtins, the file's functions and variables, keywords, module members after `xlsx.`), signature help with the active parameter, the outline (functions, `#%%` cells, `# ---` sections) and go-to-definition within a file. The VS Code extension starts it automatically; `editors/README.md` has the configuration for Neovim, Helix, Sublime LSP, Kate and JetBrains (LSP4IJ), and says which of them were tested (the server and the VS Code extension were, the latter in a VSCodium extension host; the other editors' configurations were not run).
+
 - Qu Studio has a code outline: a sidebar list of the file's functions, `#%%` cells and `# ---` sections (click to jump), and Ctrl+Shift+O / breadcrumbs in the editor. Syntax errors now show as squiggles as you type, and a run that fails puts a marker on the line it failed at.
 
 - Qu Studio: Ctrl+Enter and Alt+Enter did nothing in the editor (they were bound to a key code that does not exist in the bundled Monaco), and Ctrl+Enter ran the buffer as it was when the editor opened. Ctrl+Enter now runs the current buffer, Alt+Enter runs the selection or the current line, and Shift+Enter in a file without `#%%` runs the whole file.
