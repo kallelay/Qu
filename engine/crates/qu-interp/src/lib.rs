@@ -23811,6 +23811,13 @@ self.eval_grad(loss, wrt)
             // because `crest_factor` below is defined as their ratio and
             // reads better spelled out than as two nested calls.
             "peak" => {
+                // `peak(f0, q, fs)` -- the resonator biquad (unity gain at
+                // `f0`, -3 dB bandwidth `f0/q`); told apart from `peak(x)`
+                // by having more than one argument.
+                if arg_get(&args, 1).is_some() {
+                    let (f0, q, fs) = biquad_design_args(&args, "peak", true)?;
+                    return Ok(sos_filter_model(&numeric::filter::biquad_design(numeric::filter::BiquadKind::Peak, f0, q, fs), Some(fs)));
+                }
                 let xs = to_cow(arg0(&args)?)?;
                 if xs.is_empty() {
                     return e("peak of empty vector");
@@ -31039,6 +31046,150 @@ self.eval_grad(loss, wrt)
                     vec![("b".to_string(), Value::Vec(Arc::new(b))), ("fs".to_string(), Value::Num(fs))],
                 ))))
             }
+            // `bessel(order, kind, cutoff, fs)` -- Bessel (Thomson) design:
+            // maximally flat group delay, so pulses keep their shape. Same
+            // arguments and checks as `butter`; `cutoff` is the -3 dB point.
+            "bessel" => {
+                let order = arg0(&args)?.as_index().map_err(|msg| EvalError { msg })?;
+                let kind_str = text_arg(&args, 1)?;
+                let kind = match kind_str.as_str() {
+                    "low" | "lowpass" => numeric::filter::FilterKind::Low,
+                    "high" | "highpass" => numeric::filter::FilterKind::High,
+                    "band" | "bandpass" => numeric::filter::FilterKind::Band,
+                    "stop" | "bandstop" | "notch" => numeric::filter::FilterKind::Stop,
+                    other => return e(format!(
+                        "bessel: unknown filter kind `{other}`, expected \"low\", \"high\", \"band\"/\"bandpass\", or \"stop\"/\"bandstop\"/\"notch\""
+                    )),
+                };
+                let cutoff = to_vec(arg_get(&args, 2).ok_or_else(|| EvalError {
+                    msg: "bessel(order, kind, cutoff, fs) needs 4 arguments".into(),
+                })?)?;
+                let fs = arg_get(&args, 3).ok_or_else(|| EvalError {
+                    msg: "bessel(order, kind, cutoff, fs) needs 4 arguments".into(),
+                })?.as_num().map_err(|msg| EvalError { msg })?;
+                check_cutoff_below_nyquist("bessel", &cutoff, fs)?;
+                let sos = numeric::filter::bessel(order, kind, &cutoff, fs).map_err(|ne| EvalError { msg: ne.to_string() })?;
+                Ok(sos_filter_model(&sos, Some(fs)))
+            }
+            // `notch(f0, q, fs)` / `allpass(f0, q, fs)` -- one-biquad
+            // designs. (`peak(f0, q, fs)` is the third; it lives in the
+            // `"peak"` arm, next to the older one-argument `peak(x)`.)
+            "notch" => {
+                let (f0, q, fs) = biquad_design_args(&args, "notch", true)?;
+                Ok(sos_filter_model(&numeric::filter::biquad_design(numeric::filter::BiquadKind::Notch, f0, q, fs), Some(fs)))
+            }
+            "allpass" => {
+                let (f0, q, fs) = biquad_design_args(&args, "allpass", false)?;
+                Ok(sos_filter_model(&numeric::filter::biquad_design(numeric::filter::BiquadKind::Allpass, f0, q, fs), Some(fs)))
+            }
+            // `filter_from_sos(sos, [fs])` -- wrap second-order sections
+            // designed elsewhere as a filter model. One section per row:
+            // `[b0, b1, b2, a1, a2]` (Qu's own layout, `a0 = 1` implied) or
+            // `[b0, b1, b2, a0, a1, a2]` (MATLAB's and SciPy's), which is
+            // normalized by its `a0`.
+            "filter_from_sos" => {
+                let rows: Vec<Vec<f64>> = match arg0(&args)? {
+                    Value::Mat(m) => (0..m.rows()).map(|r| (0..m.cols()).map(|c| m.get(r, c).unwrap_or(f64::NAN)).collect()).collect(),
+                    other => vec![to_vec(other)?],
+                };
+                let fs = optional_fs_arg(&args, 1, "filter_from_sos")?;
+                let mut sections = Vec::with_capacity(rows.len());
+                for (i, row) in rows.iter().enumerate() {
+                    if row.iter().any(|v| !v.is_finite()) {
+                        return e(format!("filter_from_sos: section {} has a non-finite coefficient", i + 1));
+                    }
+                    let (b, a0, a1, a2) = match row.len() {
+                        5 => (&row[..3], 1.0, row[3], row[4]),
+                        6 => (&row[..3], row[3], row[4], row[5]),
+                        n => return e(format!(
+                            "filter_from_sos: each section needs 5 coefficients [b0, b1, b2, a1, a2] or 6 [b0, b1, b2, a0, a1, a2], got {n}"
+                        )),
+                    };
+                    if a0 == 0.0 {
+                        return e(format!("filter_from_sos: section {} has a0 = 0", i + 1));
+                    }
+                    sections.push(numeric::filter::Biquad { b0: b[0] / a0, b1: b[1] / a0, b2: b[2] / a0, a1: a1 / a0, a2: a2 / a0 });
+                }
+                if sections.is_empty() {
+                    return e("filter_from_sos: needs at least one section");
+                }
+                Ok(sos_filter_model(&numeric::filter::Sos { sections }, fs))
+            }
+            // `filter_from_tf(b, a, [fs])` -- a filter model from transfer-
+            // function coefficients in ascending powers of `z^-1` (the
+            // `filter(b, a, x)` convention). With a feedback part the
+            // polynomials are factored and regrouped into second-order
+            // sections; with `a` a single number the result is an FIR model
+            // holding the taps `b / a[0]` as they are.
+            "filter_from_tf" => {
+                let b = to_vec(arg0(&args)?)?;
+                let a = to_vec(arg_get(&args, 1).ok_or_else(|| EvalError {
+                    msg: "filter_from_tf(b, a, [fs]) needs at least 2 arguments".into(),
+                })?)?;
+                let fs = optional_fs_arg(&args, 2, "filter_from_tf")?;
+                if b.is_empty() || a.is_empty() {
+                    return e("filter_from_tf: b and a must each hold at least one coefficient");
+                }
+                if b.iter().chain(&a).any(|v| !v.is_finite()) {
+                    return e("filter_from_tf: coefficients must all be finite");
+                }
+                if a[0] == 0.0 {
+                    return e("filter_from_tf: the leading denominator coefficient a[0] must be nonzero");
+                }
+                if a[1..].iter().all(|&v| v == 0.0) {
+                    let taps: Vec<f64> = b.iter().map(|v| v / a[0]).collect();
+                    let mut fields = vec![("b".to_string(), Value::Vec(Arc::new(taps)))];
+                    if let Some(fs) = fs {
+                        fields.push(("fs".to_string(), Value::Num(fs)));
+                    }
+                    return Ok(Value::Model(Arc::new(ModelHandle::new("filter", fields))));
+                }
+                let sos = numeric::filter::tf_to_sos(&b, &a).map_err(|ne| EvalError { msg: format!("filter_from_tf: {ne}") })?;
+                Ok(sos_filter_model(&sos, fs))
+            }
+            // `filter_from_zpk(z, p, k, [fs])` -- a filter model from zeros,
+            // poles and gain: `H(z) = k * prod(z - z_i) / prod(z - p_i)`.
+            "filter_from_zpk" => {
+                let z = arg0(&args)?.as_complex_flat().map_err(|msg| EvalError { msg: format!("filter_from_zpk: zeros: {msg}") })?;
+                let p = arg_get(&args, 1).ok_or_else(|| EvalError {
+                    msg: "filter_from_zpk(z, p, k, [fs]) needs at least 3 arguments".into(),
+                })?.as_complex_flat().map_err(|msg| EvalError { msg: format!("filter_from_zpk: poles: {msg}") })?;
+                let k = arg_get(&args, 2).ok_or_else(|| EvalError {
+                    msg: "filter_from_zpk(z, p, k, [fs]) needs at least 3 arguments".into(),
+                })?.as_num().map_err(|msg| EvalError { msg: format!("filter_from_zpk: gain: {msg}") })?;
+                let fs = optional_fs_arg(&args, 3, "filter_from_zpk")?;
+                if !k.is_finite() {
+                    return e("filter_from_zpk: the gain k must be finite");
+                }
+                let sos = numeric::filter::zpk_to_sos_digital(&z, &p, k).map_err(|ne| EvalError { msg: format!("filter_from_zpk: {ne}") })?;
+                Ok(sos_filter_model(&sos, fs))
+            }
+            // `tf(filt)` -- `{b, a}`: transfer-function coefficients in
+            // ascending powers of `z^-1`, `a[0] = 1`. An FIR filter's `a`
+            // is `[1]`.
+            "tf" => {
+                let (b, a) = match filter_repr_from_value(arg0(&args)?)? {
+                    FilterRepr::Iir(sos) => numeric::filter::sos_to_tf(&sos),
+                    FilterRepr::Fir(b) => (b, vec![1.0]),
+                };
+                Ok(Value::Record(Arc::new(vec![
+                    ("b".to_string(), Value::Vec(Arc::new(b))),
+                    ("a".to_string(), Value::Vec(Arc::new(a))),
+                ])))
+            }
+            // `zpk(filt)` -- `{z, p, k}`: zeros and poles (complex vectors)
+            // and the gain, for `H(z) = k * prod(z - z_i) / prod(z - p_i)`.
+            "zpk" => {
+                let (z, p, k) = match filter_repr_from_value(arg0(&args)?)? {
+                    FilterRepr::Iir(sos) => numeric::filter::sos_to_zpk(&sos),
+                    FilterRepr::Fir(b) => numeric::filter::fir_to_zpk(&b).map_err(|ne| EvalError { msg: format!("zpk: {ne}") })?,
+                };
+                Ok(Value::Record(Arc::new(vec![
+                    ("z".to_string(), Value::CVec(Arc::new(z))),
+                    ("p".to_string(), Value::CVec(Arc::new(p))),
+                    ("k".to_string(), Value::Num(k)),
+                ])))
+            }
             // `sosfilt(filt, x)` — causal (one-pass) filtering; has the
             // usual IIR phase lag. See `filtfilt` for zero-phase. Branches
             // on the filter's representation: `sos` (IIR) uses the biquad
@@ -31155,6 +31306,7 @@ self.eval_grad(loss, wrt)
                 let x_arg = arg_get(&args, 1).ok_or_else(|| EvalError {
                     msg: "sosfilt(filt, x) needs 2 arguments".into(),
                 })?;
+                check_filter_signal_rate("sosfilt", arg0(&args)?, x_arg)?;
                 let fs = match x_arg {
                     Value::Signal(_, fs, _) => Some(*fs),
                     _ => None,
@@ -31175,6 +31327,7 @@ self.eval_grad(loss, wrt)
                 let x_arg = arg_get(&args, 1).ok_or_else(|| EvalError {
                     msg: "filtfilt(filt, x) needs 2 arguments".into(),
                 })?;
+                check_filter_signal_rate("filtfilt", arg0(&args)?, x_arg)?;
                 let fs = match x_arg {
                     Value::Signal(_, fs, _) => Some(*fs),
                     _ => None,
@@ -31803,6 +31956,22 @@ self.eval_grad(loss, wrt)
                 let filt = as_model(arg0(&args)?)?;
                 if filt.kind != "filter" {
                     return e(format!("filter_init: expected a filter design, got a `{}` model", filt.kind));
+                }
+                // `filter_init(filt, x)`: the optional second argument is the
+                // Signal (or its sample rate) the state is about to be
+                // stepped over. It changes nothing about the state; it is
+                // there so a rate mismatch is caught here, before a stream of
+                // bare numbers through `filter_next` makes it invisible.
+                if let Some(target) = arg_get(&args, 1) {
+                    match target {
+                        Value::Signal(..) => check_filter_signal_rate("filter_init", arg0(&args)?, target)?,
+                        other => {
+                            let rate = other.as_num().map_err(|_| EvalError {
+                                msg: format!("filter_init: the second argument must be a Signal or a sample rate in Hz, got {}", other.type_name()),
+                            })?;
+                            check_filter_rate("filter_init", arg0(&args)?, rate)?;
+                        }
+                    }
                 }
                 let z_init = if let Some(Value::Mat(sos_mat)) = filt.field("sos") {
                     mat_value(Matrix::zeros(sos_mat.rows(), 2))
@@ -34853,6 +35022,27 @@ self.eval_grad(loss, wrt)
             // genuine tension with that documented decision.
             "bode" => {
                 let src = arg0(&args)?;
+                // `bode(filt, [n=512])`: a filter model plots its own
+                // response. `n` log-spaced frequencies from `fs/2/n` up to
+                // Nyquist (a log axis cannot show DC), evaluated exactly at
+                // each one; the phase is unwrapped so a high-order filter
+                // reads as one falling curve, not a sawtooth.
+                let filter_curve = match src {
+                    Value::Model(m) if m.kind == "filter" => {
+                        let repr = filter_repr_from_model(m)?;
+                        let n = match arg_get(&args, 1) {
+                            Some(v) => v.as_index().map_err(|msg| EvalError { msg: format!("bode: n: {msg}") })?.max(2),
+                            None => 512,
+                        };
+                        let fs = m.field("fs").and_then(|v| v.as_num().ok()).unwrap_or(2.0);
+                        Some(filter_bode_curve(&repr, n, fs))
+                    }
+                    _ => None,
+                };
+                let is_filter = filter_curve.is_some();
+                let (z, freqs) = match filter_curve {
+                    Some(pair) => pair,
+                    None => {
                 let z = src.as_complex_flat().map_err(|msg| EvalError { msg })?;
                 let freqs = match arg_get(&args, 1) {
                     Some(v) => to_vec(v)?,
@@ -34873,6 +35063,9 @@ self.eval_grad(loss, wrt)
                         }
                     },
                 };
+                        (z, freqs)
+                    }
+                };
                 if z.len() != freqs.len() {
                     return e(format!(
                         "bode: Z has {} point(s) but freqs has {}",
@@ -34891,7 +35084,13 @@ self.eval_grad(loss, wrt)
                 // -inf and rendering every real point as a flat line.
                 let mag_db: Vec<f64> =
                     z.iter().map(|c| 20.0 * c.magnitude().max(1e-300).log10()).collect();
-                let phase_deg: Vec<f64> = z.iter().map(|c| c.arg().to_degrees()).collect();
+                let mut phase_deg: Vec<f64> = z.iter().map(|c| c.arg().to_degrees()).collect();
+                if is_filter {
+                    for i in 1..phase_deg.len() {
+                        let jump = phase_deg[i] - phase_deg[i - 1];
+                        phase_deg[i] -= 360.0 * (jump / 360.0).round();
+                    }
+                }
                 self.figure.select_grid(2, 1, 1).map_err(|msg| EvalError { msg })?;
                 {
                     let p = self.figure.current_panel_mut();
@@ -46699,14 +46898,14 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "acf", "acos", "acosh", "adadelta", "adagrad", "adam", "adamax", "adamw", "adaptive_threshold",
     "adc", "add", "add_edge", "add_marker", "add_node", "add_noise", "add_region",
     "affine_identity", "affine_rotate", "affine_scale", "affine_shear", "affine_translate", "after",
-    "after_last", "algorigram", "all", "and", "angle", "animate", "annotate", "any", "append",
+    "after_last", "algorigram", "all", "allpass", "and", "angle", "animate", "annotate", "any", "append",
     "append_all", "append_text", "apply", "apply_calibration", "apply_calibration_curve",
     "apply_edits", "apply_gain", "apply_offset", "apropos", "ar_model", "arc", "area", "arg",
     "argmax", "argmean", "argmedian", "argmin", "argquantile", "argsort", "argv", "arima", "arrow",
     "arrowtext", "as_text", "asc", "asin", "asinh", "astar_mrmr", "at", "atan", "atan2", "atanh",
     "available", "avgpool2d", "band_power", "band_zero", "bar", "base64_decode", "base64_encode",
     "basin_hopping", "beamform", "beeswarm", "before", "before_last", "berncdf", "bernfit",
-    "berninv", "bernpdf", "bernrnd", "bernstat", "betacdf", "betafit", "betainv", "betapdf",
+    "berninv", "bernpdf", "bernrnd", "bernstat", "bessel", "betacdf", "betafit", "betainv", "betapdf",
     "betarnd", "betastat", "bin2dec", "binocdf", "binofit", "binoinv", "binomial", "binopdf",
     "binornd", "binostat", "bitand", "bitcmp", "bitor", "bitshift", "bitxor", "blackman",
     "blob_stats", "block_process", "blocks", "blur", "blur_backdrop", "bode", "bode_magnitude",
@@ -46738,7 +46937,7 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "exprnd", "expstat", "extend", "eye", "f1", "fall_time", "falling_edges", "fcdf", "fft", "fftc",
     "fftr", "fifo", "figure", "figure_background", "figure_size", "file_exists", "file_history",
     "file_info", "file_size", "file_versioning", "fill_between", "fill_missing", "filter",
-    "filter_ba", "filter_info", "filter_init", "filter_next", "filtfilt", "find", "find_clipping",
+    "filter_ba", "filter_from_sos", "filter_from_tf", "filter_from_zpk", "filter_info", "filter_init", "filter_next", "filtfilt", "find", "find_clipping",
     "find_edges", "find_hex", "find_missing", "find_outliers", "find_peaks", "find_pulses",
     "find_trigger", "find_zero_crossings", "findpeaks", "finv", "fir1", "firls", "first", "fit",
     "fit_scaler", "fix", "flatten", "flip", "fliplr", "flipud", "floor", "fold", "fontfamily",
@@ -46784,7 +46983,7 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "mutual_info_classif", "mvnpdf", "nadam", "naive_bayes_model", "nand", "native_call", "nbincdf",
     "nbinfit", "nbininv", "nbinpdf", "nbinrnd", "nbinstat", "nbytes", "ncol", "neighbors",
     "nesterov_sgd", "newton", "nmf", "nnls", "nnz", "nor", "norm", "normal", "normalize", "normcdf",
-    "normfit", "norminv", "normpdf", "normrnd", "normstat", "now", "nrow", "numel", "nyquist",
+    "normfit", "norminv", "normpdf", "normrnd", "normstat", "notch", "now", "nrow", "numel", "nyquist",
     "ode23", "ode45", "ode_stiff", "ols_model", "ones", "ones_like", "optimizer_step", "or", "ord",
     "otsu", "otsu_threshold", "outer", "overshoot", "pack", "pad_bytes", "pad_left", "pad_right",
     "palette", "panel", "parallel", "param", "parse_as", "parse_csv", "parse_json", "parse_xml",
@@ -46839,7 +47038,7 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "subtract", "sum", "summary", "svd", "svm_model", "svr_model", "swap", "swap_endian", "sweep",
     "sysid", "sysinfo", "table", "tail", "take", "tan", "tanh", "tape_reset", "tcdf", "tcp_accept",
     "tcp_close", "tcp_connect", "tcp_listen", "tcp_port", "tcp_recv", "tcp_send", "tell", "tex",
-    "text", "thd", "thd_n", "theme", "threshold", "tic", "time_to_sample", "timer", "timestamps",
+    "text", "tf", "thd", "thd_n", "theme", "threshold", "tic", "time_to_sample", "timer", "timestamps",
     "tinv", "title", "tkeo", "tmp_file", "to_bool", "to_cmyk", "to_digital", "to_float", "to_hsl",
     "to_hsv", "to_int", "to_lab", "to_rgb", "to_unit", "to_vec", "toc", "toggle_bit", "tolower",
     "touch", "toupper", "tpdf", "trace", "track", "train_loop", "train_test_split",
@@ -46858,7 +47057,7 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "write_report", "write_text", "write_uint16", "write_uint32", "write_uint64", "writeline",
     "xbreak", "xcorr", "xlabel", "xlim", "xml2csv", "xml2json", "xmlify", "xor", "xscale", "xspan",
     "xticklabels", "xticks", "ybreak", "ylabel", "ylim", "yscale", "yspan", "yticklabels", "yticks",
-    "zeros", "zeros_like", "zip", "zlib_decompress", "zoom_inset",
+    "zeros", "zeros_like", "zip", "zlib_decompress", "zoom_inset", "zpk",
 ];
 
 fn reduce_axis(f: &str, m: &Matrix, axis: usize, extra: Option<&Value>, style: &[(String, Value)]) -> R<Value> {
@@ -52867,6 +53066,86 @@ fn filter_repr_from_model(m: &ModelHandle) -> R<FilterRepr> {
     e("filter design is missing both its sos and b fields".to_string())
 }
 
+/// Refuses to run a filter over a `Signal` sampled at a different rate than
+/// the one the filter was designed for. A filter's coefficients only mean
+/// "100 Hz" at the design rate; applied to data at another rate the same
+/// numbers put the cutoff somewhere else, silently.
+///
+/// Two cases are deliberately let through: a filter model with no `fs`
+/// field (built from raw coefficients without a rate), and one whose `fs`
+/// is exactly `2` -- the normalized convention (`1` = Nyquist) that `fir1`
+/// and `firls` default to, where the design is not tied to any rate.
+fn check_filter_signal_rate(fn_name: &str, filt: &Value, x: &Value) -> R<()> {
+    match x {
+        Value::Signal(_, sig_fs, _) => check_filter_rate(fn_name, filt, *sig_fs),
+        _ => Ok(()),
+    }
+}
+
+fn check_filter_rate(fn_name: &str, filt: &Value, sig_fs: f64) -> R<()> {
+    let Value::Model(m) = filt else { return Ok(()) };
+    let Some(filt_fs) = m.field("fs").and_then(|v| v.as_num().ok()) else { return Ok(()) };
+    if filt_fs == 2.0 {
+        return Ok(());
+    }
+    if (filt_fs - sig_fs).abs() <= 1e-9 * filt_fs.abs().max(sig_fs.abs()) {
+        return Ok(());
+    }
+    e(format!(
+        "{fn_name}: the filter was designed for fs = {} Hz but the signal is sampled at {} Hz -- design the filter at the signal's rate, or resample the signal first (resample_to)",
+        fmt_num(filt_fs),
+        fmt_num(sig_fs)
+    ))
+}
+
+/// A `"filter"` model around an SOS cascade; `fs` is stored only when known.
+fn sos_filter_model(sos: &numeric::filter::Sos, fs: Option<f64>) -> Value {
+    let mut fields = vec![("sos".to_string(), mat_value(sos_to_matrix(sos)))];
+    if let Some(fs) = fs {
+        fields.push(("fs".to_string(), Value::Num(fs)));
+    }
+    Value::Model(Arc::new(ModelHandle::new("filter", fields)))
+}
+
+/// The optional trailing `fs` of `filter_from_sos`/`_tf`/`_zpk`.
+fn optional_fs_arg(args: &[Value], idx: usize, fn_name: &str) -> R<Option<f64>> {
+    match arg_get(args, idx) {
+        None => Ok(None),
+        Some(v) => {
+            let fs = v.as_num().map_err(|_| EvalError {
+                msg: format!("{fn_name}: fs must be a number (Hz), got {}", v.type_name()),
+            })?;
+            if !(fs.is_finite() && fs > 0.0) {
+                return e(format!("{fn_name}: the sample rate fs must be a positive number, got {}", fmt_num(fs)));
+            }
+            Ok(Some(fs))
+        }
+    }
+}
+
+/// The `(f0, q, fs)` arguments shared by `notch`/`peak`/`allpass`, validated.
+fn biquad_design_args(args: &[Value], fn_name: &str, bandwidth_limited: bool) -> R<(f64, f64, f64)> {
+    let get = |idx: usize| -> R<f64> {
+        arg_get(args, idx)
+            .ok_or_else(|| EvalError { msg: format!("{fn_name}(f0, q, fs) needs 3 arguments") })?
+            .as_num()
+            .map_err(|msg| EvalError { msg: format!("{fn_name}: {msg}") })
+    };
+    let (f0, q, fs) = (get(0)?, get(1)?, get(2)?);
+    check_cutoff_below_nyquist(fn_name, &[f0], fs)?;
+    if !(q.is_finite() && q > 0.0) {
+        return e(format!("{fn_name}: the quality factor q must be a positive number, got {}", fmt_num(q)));
+    }
+    if bandwidth_limited && f0 / q >= fs / 2.0 {
+        return e(format!(
+            "{fn_name}: the bandwidth f0/q = {} Hz must be below the Nyquist frequency {} Hz -- raise q",
+            fmt_num(f0 / q),
+            fmt_num(fs / 2.0)
+        ));
+    }
+    Ok((f0, q, fs))
+}
+
 fn filter_repr_from_value(v: &Value) -> R<FilterRepr> {
     let m = as_model(v)?;
     filter_repr_from_model(&m)
@@ -53013,6 +53292,34 @@ fn multirate_factor_arg(args: &[Value], idx: usize, f: &str, name: &str) -> R<us
         return e(format!("{f}: {name} must be a whole number of at least 1, got {}", fmt_num(n)));
     }
     Ok(n as usize)
+}
+
+/// The curve `bode(filt)` draws: the response at `n` log-spaced frequencies
+/// from `fs/2/n` Hz up to Nyquist, each evaluated directly (not interpolated
+/// from a linear `freqz` grid, which would leave the low decades empty).
+fn filter_bode_curve(repr: &FilterRepr, n: usize, fs: f64) -> (Vec<Complex64>, Vec<f64>) {
+    let nyq = fs / 2.0;
+    let f_lo = nyq / n as f64;
+    let freqs: Vec<f64> = (0..n).map(|k| f_lo * (nyq / f_lo).powf(k as f64 / (n - 1).max(1) as f64)).collect();
+    let h = freqs
+        .iter()
+        .map(|&f| {
+            let z_inv = Complex64::from_polar(1.0, -std::f64::consts::PI * f / nyq);
+            match repr {
+                FilterRepr::Iir(sos) => {
+                    let z_inv2 = z_inv.mul(z_inv);
+                    sos.sections.iter().fold(Complex64::real(1.0), |acc, bq| {
+                        let num = Complex64::real(bq.b0).add(z_inv.scale(bq.b1)).add(z_inv2.scale(bq.b2));
+                        let den = Complex64::real(1.0).add(z_inv.scale(bq.a1)).add(z_inv2.scale(bq.a2));
+                        acc.mul(num.div(den))
+                    })
+                }
+                // Horner in z^-1.
+                FilterRepr::Fir(b) => b.iter().rev().fold(Complex64::real(0.0), |s, &t| s.mul(z_inv).add(Complex64::real(t))),
+            }
+        })
+        .collect();
+    (h, freqs)
 }
 
 fn repr_filtfilt(repr: &FilterRepr, x: &[f64]) -> R<Vec<f64>> {
@@ -83308,6 +83615,149 @@ end for");
         assert!((num(&it, "d") - 20.0).abs() < 0.01, "delay {}", num(&it, "d"));
         assert!(num(&it, "spread") < 0.01);
         assert_eq!(num(&it, "n"), 41.0);
+    }
+
+    #[test]
+    fn filtfilt_of_a_constant_stays_constant_and_short_inputs_stay_finite() {
+        let it = run(
+            "lp = butter(4, \"low\", 50, 1000)
+             y = filtfilt(lp, zeros(500) + 1)
+             first = y[0]
+             last = y[length(y) - 1]
+             s = filtfilt(lp, [1, 2, 3])
+             ns = length(s)
+             smax = max(abs(s))
+             fir = fir1(20, 100, kind=\"low\", fs=1000)
+             yf = filtfilt(fir, zeros(200) + 1)
+             ffirst = yf[0]
+             flast = yf[length(yf) - 1]",
+        );
+        assert!((num(&it, "first") - 1.0).abs() < 1e-9, "first {}", num(&it, "first"));
+        assert!((num(&it, "last") - 1.0).abs() < 1e-9, "last {}", num(&it, "last"));
+        assert_eq!(num(&it, "ns"), 3.0);
+        assert!(num(&it, "smax") < 10.0, "short input blew up: {}", num(&it, "smax"));
+        assert!((num(&it, "ffirst") - 1.0).abs() < 1e-3 && (num(&it, "flast") - 1.0).abs() < 1e-3);
+    }
+
+    #[test]
+    fn filtering_a_signal_at_the_wrong_rate_is_an_error_naming_both_rates() {
+        for call in ["sosfilt(lp, s)", "filtfilt(lp, s)", "filter_init(lp, s)", "filter_init(lp, 8000)"] {
+            let err = run_err(&format!(
+                "lp = butter(4, \"low\", 50, 1000)\n s = signal(zeros(100) + 1, 8000)\n y = {call}"
+            ));
+            assert!(err.msg.contains("1000") && err.msg.contains("8000"), "{call}: {}", err.msg);
+        }
+        // matching rate, a plain vector, a normalized design and a filter
+        // with no rate at all are all fine
+        run(
+            "lp = butter(4, \"low\", 50, 1000)
+             s = signal(zeros(100) + 1, 1000)
+             a = sosfilt(lp, s)
+             b = filtfilt(lp, s)
+             c = filter_init(lp, s)
+             d = sosfilt(lp, zeros(100) + 1)
+             s8 = signal(zeros(100) + 1, 8000)
+             e = sosfilt(fir1(10, 0.2), s8)
+             f = filtfilt(filter_from_tf([0.5, 0.5], [1, -0.2]), s8)",
+        );
+    }
+
+    #[test]
+    fn filter_from_tf_sos_zpk_round_trip_through_tf_and_zpk() {
+        let it = run(
+            "lp = butter(4, \"low\", 100, 1000)
+             t = tf(lp)
+             back = filter_from_tf(t.b, t.a, 1000)
+             d_tf = max(abs(freqz(back) - freqz(lp)))
+             z = zpk(lp)
+             back2 = filter_from_zpk(z.z, z.p, z.k, 1000)
+             d_zpk = max(abs(freqz(back2) - freqz(lp)))
+             np = length(z.p)
+             back3 = filter_from_sos(lp.sos, 1000)
+             d_sos = max(abs(freqz(back3) - freqz(lp)))
+             six = filter_from_sos([[2, 4, 2, 2, -1, 0.5]])
+             t6 = tf(six)
+             b0 = t6.b[0]
+             a1 = t6.a[1]
+             cut = filter_info(back).cutoff_3db
+             fir = filter_from_tf([1, 2, 1], [4])
+             nfir = length(impz(fir))
+             tap = tf(fir).b[1]
+             x = [1, 0, 0, 0, 0, 0]
+             y = sosfilt(filter_from_tf([0, 0.5], [1, -0.5]), x)
+             y1 = y[1]
+             y2 = y[2]",
+        );
+        assert!(num(&it, "d_tf") < 1e-6, "tf round trip {}", num(&it, "d_tf"));
+        assert!(num(&it, "d_zpk") < 1e-9, "zpk round trip {}", num(&it, "d_zpk"));
+        assert!(num(&it, "d_sos") < 1e-15);
+        assert_eq!(num(&it, "np"), 4.0);
+        assert_eq!(num(&it, "b0"), 1.0);
+        assert_eq!(num(&it, "a1"), -0.5);
+        assert!((num(&it, "cut") - 100.0).abs() < 0.5, "cutoff {}", num(&it, "cut"));
+        assert_eq!(num(&it, "nfir"), 3.0);
+        assert_eq!(num(&it, "tap"), 0.5);
+        // y[n] = 0.5 x[n-1] + 0.5 y[n-1]: impulse response 0, 0.5, 0.25
+        assert!((num(&it, "y1") - 0.5).abs() < 1e-12 && (num(&it, "y2") - 0.25).abs() < 1e-12);
+        for src in [
+            "f = filter_from_sos([[1, 2, 3, 4]])",
+            "f = filter_from_tf([1], [0, 1])",
+            "f = filter_from_tf([1, 1], [1, -0.5], -5)",
+            "f = filter_from_zpk([0.5 + 0.2i], [0.1], 1)",
+        ] {
+            assert!(Interp::new().run(src).is_err(), "{src} should be rejected");
+        }
+    }
+
+    #[test]
+    fn bessel_notch_peak_and_allpass_designs_behave_as_documented() {
+        let it = run(
+            "fs = 1000
+             be = bessel(4, \"low\", 100, fs)
+             cut = filter_info(be).cutoff_3db
+             over_be = filter_info(be).overshoot_pct
+             over_bu = filter_info(butter(4, \"low\", 100, fs)).overshoot_pct
+             f = linspace(0, fs / 2, 501)
+             hn = abs(freqz(notch(100, 10, fs), 501))
+             n_at = hn[100]
+             n_dc = hn[0]
+             hp = abs(freqz(peak(100, 10, fs), 501))
+             p_at = hp[100]
+             p_dc = hp[0]
+             ha = abs(freqz(allpass(100, 2, fs), 501))
+             a_min = min(ha)
+             a_max = max(ha)
+             still = peak([1, -3, 2])",
+        );
+        assert!((num(&it, "cut") - 100.0).abs() < 0.5, "bessel cutoff {}", num(&it, "cut"));
+        assert!(num(&it, "over_be") < 3.0 && num(&it, "over_bu") > 10.0, "{} vs {}", num(&it, "over_be"), num(&it, "over_bu"));
+        assert!(num(&it, "n_at") < 1e-9 && (num(&it, "n_dc") - 1.0).abs() < 1e-9);
+        assert!((num(&it, "p_at") - 1.0).abs() < 1e-9 && num(&it, "p_dc") < 1e-9);
+        assert!((num(&it, "a_min") - 1.0).abs() < 1e-9 && (num(&it, "a_max") - 1.0).abs() < 1e-9);
+        assert_eq!(num(&it, "still"), 3.0);
+        for (src, needle) in [
+            ("f = bessel(4, \"low\", 600, 1000)", "Nyquist"),
+            ("f = bessel(4, \"band\", [200, 100], 1000)", "low < high"),
+            ("f = bessel(4, \"sideways\", 100, 1000)", "unknown filter kind"),
+            ("f = bessel(40, \"low\", 100, 1000)", "maximum"),
+            ("f = notch(600, 10, 1000)", "Nyquist"),
+            ("f = notch(100, 0, 1000)", "quality factor"),
+            ("f = peak(100, -1, 1000)", "quality factor"),
+            ("f = allpass(0, 1, 1000)", "above 0"),
+            ("f = notch(400, 0.5, 1000)", "bandwidth"),
+        ] {
+            let err = run_err(src);
+            assert!(err.msg.contains(needle), "{src}: {}", err.msg);
+        }
+    }
+
+    #[test]
+    fn bode_accepts_a_filter_model() {
+        let it = run("lp = butter(4, \"low\", 100, 1000)\n bode(lp)\n bode(fir1(20, 0.3), 64)");
+        assert!(it.figures >= 2);
+        // a plain complex vector still needs its frequency axis
+        let err = run_err("bode(freqz(butter(2, \"low\", 100, 1000)))");
+        assert!(err.msg.contains("frequency"), "got: {}", err.msg);
     }
 
     #[test]

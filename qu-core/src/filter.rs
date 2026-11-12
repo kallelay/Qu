@@ -889,18 +889,84 @@ pub fn sosfilt(sos: &Sos, x: &[f64]) -> Vec<f64> {
     x.iter().map(|&v| sos_step(sos, &mut states, v)).collect()
 }
 
+/// The filter order an SOS cascade realizes: two per section, less one for
+/// each first-order section (`b2 == 0` and `a2 == 0`) -- SciPy's own
+/// `sosfiltfilt` count, so the edge padding below matches it.
+pub fn sos_order(sos: &Sos) -> usize {
+    let n = sos.sections.len();
+    let b2_zero = sos.sections.iter().filter(|s| s.b2 == 0.0).count();
+    let a2_zero = sos.sections.iter().filter(|s| s.a2 == 0.0).count();
+    2 * n - b2_zero.min(a2_zero)
+}
+
+/// Steady-state initial conditions for a unit step input (SciPy's
+/// `sosfilt_zi`): the Direct Form II Transposed state each section sits in
+/// once a constant input of `1` has been running forever. Scale by the first
+/// sample to start a filter "already settled" on that value. A section with
+/// a pole at `z = 1` has no finite steady state; in that case every state is
+/// zero (the plain cold start).
+pub fn sosfilt_zi(sos: &Sos) -> Vec<BiquadState> {
+    let mut out = Vec::with_capacity(sos.sections.len());
+    let mut scale: f64 = 1.0;
+    for bq in &sos.sections {
+        let den = 1.0 + bq.a1 + bq.a2;
+        if !(den.abs() > 1e-12) || !scale.is_finite() {
+            return vec![BiquadState::default(); sos.sections.len()];
+        }
+        let g = (bq.b0 + bq.b1 + bq.b2) / den;
+        let z2 = (bq.b2 - bq.a2 * g) * scale;
+        let z1 = (bq.b1 - bq.a1 * g) * scale + z2;
+        out.push(BiquadState { z1, z2 });
+        scale *= g;
+    }
+    out
+}
+
+/// `x` extended by `padlen` samples at each end, reflected about the end
+/// VALUE as well as the end index (`2*x[0] - x[k]`): an odd extension, which
+/// keeps both the level and the slope continuous across the edge.
+/// `padlen` must be at most `x.len() - 1`.
+fn odd_extend(x: &[f64], padlen: usize) -> Vec<f64> {
+    let n = x.len();
+    let mut ext = Vec::with_capacity(n + 2 * padlen);
+    for k in (1..=padlen).rev() {
+        ext.push(2.0 * x[0] - x[k]);
+    }
+    ext.extend_from_slice(x);
+    for k in 1..=padlen {
+        ext.push(2.0 * x[n - 1] - x[n - 1 - k]);
+    }
+    ext
+}
+
 /// Zero-phase filtering: filter forward, reverse, filter again, reverse
 /// again — doubles the effective order but cancels phase distortion
 /// entirely (the standard offline-analysis choice over plain `sosfilt`).
-/// **Simplification versus reference implementations**: no edge padding
-/// is applied before the forward/backward passes, so transients at the
-/// very start/end of `x` are more pronounced than in padded versions.
+///
+/// Edges are handled the way SciPy's `sosfiltfilt` does: the signal is
+/// odd-extended by `3*(order+1)` samples at each end (fewer if the signal is
+/// shorter than that: at most `len-1`), and each pass starts from the
+/// steady state for its own first sample ([`sosfilt_zi`]). A constant input
+/// therefore comes back constant, with no start-up transient at either end.
 pub fn filtfilt(sos: &Sos, x: &[f64]) -> Vec<f64> {
-    let forward = sosfilt(sos, x);
-    let mut reversed: Vec<f64> = forward.into_iter().rev().collect();
-    reversed = sosfilt(sos, &reversed);
-    reversed.reverse();
-    reversed
+    let n = x.len();
+    if n == 0 {
+        return Vec::new();
+    }
+    let padlen = (3 * (sos_order(sos) + 1)).min(n - 1);
+    let ext = odd_extend(x, padlen);
+    let zi = sosfilt_zi(sos);
+    let pass = |sig: &[f64]| -> Vec<f64> {
+        let x0 = sig[0];
+        let mut states: Vec<BiquadState> =
+            zi.iter().map(|z| BiquadState { z1: z.z1 * x0, z2: z.z2 * x0 }).collect();
+        sig.iter().map(|&v| sos_step(sos, &mut states, v)).collect()
+    };
+    let mut y = pass(&ext);
+    y.reverse();
+    let mut y = pass(&y);
+    y.reverse();
+    y[padlen..padlen + n].to_vec()
 }
 
 /// Frequency response `H(e^{jω})` of an SOS cascade, sampled at `n` points
@@ -1253,13 +1319,29 @@ pub fn fir_filt(b: &[f64], x: &[f64]) -> Result<Vec<f64>, NumericError> {
 }
 
 /// Zero-phase FIR filtering (forward, then backward), the same construction
-/// as [`filtfilt`] applied to [`fir_filt`] instead of [`sosfilt`].
+/// as [`filtfilt`] applied to [`fir_filt`] instead of [`sosfilt`]: odd
+/// extension by `3*len(b)` samples (at most `len(x)-1`), and each pass starts
+/// with its delay line already full of its own first sample, which is the
+/// FIR steady state.
 pub fn fir_filtfilt(b: &[f64], x: &[f64]) -> Result<Vec<f64>, NumericError> {
-    let forward = fir_filt(b, x)?;
-    let mut reversed: Vec<f64> = forward.into_iter().rev().collect();
-    reversed = fir_filt(b, &reversed)?;
-    reversed.reverse();
-    Ok(reversed)
+    let n = x.len();
+    if n == 0 {
+        return Ok(Vec::new());
+    }
+    let padlen = (3 * b.len()).min(n - 1);
+    let ext = odd_extend(x, padlen);
+    let m = b.len().saturating_sub(1);
+    let pass = |sig: &[f64]| -> Result<Vec<f64>, NumericError> {
+        let mut primed = vec![sig[0]; m];
+        primed.extend_from_slice(sig);
+        let y = fir_filt(b, &primed)?;
+        Ok(y[m..].to_vec())
+    };
+    let mut y = pass(&ext)?;
+    y.reverse();
+    let mut y = pass(&y)?;
+    y.reverse();
+    Ok(y[padlen..padlen + n].to_vec())
 }
 
 /// One sample through a direct-form FIR filter. `state` holds the last
@@ -1361,6 +1443,459 @@ pub fn is_stable(poles: &[crate::Complex64]) -> bool {
     poles.iter().all(|p| p.magnitude() < 1.0)
 }
 
+// ---- Conversions between SOS, transfer-function and zero/pole/gain forms ----
+
+/// Splits a root list into conjugate-pair quadratics `(c1, c2)` (the factor
+/// `1 + c1*z^-1 + c2*z^-2`) and lone real roots. A root counts as real when
+/// its imaginary part is negligible; anything else must have a conjugate
+/// partner in the list, or the polynomial would not have real coefficients.
+fn split_roots(roots: &[crate::Complex64], what: &str) -> Result<(Vec<(f64, f64)>, Vec<f64>), NumericError> {
+    let mut rest: Vec<crate::Complex64> = roots.to_vec();
+    if rest.iter().any(|r| !r.re.is_finite() || !r.im.is_finite()) {
+        return Err(NumericError::Decomposition(format!("{what} must all be finite")));
+    }
+    let mut quads = Vec::new();
+    let mut reals = Vec::new();
+    while !rest.is_empty() {
+        let idx = (0..rest.len())
+            .max_by(|&a, &b| rest[a].im.abs().partial_cmp(&rest[b].im.abs()).unwrap_or(std::cmp::Ordering::Equal))
+            .unwrap_or(0);
+        let r = rest.remove(idx);
+        let scale = r.magnitude().max(1.0);
+        if r.im.abs() <= 1e-12 * scale {
+            reals.push(r.re);
+            continue;
+        }
+        let partner = (0..rest.len())
+            .map(|j| (j, ((rest[j].re - r.re).powi(2) + (rest[j].im + r.im).powi(2)).sqrt()))
+            .min_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal));
+        // The tolerance is loose on purpose: a root of multiplicity m is
+        // only recoverable to about eps^(1/m) (1e-4 for the four zeros at
+        // -1 of a 4th-order lowpass), and the members of such a cluster are
+        // not returned as exact conjugates of each other.
+        match partner {
+            Some((j, dist)) if dist <= 1e-3 * scale => {
+                let q = rest.remove(j);
+                quads.push((-(r.re + q.re), r.re * q.re - r.im * q.im));
+            }
+            _ if r.im.abs() <= 1e-3 * scale => reals.push(r.re),
+            _ => {
+                return Err(NumericError::Decomposition(format!(
+                    "{what} must be real or come in complex-conjugate pairs; {} {} {}i has no conjugate",
+                    r.re,
+                    if r.im < 0.0 { "-" } else { "+" },
+                    r.im.abs()
+                )))
+            }
+        }
+    }
+    Ok((quads, reals))
+}
+
+/// Builds an SOS cascade for
+/// `H(z) = gain * z^-delay * prod(1 - zero_i*z^-1) / prod(1 - pole_i*z^-1)`.
+///
+/// This is the factored form every other constructor reduces to. Conjugate
+/// pairs become one section each; real roots (and the `delay` pure delays,
+/// on the numerator side) are packed two to a section. `gain` goes into the
+/// first section.
+pub fn sos_from_roots(zeros: &[crate::Complex64], poles: &[crate::Complex64], delay: usize, gain: f64) -> Result<Sos, NumericError> {
+    let (zero_quads, zero_reals) = split_roots(zeros, "zeros")?;
+    let (pole_quads, pole_reals) = split_roots(poles, "poles")?;
+    // Numerators: `[b0, b1, b2]` in powers of `z^-1`.
+    let mut nums: Vec<[f64; 3]> = zero_quads.iter().map(|&(c1, c2)| [1.0, c1, c2]).collect();
+    // `Some(r)` is the factor `1 - r*z^-1`; `None` is a bare `z^-1`. Delays
+    // come after the real zeros, so a delay is never followed by a zero.
+    let mut singles: Vec<Option<f64>> = zero_reals.iter().map(|&r| Some(r)).collect();
+    singles.extend(std::iter::repeat_n(None, delay));
+    for pair in singles.chunks(2) {
+        nums.push(match (pair[0], pair.get(1).copied()) {
+            (Some(a), Some(Some(b))) => [1.0, -(a + b), a * b],
+            (Some(a), Some(None)) | (None, Some(Some(a))) => [0.0, 1.0, -a],
+            (Some(a), None) => [1.0, -a, 0.0],
+            (None, Some(None)) => [0.0, 0.0, 1.0],
+            (None, None) => [0.0, 1.0, 0.0],
+        });
+    }
+    let mut dens: Vec<(f64, f64)> = pole_quads;
+    for pair in pole_reals.chunks(2) {
+        dens.push(match pair {
+            [a, b] => (-(a + b), a * b),
+            [a] => (-a, 0.0),
+            _ => (0.0, 0.0),
+        });
+    }
+    let n = nums.len().max(dens.len()).max(1);
+    nums.resize(n, [1.0, 0.0, 0.0]);
+    dens.resize(n, (0.0, 0.0));
+    for c in nums[0].iter_mut() {
+        *c *= gain;
+    }
+    Ok(Sos {
+        sections: nums.iter().zip(&dens).map(|(b, &(a1, a2))| Biquad { b0: b[0], b1: b[1], b2: b[2], a1, a2 }).collect(),
+    })
+}
+
+/// An SOS cascade for the zero/pole/gain form
+/// `H(z) = k * prod(z - zero_i) / prod(z - pole_i)`.
+///
+/// With fewer zeros than poles the difference is a pure delay. With MORE
+/// zeros than poles that expression is not causal; as in MATLAB and SciPy the
+/// result is the causal filter with the same zeros, poles and gain (the
+/// missing poles sit at the origin).
+pub fn zpk_to_sos_digital(zeros: &[crate::Complex64], poles: &[crate::Complex64], gain: f64) -> Result<Sos, NumericError> {
+    sos_from_roots(zeros, poles, poles.len().saturating_sub(zeros.len()), gain)
+}
+
+/// Roots of `c[0]*z^n + ... + c[n]` (`c[0]` nonzero) for the conversions
+/// below: [`polynomial_roots`] first, and when its eigenvalue iteration does
+/// not converge -- which happens for repeated roots, e.g. the `(1 + z^-1)^4`
+/// numerator of a 4th-order Butterworth lowpass -- the Aberth-Ehrlich
+/// simultaneous iteration, which always returns `n` values. A repeated root
+/// comes back as a tight cluster rather than exact copies; the polynomial
+/// rebuilt from the cluster still matches the original closely.
+fn real_poly_roots(c: &[f64]) -> Vec<crate::Complex64> {
+    let n = c.len().saturating_sub(1);
+    if n == 0 {
+        return Vec::new();
+    }
+    if let Ok(roots) = polynomial_roots(c) {
+        if roots.len() == n && roots.iter().all(|r| r.re.is_finite() && r.im.is_finite()) {
+            return roots;
+        }
+    }
+    let radius = {
+        let r = (c[n] / c[0]).abs().powf(1.0 / n as f64);
+        if r.is_finite() && r > 0.0 { r } else { 1.0 }
+    };
+    let mut z: Vec<Complex> = (0..n)
+        .map(|k| {
+            let theta = 2.0 * PI * k as f64 / n as f64 + 0.4;
+            Complex::new(radius * theta.cos(), radius * theta.sin())
+        })
+        .collect();
+    for _ in 0..2000 {
+        let mut biggest = 0.0_f64;
+        for k in 0..n {
+            let mut p = real(0.0);
+            let mut dp = real(0.0);
+            for &coef in c {
+                dp = dp.mul(z[k]).add(p);
+                p = p.mul(z[k]).add(real(coef));
+            }
+            if p.re == 0.0 && p.im == 0.0 {
+                continue;
+            }
+            if dp.re == 0.0 && dp.im == 0.0 {
+                z[k] = z[k].add(Complex::new(1e-8 * radius, 1e-8 * radius));
+                biggest = f64::INFINITY;
+                continue;
+            }
+            let ratio = p.div(dp);
+            let mut sum = real(0.0);
+            for j in 0..n {
+                let d = z[k].sub(z[j]);
+                if j != k && (d.re != 0.0 || d.im != 0.0) {
+                    sum = sum.add(real(1.0).div(d));
+                }
+            }
+            let step = ratio.div(real(1.0).sub(ratio.mul(sum)));
+            if !(step.re.is_finite() && step.im.is_finite()) {
+                continue;
+            }
+            z[k] = z[k].sub(step);
+            let size = (step.re * step.re + step.im * step.im).sqrt();
+            let scale = (z[k].re * z[k].re + z[k].im * z[k].im).sqrt().max(1.0);
+            biggest = biggest.max(size / scale);
+        }
+        if biggest < 1e-15 {
+            break;
+        }
+    }
+    z.iter().map(|v| crate::Complex64::new(v.re, v.im)).collect()
+}
+
+fn trim_trailing_zeros(c: &[f64]) -> &[f64] {
+    let end = c.iter().rposition(|&v| v != 0.0).map_or(0, |i| i + 1);
+    &c[..end]
+}
+
+/// An SOS cascade for the transfer function
+/// `H(z) = (b[0] + b[1]*z^-1 + ...) / (a[0] + a[1]*z^-1 + ...)`,
+/// by factoring both polynomials ([`real_poly_roots`]) and regrouping the
+/// roots ([`sos_from_roots`]). `a[0]` must be nonzero.
+pub fn tf_to_sos(b: &[f64], a: &[f64]) -> Result<Sos, NumericError> {
+    if b.iter().chain(a).any(|v| !v.is_finite()) {
+        return Err(NumericError::Decomposition("transfer-function coefficients must all be finite".to_string()));
+    }
+    let a = trim_trailing_zeros(a);
+    if a.is_empty() || a[0] == 0.0 {
+        return Err(NumericError::Decomposition("the leading denominator coefficient a[0] must be nonzero".to_string()));
+    }
+    let b = trim_trailing_zeros(b);
+    if b.is_empty() {
+        return sos_from_roots(&[], &real_poly_roots(a), 0, 0.0);
+    }
+    let lead = b.iter().position(|&v| v != 0.0).unwrap_or(0);
+    let c = &b[lead..];
+    sos_from_roots(&real_poly_roots(c), &real_poly_roots(a), lead, c[0] / a[0])
+}
+
+fn poly_mul(p: &[f64], q: &[f64]) -> Vec<f64> {
+    let mut out = vec![0.0; p.len() + q.len() - 1];
+    for (i, &pi) in p.iter().enumerate() {
+        for (j, &qj) in q.iter().enumerate() {
+            out[i + j] += pi * qj;
+        }
+    }
+    out
+}
+
+/// The transfer function `(b, a)` of an SOS cascade, coefficients in
+/// ascending powers of `z^-1`, `a[0] == 1`: the section polynomials
+/// multiplied out. Trailing zero coefficients are dropped.
+pub fn sos_to_tf(sos: &Sos) -> (Vec<f64>, Vec<f64>) {
+    let mut b = vec![1.0];
+    let mut a = vec![1.0];
+    for s in &sos.sections {
+        b = poly_mul(&b, &[s.b0, s.b1, s.b2]);
+        a = poly_mul(&a, &[1.0, s.a1, s.a2]);
+    }
+    let b_len = trim_trailing_zeros(&b).len().max(1);
+    let a_len = trim_trailing_zeros(&a).len().max(1);
+    b.truncate(b_len);
+    a.truncate(a_len);
+    (b, a)
+}
+
+/// Cancels zeros at the origin against poles at the origin (exact `0`
+/// values, which is what a first-order or FIR section produces).
+fn cancel_origin(zeros: &mut Vec<crate::Complex64>, poles: &mut Vec<crate::Complex64>) {
+    let at_origin = |c: &crate::Complex64| c.re == 0.0 && c.im == 0.0;
+    let n = zeros.iter().filter(|c| at_origin(c)).count().min(poles.iter().filter(|c| at_origin(c)).count());
+    for _ in 0..n {
+        if let Some(i) = zeros.iter().position(at_origin) {
+            zeros.remove(i);
+        }
+        if let Some(i) = poles.iter().position(at_origin) {
+            poles.remove(i);
+        }
+    }
+}
+
+/// Zeros, poles and gain of an SOS cascade, for
+/// `H(z) = k * prod(z - zero_i) / prod(z - pole_i)`. Zero/pole pairs at the
+/// origin that cancel are removed, so a first-order section reports one
+/// zero and one pole, and the result round-trips through
+/// [`zpk_to_sos_digital`].
+pub fn sos_to_zpk(sos: &Sos) -> (Vec<crate::Complex64>, Vec<crate::Complex64>, f64) {
+    let mut zeros = Vec::new();
+    let mut poles = Vec::new();
+    let mut k = 1.0;
+    for s in &sos.sections {
+        if s.b0 != 0.0 {
+            zeros.extend(quadratic_roots(s.b0, s.b1, s.b2));
+            k *= s.b0;
+        } else if s.b1 != 0.0 {
+            zeros.push(crate::Complex64::real(-s.b2 / s.b1));
+            k *= s.b1;
+        } else {
+            k *= s.b2;
+        }
+        poles.extend(quadratic_roots(1.0, s.a1, s.a2));
+    }
+    if k == 0.0 {
+        zeros.clear();
+    }
+    cancel_origin(&mut zeros, &mut poles);
+    (zeros, poles, k)
+}
+
+/// Zeros, poles and gain of an FIR filter: the roots of the tap polynomial,
+/// `len(b)-1` poles at the origin (less any that cancel against a trailing
+/// zero tap), and the first nonzero tap as the gain.
+pub fn fir_to_zpk(b: &[f64]) -> Result<(Vec<crate::Complex64>, Vec<crate::Complex64>, f64), NumericError> {
+    let mut poles = fir_poles(b);
+    let Some(lead) = b.iter().position(|&v| v != 0.0) else {
+        return Ok((Vec::new(), poles, 0.0));
+    };
+    let core = trim_trailing_zeros(b);
+    let trailing = b.len() - core.len();
+    let mut zeros = real_poly_roots(&core[lead..]);
+    zeros.extend(std::iter::repeat_n(crate::Complex64::real(0.0), trailing));
+    cancel_origin(&mut zeros, &mut poles);
+    Ok((zeros, poles, b[lead]))
+}
+
+// ---- Bessel (Thomson) filter design ----
+
+/// Highest order [`bessel`] designs. The prototype's poles are the roots of
+/// the reverse Bessel polynomial, found here by a companion-matrix solve and
+/// polished by Newton steps; beyond this the polynomial's coefficients span
+/// too many decades for that to stay trustworthy.
+pub const BESSEL_MAX_ORDER: usize = 20;
+
+/// Analog Bessel lowpass prototype of order `n`, normalized like
+/// Butterworth's: unity DC gain and exactly -3 dB at 1 rad/s.
+///
+/// The poles are the roots of the reverse Bessel polynomial
+/// `theta_n(s) = sum_k a_k s^k`, `a_k = (2n-k)! / (2^(n-k) k! (n-k)!)`, which
+/// is the denominator that makes the group delay maximally flat at DC.
+fn bessel_analog_prototype(n: usize) -> Result<Zpk, NumericError> {
+    if n == 0 {
+        return Err(NumericError::EmptyInput("bessel: order must be at least 1"));
+    }
+    if n > BESSEL_MAX_ORDER {
+        return Err(NumericError::Decomposition(format!("bessel: order {n} is above the supported maximum of {BESSEL_MAX_ORDER}")));
+    }
+    // a[k] for k = 0..=n, from a[n] = 1 downward:
+    // a[k-1] = a[k] * (2n-k+1) * k / (2 * (n-k+1)).
+    let mut a = vec![1.0_f64; n + 1];
+    for k in (1..=n).rev() {
+        a[k - 1] = a[k] * (2 * n - k + 1) as f64 * k as f64 / (2.0 * (n - k + 1) as f64);
+    }
+    // Substitute s = c*x with c = a[0]^(1/n), the geometric mean of the root
+    // magnitudes, so the roots in x sit around the unit circle and the
+    // coefficients stay within a few decades of each other.
+    let c = a[0].powf(1.0 / n as f64);
+    // Descending powers of x, monic.
+    let desc: Vec<f64> = (0..=n).rev().map(|k| a[k] * c.powi(k as i32 - n as i32)).collect();
+    let eval = |x: Complex| -> (Complex, Complex) {
+        let mut p = real(0.0);
+        let mut dp = real(0.0);
+        for &coef in &desc {
+            dp = dp.mul(x).add(p);
+            p = p.mul(x).add(real(coef));
+        }
+        (p, dp)
+    };
+    let mut poles: Vec<Complex> = polynomial_roots(&desc)?.iter().map(|r| Complex::new(r.re, r.im)).collect();
+    for p in poles.iter_mut() {
+        for _ in 0..8 {
+            let (v, dv) = eval(*p);
+            if dv.re == 0.0 && dv.im == 0.0 {
+                break;
+            }
+            *p = p.sub(v.div(dv));
+        }
+        if p.im.abs() < 1e-10 {
+            p.im = 0.0;
+        }
+        if !(p.re < 0.0) {
+            return Err(NumericError::Decomposition(format!("bessel: order {n} prototype did not converge to a stable pole set")));
+        }
+    }
+    // |H(jw)|^2 = |theta(0)|^2 / |theta(jw)|^2 falls monotonically; find the
+    // w where it crosses 1/2.
+    let p0 = eval(real(0.0)).0;
+    let p0_sq = p0.re * p0.re + p0.im * p0.im;
+    let mag_sq = |w: f64| {
+        let v = eval(Complex::new(0.0, w)).0;
+        p0_sq / (v.re * v.re + v.im * v.im)
+    };
+    let (mut lo, mut hi) = (0.0_f64, 1.0_f64);
+    while mag_sq(hi) > 0.5 {
+        lo = hi;
+        hi *= 2.0;
+        if hi > 1e6 {
+            return Err(NumericError::Decomposition("bessel: could not bracket the -3 dB point".to_string()));
+        }
+    }
+    for _ in 0..200 {
+        let mid = 0.5 * (lo + hi);
+        if mag_sq(mid) > 0.5 {
+            lo = mid;
+        } else {
+            hi = mid;
+        }
+    }
+    let w3 = 0.5 * (lo + hi);
+    let poles: Vec<Complex> = poles.iter().map(|p| p.scale(1.0 / w3)).collect();
+    let gain = prod(&poles.iter().map(|p| p.neg()).collect::<Vec<_>>()).re;
+    Ok(Zpk { zeros: Vec::new(), poles, gain })
+}
+
+/// Designs an order-`n` digital Bessel (Thomson) filter at sample rate `fs`:
+/// the classical family with maximally flat group delay, so a step passes
+/// with almost no overshoot, at the price of a gentler roll-off than
+/// Butterworth. `kind`/`cutoff` are exactly [`butter`]'s, and `cutoff` is the
+/// -3 dB point, also like `butter`.
+///
+/// The analog prototype is mapped with the same prewarped bilinear transform
+/// as every other design here. That keeps the magnitude response exact at the
+/// cutoff but compresses the frequency axis towards Nyquist, so the delay is
+/// flattest for cutoffs well below `fs/2`.
+pub fn bessel(n: usize, kind: FilterKind, cutoff: &[f64], fs: f64) -> Result<Sos, NumericError> {
+    let prototype = bessel_analog_prototype(n)?;
+    let prewarp = |fc: f64| 2.0 * fs * (PI * fc / fs).tan();
+    let analog = match kind {
+        FilterKind::Low => {
+            let wc = prewarp(*cutoff.first().ok_or(NumericError::EmptyInput("bessel: needs a cutoff frequency"))?);
+            lp2lp(prototype, wc)
+        }
+        FilterKind::High => {
+            let wc = prewarp(*cutoff.first().ok_or(NumericError::EmptyInput("bessel: needs a cutoff frequency"))?);
+            lp2hp(prototype, wc)
+        }
+        FilterKind::Band | FilterKind::Stop => {
+            if cutoff.len() != 2 {
+                return Err(NumericError::EmptyInput("bessel: band/stop needs [low, high] cutoffs"));
+            }
+            let w1 = prewarp(cutoff[0]);
+            let w2 = prewarp(cutoff[1]);
+            let wo = (w1 * w2).sqrt();
+            let bw = w2 - w1;
+            if kind == FilterKind::Band {
+                lp2bp(prototype, wo, bw)
+            } else {
+                lp2bs(prototype, wo, bw)
+            }
+        }
+    };
+    Ok(zpk_to_sos(bilinear(analog, fs)))
+}
+
+// ---- Single-biquad designs: notch, peak (resonator), allpass ----
+
+/// Which single-biquad response [`biquad_design`] builds.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum BiquadKind {
+    /// Unity gain everywhere except a null at `f0`.
+    Notch,
+    /// Unity gain at `f0`, falling away on both sides (a resonator).
+    Peak,
+    /// Unity gain everywhere; only the phase changes, by -180 degrees at `f0`.
+    Allpass,
+}
+
+/// A second-order notch, peak or allpass at `f0` Hz with quality factor `q`.
+///
+/// Notch and peak follow MATLAB's `iirnotch`/`iirpeak` (and SciPy's): the
+/// -3 dB bandwidth is exactly `f0/q` Hz. The allpass is the Audio EQ
+/// Cookbook biquad. The caller validates `0 < f0 < fs/2`, `q > 0` and, for
+/// notch/peak, `f0/q < fs/2`.
+pub fn biquad_design(kind: BiquadKind, f0: f64, q: f64, fs: f64) -> Sos {
+    let w0 = 2.0 * PI * f0 / fs;
+    let cos_w0 = w0.cos();
+    let bq = match kind {
+        BiquadKind::Notch | BiquadKind::Peak => {
+            let gain = 1.0 / (1.0 + (w0 / q / 2.0).tan());
+            let (a1, a2) = (-2.0 * gain * cos_w0, 2.0 * gain - 1.0);
+            if kind == BiquadKind::Notch {
+                Biquad { b0: gain, b1: -2.0 * gain * cos_w0, b2: gain, a1, a2 }
+            } else {
+                Biquad { b0: 1.0 - gain, b1: 0.0, b2: gain - 1.0, a1, a2 }
+            }
+        }
+        BiquadKind::Allpass => {
+            let alpha = w0.sin() / (2.0 * q);
+            let a0 = 1.0 + alpha;
+            Biquad { b0: (1.0 - alpha) / a0, b1: -2.0 * cos_w0 / a0, b2: 1.0, a1: -2.0 * cos_w0 / a0, a2: (1.0 - alpha) / a0 }
+        }
+    };
+    Sos { sections: vec![bq] }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1455,6 +1990,216 @@ mod tests {
         // plain sosfilt would NOT have this property (it has a phase lag).
         let mid = n / 2;
         close(y[mid], x[mid], 0.05);
+    }
+
+    #[test]
+    fn filtfilt_keeps_a_constant_input_constant_at_both_ends() {
+        let sos = butter(4, FilterKind::Low, &[50.0], 1000.0).unwrap();
+        let y = filtfilt(&sos, &vec![1.0; 400]);
+        for v in &y {
+            close(*v, 1.0, 1e-9);
+        }
+        // an FIR lowpass too, and a highpass must return ~0 for a constant
+        let b = fir1(20, FilterKind::Low, &[100.0], 1000.0, &test_hamming(21)).unwrap();
+        let dc: f64 = b.iter().sum();
+        for v in fir_filtfilt(&b, &vec![3.0; 200]).unwrap() {
+            close(v, 3.0 * dc * dc, 1e-9);
+        }
+        let hp = butter(3, FilterKind::High, &[50.0], 1000.0).unwrap();
+        for v in filtfilt(&hp, &vec![5.0; 300]) {
+            close(v, 0.0, 1e-9);
+        }
+    }
+
+    #[test]
+    fn filtfilt_follows_a_ramp_to_its_ends_and_survives_short_inputs() {
+        // An odd extension continues a ramp exactly, and a unity-DC-gain
+        // zero-phase filter passes a ramp unchanged.
+        let sos = butter(4, FilterKind::Low, &[50.0], 1000.0).unwrap();
+        let x: Vec<f64> = (0..300).map(|i| 0.01 * i as f64 - 1.0).collect();
+        let y = filtfilt(&sos, &x);
+        close(y[0], x[0], 0.02);
+        close(y[299], x[299], 0.02);
+        // shorter than the padding, down to a single sample and empty
+        for n in [0usize, 1, 2, 3, 7] {
+            let short: Vec<f64> = (0..n).map(|i| 1.0 + i as f64).collect();
+            let y = filtfilt(&sos, &short);
+            assert_eq!(y.len(), n);
+            assert!(y.iter().all(|v| v.is_finite() && v.abs() < 100.0), "n={n}: {y:?}");
+            let b = [0.25, 0.5, 0.25];
+            let yf = fir_filtfilt(&b, &short).unwrap();
+            assert_eq!(yf.len(), n);
+            assert!(yf.iter().all(|v| v.is_finite() && v.abs() < 100.0), "fir n={n}: {yf:?}");
+        }
+        close(filtfilt(&sos, &[2.5])[0], 2.5, 1e-9);
+    }
+
+    #[test]
+    fn sos_order_counts_first_order_sections_once() {
+        assert_eq!(sos_order(&butter(4, FilterKind::Low, &[50.0], 1000.0).unwrap()), 4);
+        assert_eq!(sos_order(&butter(3, FilterKind::Low, &[50.0], 1000.0).unwrap()), 3);
+        assert_eq!(sos_order(&butter(3, FilterKind::Band, &[50.0, 80.0], 1000.0).unwrap()), 6);
+    }
+
+    fn max_response_diff(a: &Sos, b: &Sos) -> f64 {
+        freqz(a, 257).iter().zip(freqz(b, 257)).map(|(p, q)| ((p.re - q.re).powi(2) + (p.im - q.im).powi(2)).sqrt()).fold(0.0, f64::max)
+    }
+
+    #[test]
+    fn tf_and_zpk_round_trip_through_sos_with_the_same_response() {
+        for sos in [
+            butter(4, FilterKind::Low, &[50.0], 1000.0).unwrap(),
+            butter(3, FilterKind::High, &[120.0], 1000.0).unwrap(),
+            butter(3, FilterKind::Band, &[80.0, 160.0], 1000.0).unwrap(),
+            ellip(5, 0.5, 60.0, FilterKind::Low, &[100.0], 1000.0).unwrap(),
+            cheby2(4, 40.0, FilterKind::Stop, &[100.0, 200.0], 1000.0).unwrap(),
+        ] {
+            let (b, a) = sos_to_tf(&sos);
+            assert_eq!(a[0], 1.0);
+            let back = tf_to_sos(&b, &a).unwrap();
+            assert!(max_response_diff(&sos, &back) < 1e-6, "tf round trip: {}", max_response_diff(&sos, &back));
+            let (z, p, k) = sos_to_zpk(&sos);
+            assert_eq!(p.len(), sos_order(&sos));
+            let back = zpk_to_sos_digital(&z, &p, k).unwrap();
+            assert!(max_response_diff(&sos, &back) < 1e-9, "zpk round trip: {}", max_response_diff(&sos, &back));
+        }
+    }
+
+    #[test]
+    fn tf_to_sos_matches_a_direct_difference_equation() {
+        // y[n] = 0.2x[n-1] + 0.3x[n-2] + 0.9y[n-1] - 0.5y[n-2] + 0.1y[n-3]
+        let b = [0.0, 0.2, 0.3];
+        let a = [1.0, -0.9, 0.5, -0.1];
+        let sos = tf_to_sos(&b, &a).unwrap();
+        let x: Vec<f64> = (0..60).map(|i| ((i * 7 % 11) as f64) - 5.0).collect();
+        let mut y = vec![0.0; x.len()];
+        for n in 0..x.len() {
+            let xv = |k: usize| if n >= k { x[n - k] } else { 0.0 };
+            let yv = |k: usize| if n >= k { y[n - k] } else { 0.0 };
+            let v = 0.2 * xv(1) + 0.3 * xv(2) + 0.9 * yv(1) - 0.5 * yv(2) + 0.1 * yv(3);
+            y[n] = v;
+        }
+        for (got, want) in sosfilt(&sos, &x).iter().zip(&y) {
+            close(*got, *want, 1e-9);
+        }
+        // a[0] != 1 is normalized; more numerator than denominator taps works
+        let scaled = tf_to_sos(&[2.0, 4.0, 2.0, 6.0], &[2.0, -1.0]).unwrap();
+        let (b2, a2) = sos_to_tf(&scaled);
+        assert_eq!((b2.len(), a2.len()), (4, 2));
+        for (got, want) in b2.iter().zip([1.0, 2.0, 1.0, 3.0]) {
+            close(*got, want, 1e-9);
+        }
+        for (got, want) in a2.iter().zip([1.0, -0.5]) {
+            close(*got, want, 1e-12);
+        }
+        assert!(tf_to_sos(&[1.0], &[0.0, 1.0]).is_err());
+        // a lone complex zero cannot belong to a real-coefficient filter
+        assert!(zpk_to_sos_digital(&[crate::Complex64::new(0.1, 0.5)], &[crate::Complex64::real(0.5)], 1.0).is_err());
+    }
+
+    #[test]
+    fn zpk_of_fir_and_first_order_sections_is_minimal() {
+        let (z, p, k) = sos_to_zpk(&butter(1, FilterKind::Low, &[100.0], 1000.0).unwrap());
+        assert_eq!((z.len(), p.len()), (1, 1));
+        close(z[0].re, -1.0, 1e-12);
+        assert!(k > 0.0);
+        let (z, p, k) = fir_to_zpk(&[0.5, 0.0, -0.5]).unwrap();
+        assert_eq!((z.len(), p.len()), (2, 2));
+        close(k, 0.5, 1e-12);
+        let mut zr: Vec<f64> = z.iter().map(|c| c.re).collect();
+        zr.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        close(zr[0], -1.0, 1e-9);
+        close(zr[1], 1.0, 1e-9);
+    }
+
+    #[test]
+    fn bessel_lowpass_is_minus_3db_at_the_cutoff_with_unity_dc_gain() {
+        for n in [1usize, 2, 3, 4, 8, 13, 20] {
+            let sos = bessel(n, FilterKind::Low, &[100.0], 1000.0).unwrap();
+            close(magnitude_db(&sos, 0.0), 0.0, 1e-6);
+            close(magnitude_db(&sos, 2.0 * PI * 100.0 / 1000.0), -3.0103, 1e-3);
+            assert!(is_stable(&sos_poles(&sos)), "order {n}");
+        }
+        let hp = bessel(4, FilterKind::High, &[100.0], 1000.0).unwrap();
+        close(magnitude_db(&hp, 2.0 * PI * 100.0 / 1000.0), -3.0103, 1e-3);
+        close(magnitude_db(&hp, PI * 0.999), 0.0, 1e-3);
+        let bp = bessel(3, FilterKind::Band, &[80.0, 120.0], 1000.0).unwrap();
+        close(magnitude_db(&bp, 2.0 * PI * 80.0 / 1000.0), -3.0103, 1e-3);
+        close(magnitude_db(&bp, 2.0 * PI * 120.0 / 1000.0), -3.0103, 1e-3);
+        assert!(bessel(0, FilterKind::Low, &[100.0], 1000.0).is_err());
+        assert!(bessel(BESSEL_MAX_ORDER + 1, FilterKind::Low, &[100.0], 1000.0).is_err());
+    }
+
+    #[test]
+    fn bessel_prototype_matches_the_known_second_and_third_order_poles() {
+        // theta_2(s) = s^2 + 3s + 3: poles (-3 +- j*sqrt(3))/2, scaled so the
+        // -3 dB point is at 1 rad/s (w3 = 1.3616541287161306).
+        let p = bessel_analog_prototype(2).unwrap();
+        let w3 = 1.361_654_128_716_130_6;
+        for pole in &p.poles {
+            close(pole.re, -1.5 / w3, 1e-9);
+            close(pole.im.abs(), 3f64.sqrt() / 2.0 / w3, 1e-9);
+        }
+        // theta_3 has the real root -2.3221853546260855 (w3 = 1.7556723686812106)
+        let p = bessel_analog_prototype(3).unwrap();
+        let real_pole = p.poles.iter().find(|c| c.im == 0.0).unwrap();
+        close(real_pole.re, -2.322_185_354_626_085_5 / 1.755_672_368_681_210_6, 1e-9);
+    }
+
+    #[test]
+    fn bessel_group_delay_is_flatter_than_butterworth_across_the_passband() {
+        let spread = |sos: &Sos| {
+            // DC to the cutoff (50 Hz of a 500 Hz Nyquist): the first 10 %
+            let gd = group_delay(sos, 2001);
+            let band = &gd[1..200];
+            band.iter().cloned().fold(f64::MIN, f64::max) - band.iter().cloned().fold(f64::MAX, f64::min)
+        };
+        let be = spread(&bessel(4, FilterKind::Low, &[50.0], 1000.0).unwrap());
+        let bu = spread(&butter(4, FilterKind::Low, &[50.0], 1000.0).unwrap());
+        assert!(be < 0.15 * bu, "bessel spread {be} vs butterworth {bu}");
+        // and a step through it barely overshoots, where Butterworth's does
+        let step = |sos: &Sos| sosfilt(sos, &vec![1.0; 400]).into_iter().fold(f64::MIN, f64::max);
+        assert!(step(&bessel(4, FilterKind::Low, &[50.0], 1000.0).unwrap()) < 1.02);
+        assert!(step(&butter(4, FilterKind::Low, &[50.0], 1000.0).unwrap()) > 1.05);
+    }
+
+    #[test]
+    fn notch_peak_and_allpass_biquads_have_their_defining_responses() {
+        let fs = 1000.0;
+        let (f0, q) = (100.0, 10.0);
+        let w = |f: f64| 2.0 * PI * f / fs;
+        let notch = biquad_design(BiquadKind::Notch, f0, q, fs);
+        assert!(magnitude_db(&notch, w(f0)) < -200.0);
+        close(magnitude_db(&notch, 0.0), 0.0, 1e-9);
+        close(magnitude_db(&notch, PI), 0.0, 1e-9);
+        let peak = biquad_design(BiquadKind::Peak, f0, q, fs);
+        close(magnitude_db(&peak, w(f0)), 0.0, 1e-9);
+        assert!(magnitude_db(&peak, 0.0) < -200.0);
+        // -3 dB bandwidth is f0/q = 10 Hz for both: find the two crossings
+        for sos in [&notch, &peak] {
+            let mut edges = Vec::new();
+            let mut prev = magnitude_db(sos, w(80.0)) + 3.0103;
+            let mut f = 80.0;
+            while f < 120.0 {
+                f += 0.001;
+                let cur = magnitude_db(sos, w(f)) + 3.0103;
+                if prev.signum() != cur.signum() {
+                    edges.push(f);
+                }
+                prev = cur;
+            }
+            assert_eq!(edges.len(), 2, "{edges:?}");
+            close(edges[1] - edges[0], f0 / q, 0.01);
+        }
+        let ap = biquad_design(BiquadKind::Allpass, f0, q, fs);
+        for f in [1.0, 50.0, 100.0, 250.0, 499.0] {
+            close(magnitude_db(&ap, w(f)), 0.0, 1e-9);
+        }
+        let h = freqz(&ap, 501)[100]; // 100 Hz
+        close(h.arg().abs(), PI, 1e-9);
+        for sos in [&notch, &peak, &ap] {
+            assert!(is_stable(&sos_poles(sos)));
+        }
     }
 
     #[test]

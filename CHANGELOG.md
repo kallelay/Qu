@@ -16,6 +16,12 @@ changes are called out.
 
 - Qu Studio's built-in templates K-Means, Neural Network and Spectrogram ran with an error or drew no figure, and FFT Analysis skipped the DC bin; all four are fixed and each template now runs cleanly.
 
+- `filtfilt` now pads each end by odd reflection (`3*(order+1)` samples) and starts each pass from its steady state, as SciPy and MATLAB do. A constant input comes back constant; before, `butter(4, "low", 50, 1000)` on all-ones returned 0.551 at the first sample and 0.0004 at the last. Results near the edges of every `filtfilt` call change.
+
+- `sosfilt`, `filtfilt` and `filter_init(filt, x)` now refuse a `Signal` whose `Fs` differs from the rate the filter was designed for, naming both rates. Filters with no `fs` or the normalized `fs = 2` are exempt.
+
+- New filter builtins: `bessel(order, kind, cutoff, fs)`, `notch(f0, q, fs)`, `peak(f0, q, fs)`, `allpass(f0, q, fs)`; `filter_from_sos`, `filter_from_tf`, `filter_from_zpk` to bring coefficients designed elsewhere into a filter model; `tf(filt)` and `zpk(filt)` to read them back; `bode(filt, [n])` accepts a filter model.
+
 - `group_delay` (and `fvtool`'s delay panel, and the delay in `filter_info`) is now exact: it is computed in closed form instead of unwrapping a sampled phase, which aliased whenever the delay was long relative to the number of points (`group_delay(fir1(2000, 0.3))` returned -22 at the default 512 points, the right answer is 1000; `fir1(20, 0.3)` at 9 or 11 points returned values between -6 and 5, the right answer is 10).
 
 - Qu Studio: Run Cell runs only that cell in the session's kernel. It used to re-send every earlier cell, so their prints and plots fired again and `x = x + 1` was applied twice. Terminal lines no longer show a doubled glyph.
@@ -31,9 +37,11 @@ changes are called out.
 - Sublime Text: `qu editors install` no longer leaves restored views failing with a modal "Error loading syntax file Packages/Qu/Qu.sublime-syntax: Unable to stat". Older plugin versions (and the installers' file-copy fallback) put the syntax in `Packages/Qu/` or `Packages/User/`; the plugin lives in `Packages/User/Qu/`, and a saved session still names the old path. The install now scans Sublime's saved sessions and writes a hidden alias syntax at each old path that no longer exists, forwarding to the current one (a file already there is never touched; uninstall removes the aliases). The installers' fallback now writes to `Packages/User/Qu` like the CLI does.
 
 - Security (Qu Studio): the window now has a Content-Security-Policy (it had none). Scripts may only load from the app itself; inline and external scripts, outside network connections and outside images are blocked, so a malicious SVG/report or an injection bug cannot run code or phone home with the app's file-system access. Checked in the built app: editor, running scripts, figures, SVG and PDF viewers all work with zero violations. Script-produced report HTML is sanitised (DOMPurify) before it is printed.
+
 - Security (CI): every GitHub Action is pinned to a commit hash (the tag stays in a comment) except `dtolnay/rust-toolchain@stable`, whose toolchain is chosen by the ref name; `ci.yml` runs with a read-only token.
 
 - Security: `pdf.extract_text`, `find_text`, `text_diff`, `to_html` and `replace_text` refuse a page whose content inflates to more than 256 MB (a decompression bomb: a 4 MB PDF made them allocate over 3 GB). They now fail in about 100 ms with a clear error; `QU_PDF_MAX_CONTENT_MB` raises the limit for a genuinely enormous page. Structure-only functions (`page_count`, `info`, `crop_page`, ...) were never affected.
+
 - Security: dependency updates for open advisories: `dompurify` 3.4.17 (critical/high/low, Studio and the UI packages), `vite` 8.3.5, `fast-uri` 3.1.9, `vitest` 5.0.5 (pulls `@vitest/mocker` 5.0.5), `rustls` 0.23.46. `npm audit` reports 0 vulnerabilities for all three packages. Still open: `protobuf` 2.x (only through the optional TensorFlow feature, not in default builds), `glib` and `rand` 0.7 (Tauri 1's Linux GTK stack and a build-time helper; fixed by Tauri 2).
 
 - `pdf.add_annotation(..., type="FreeText", color=[r, g, b])`: `color` is now the TEXT colour (black by default) on a light-yellow callout box. It used to become the annotation's background colour, so `color=[0,0,0]` drew a solid black rectangle over the text.
@@ -41,12 +49,19 @@ changes are called out.
 - VS Code: **Qu: Run File** is now Ctrl+Alt+R (Cmd+Alt+R on macOS), not Ctrl+Alt+Q. On a German keyboard layout AltGr+Q is Ctrl+Alt+Q and types `@`, so typing `@` in a `.qu` file ran the script. (Reload the window after updating the extension; remap in Keyboard Shortcuts if you prefer another key.)
 
 - `pdf.replace_text(src, old, new, page=, count=, case_sensitive=)` changes text in an existing PDF (simple fonts only; composite/CID fonts, Form XObject text and glyphs missing from a subset font are refused with a named error), and `pdf.add_text(src, page, x, y, text, size=, color=, font=)` stamps a line of standard-font text on a page. `pdf.add_annotation` now writes the keys `FreeText` (`/DA`), `Stamp`/`Text` (`/Name`), `Line` (`/L`) and `Ink` (`/InkList`) need to be well-formed.
+
 - New elementwise builtins `atan2(y, x)`, `hypot(x, y)`, `fix(x)` (round toward zero), `rem(a, b)` (remainder with the sign of the dividend, unlike the `mod` operator) and `maximum(a, b)`/`minimum(a, b)` (the names for the elementwise two-argument `max`/`min`). The spec listed `atan2` as guaranteed and it did not exist.
+
 - New `isnan(x)`, `isinf(x)`, `isfinite(x)`: a `bool` for a scalar, a `mask` for a vector so `x[isfinite(x)]` works, a flat column-major `mask` for a matrix.
+
 - New `cumprod(x)`, `nnz(x)`, `repmat(A, m, n)`, `tril(A, k)`/`triu(A, k)`, `kron(A, B)`, `outer(u, v)` and `cross(a, b)` (3-vectors only; any other length is an error).
+
 - New `lstsq(A, b)` (minimum-norm least squares through the SVD, vector or matrix right-hand sides, real or complex) and `expm(A)` (matrix exponential of a real square matrix, scaling-and-squaring with a degree-13 Pade approximant, checked against `scipy.linalg.expm`). `expm1(x)` is unchanged.
+
 - `write_csv` (and `csvify`, `json2csv`-style converters that share it) wrote numbers with six decimals, so `table(a=[1/3, 123456789.123456789])` was saved as `0.333333` and `123456789.123457` with no warning. Floats are now written with the shortest text that reads back bit-identical (`0.5` and `3` print as before; very small/large values use `e` notation; `-0` keeps its sign). Printing in the terminal is unchanged.
+
 - `randi()` with `lo` or `hi` missing is an error ("randi: requires lo and hi") instead of silently defaulting: `randi(10)` used to become `lo=10, hi=1` and return the constant 10 forever.
+
 - `replace(s, old, new, skip=N)` leaves the first `N` occurrences alone, so "replace only the third one" is sayable: `replace("a a a a a", "a", "X", skip=2, count=1)` is `"a a X a a"`; `count=` is also accepted as a keyword (giving it both ways is an error). `skip=` counts the occurrences that would be replaced, after `keep=` and zero-width matches are filtered. Also fixes the regex path, where an empty match consumed one of the `count` slots.
 
 ## [0.4.11] - 2026-10-27
@@ -54,7 +69,9 @@ changes are called out.
 Qu Studio shows a script's output while it runs and has a Stop button; scripts run from their own folder; dropping a file onto the Windows window opens it again; PDF `Highlight`/`Underline`/`StrikeOut`/`Squiggly` annotations draw; the quickstart explains `pdf.render`'s PDFium setup.
 
 - Qu Studio runs a script with its own folder as the working directory, so `list_dir("projects")`, `read_csv("data.csv")` or a relative import written next to the script resolve (they used to resolve against whichever folder Studio was started from, which is how a script that works from the command line failed with "could not read `projects`" in Studio). `qu kernel` takes `"cwd"` on a `run` request; Studio sends the folder of the active file, and its path as `"file"` so a trace names the real file.
+
 - Qu Studio on Windows: dropping a file onto the window now goes through the web view's own drop handling (`fileDropEnabled: false` in `tauri.windows.conf.json`). The native handler Tauri 1 installs accepted the drop (the copy cursor showed) and then delivered nothing on current WebView2, so nothing opened. Dropped files open as before (`.qu`, `.svg`, `.pdf`, text); the one difference is that a dropped file has no path on disk, so the first Save asks where to save. Opening a file with the Open button, the file tree or `Qu Studio.exe "path"` is unchanged and keeps the path.
+
 - CI: the Studio smoke-render job is pinned to `ubuntu-24.04` (`ubuntu-latest` is 26.04, where Playwright 1.56 cannot install Chromium).
 
 - Qu Studio shows a script's output while it runs, and has a **Stop** button. The Run button used to hold everything a script printed until the script ended, so a long-running one (a monitor loop, a serial reader) showed only `> Executing...`, and a script that never ended could not be stopped at all (Restart was disabled mid-run and could not reach a running kernel). `qu kernel` now takes `"stream": true` on a `run` request and sends each chunk of output as `{"op":"out","text":...}` as it is produced; Studio forwards them to the terminal (batched, so a script printing thousands of lines a second does not freeze the window; the terminal keeps the newest 5000 lines). Stop ends the interpreter at once (about 60 ms); session variables from earlier runs are cleared, as with Restart. Note `sleep` takes milliseconds.
@@ -66,16 +83,25 @@ Qu Studio shows a script's output while it runs and has a Stop button; scripts r
 Dense `qr`, `svd` and `eig` are 3.7-5x faster at 1000x1000 (within 1.1-1.35x of single-thread NumPy); the interpreter is faster at calls, record reads and in-place variable writes; `dict` is O(n) instead of O(n^2); errors in imported files name the right file; `qu test --timeout`; unterminated strings are parse errors; the Windows installers find editors the way `qu editors` does and show where each was found; editor grammars 0.2.1.
 
 - Both Windows installers (CLI and Studio) detect VS Code, VSCodium, Cursor, Windsurf, Sublime Text and Notepad++ the way `qu editors detect` does -- App Paths under both exe spellings, the Uninstall keys of both registry views, then Program Files/Programs folders -- and show where each was found on the Components page. The old probe read one App Paths spelling, so editors that register only through Uninstall keys (VSCodium, Cursor and Sublime here) showed no location.
+
 - Docs: book rows and function pages for `pack`, `unpack`, `swap_endian` and `crc32` (they had none); regenerated builtin table and index.
+
 - Tests: the `--max-time` and `qu test --timeout` hang scripts do real work per iteration; a bare `x = x + 1` loop now reaches the 10M-iteration safety stop in under a second.
 
 - Dense `qr`, `svd`, `eig` are blocked/faster on large matrices (cutoffs: QR from 144, SVD and symmetric eig from 128, general eig from 32; smaller sizes use the old kernels). The general (non-symmetric) eigenvalue path now stops after a bounded number of Schur iterations instead of looping, and eigenvalue ORDER can differ from earlier versions for some matrices -- sort before comparing. Paired against the old kernels and single-thread NumPy in `docs/perf-0.4.9.md` (1000x1000: qr 4.9x, svd 4.8x, symmetric eig 4.3x, general eig 3.7x faster, within 1.1-1.35x of NumPy; at 100x100 the symmetric/QR/SVD paths are unchanged within noise).
+
 - Errors inside an imported file now name that file: a trace used to print the main script's name with the imported file's line number (`main.qu:5 in wrap()` for line 5 of `helpers.qu`). `Stmt::SourceLine` markers carry a file tag, so every frame of `error_trace`, `e.file`, `e.line` and `e.trace` shows `helpers.qu:5` (the path relative to the main script, or the bundled name in a `qu build` binary).
+
 - `qu test --timeout <secs>` (default 60, 0 = none): every test runs in its own child `qu` process, so a hung test is killed alone and reported `FAILED (timeout)` while the run continues; each test also starts from a fresh interpreter. With `--timeout 0` the in-process interpreter is replaced after an interpreter panic so a panic cannot corrupt the next test.
+
 - Lexer: an unterminated `r"""...`, `r"..."` or ordinary string is now a parse error at the position where it opened (`unterminated raw string starting at line L:C`) instead of silently swallowing the rest of the file. A `r"""` string may now end in `"` (longest match: `r"""say "hi""""`).
+
 - `qu fmt` and `qu test` directory walks skip symlinks and Windows junctions/reparse points and stop at depth 40 (a link cycle looped forever). `qu fmt` now spaces `<` and `>` as comparison operators between two operands (`a>3` becomes `a > 3`), but not in `model<"filter">` / `record<Circle>` type refinements.
+
 - Editor grammars 0.2.1: builtin function names (`read`, `set`, `fit`, `input`, `error`, `warn`, `swap`, `spawn`, `simulate`, `animate`, `circuit`, `compile`, `spectrum`, `param`, `signal`, `table`) are no longer coloured as keywords; the genuine contextual keywords (`after`, `parallel`, `select`, `type`, `where`) are coloured only in position in the VS Code, Sublime and Vim grammars (the Notepad++ UDL cannot anchor a word, so it leaves them plain). `qu editors check` has no warnings.
+
 - Docs: Qu has no closures and a nested function leaks into the global namespace; `docx.add_heading` `level`, `stft` `hop` and `pdf.to_html` `pages` are positional (signature rows corrected); a bool vector comes back from `.npy` as a numeric vector.
+
 - Interpreter overhead (measured in `docs/perf-0.4.9.md`, addendum): user-function calls, record field reads, `length`/`str`/`get`, list append/index, string building, `v[i] = x`, `M[i, j] = x` and dict loops are 1.5-3.5x faster, and calls of straight-line arithmetic helpers up to 10x (1e6 calls of a one-line function 0.97 s to 0.33 s, `rec.x` loop 0.69 s to 0.19 s). Variable writes no longer allocate, builtins late in the dispatch `match` no longer pay for the arms above them, `"k{i}"` interpolations are parsed once. No behaviour change: errors, traces, `e.stack`, aliasing and shadowing are pinned by `tests/interp_overhead.rs`. Not done: slot-resolved frames (bounded at ~15%).
 
 - `dict` is fast at any size: `get` uses a hash index (built once a dict has more than 16 entries) and `d = set(d, k, v)` updates a dict nobody else holds in place instead of copying every key and value, so n inserts are O(n), not O(n^2): 100,000 inserts took over two minutes and did not finish, now 0.18 s, and 100,000 lookups take 0.21 s. `dict(keys, values)` is linear too. Behaviour is unchanged: key order, number-key normalisation, "first position, last value" for repeated keys, and an alias of the dict never sees the update (`e = d; d = set(d, ...)` leaves `e` alone); a script that defines its own `set` is not bypassed.
@@ -88,14 +114,19 @@ Qu Studio opens `.qu`, `.svg` and `.pdf` files by double-click, by path and by d
 
 
 - `.qu` files open the standard way: the Windows installers register a "Qu script" file type per user (Studio: double-click opens in Qu Studio, *Edit with Qu Studio*, listed under *Open with*; CLI: double-click opens in an editor, a separate *Run with Qu* right-click verb runs it, never on double-click). An existing `.qu` owner is never taken over and uninstall removes only what was written; `/NOASSOC` skips it. The `.deb`/`.rpm` ship a shared-mime-info definition (`application/x-qu-script`) and a desktop entry with `MimeType=` and `%F`; macOS gets `CFBundleDocumentTypes`/UTI `com.qu.script`. The Windows installers also offer VSCodium, Cursor and Windsurf plugins and install editor plugins through `qu editors install` when available. New "Opening .qu files" section in the quickstart.
+
 - Qu Studio: opens files by path and by drag and drop. `Qu Studio.exe "<path>"` (a `.qu`, `.svg` or `.pdf`, spaces and unicode fine, `\\?\` prefixes stripped) opens that file at startup (`get_startup_file` command plus a `qu-open-file` event fallback; one window per launch, no single-instance hand-off; macOS `RunEvent::Opened` does not exist in Tauri 1.8). Dropping files shows a "Drop to open" target; unsupported types are refused with a message naming the file. New SVG viewer (DOMPurify-sanitised, wheel/drag pan-zoom, Fit, 100%, View source) and PDF viewer (native web-view PDF, else an "Open in system viewer" fallback); 200 MB cap. Ctrl+O now uses the native dialog so opened files keep their path. Also: the status bar's `Ln, Col` now follows the caret (it was stuck at 1, 1), long tab names truncate with a tooltip, the top bar and panels fit at the 800 px minimum width (the Run button used to fall off the edge), and animations honour `prefers-reduced-motion`.
+
 - New `qu editors detect|status|install|uninstall|check`: makes "the editor plugins are installed and running" checkable and fixable from the `qu` binary (all plugin files are embedded). Covers VS Code, VSCodium, Cursor, Windsurf, Notepad++, Sublime Text 3/4, Vim, Neovim and the Jupyter kernel. `detect` finds editors through the Windows registry (`App Paths`, `Uninstall`), `PATH`, known folders, macOS `.app` bundles, Linux paths and Flatpak, records which method found each, honours portable layouts (`data/`, `doLocalConf.xml`, `Data/`), and `qu editors detect <editor>` exits 0/1. `install` (default `--editor auto`) never overwrites an edited file without a `.bak`, updates VS Code's `extensions.json`, replaces a hand-copied `qu-language-0.1.0`, supports `--dry-run` and `--root`; `uninstall` removes only what install wrote; `check` validates every embedded file, compares the grammars' keyword and unit lists with the lexer, and runs a sample through the real engine. The Jupyter kernelspec is health-checked (argv[0] exists and is executable, `{connection_file}` present, the kernel fails fast on a missing connection file).
+
 - Editor plugins 0.2.0: raw strings `r"..."`/`r"""..."""`, `#%%` cell markers, `5mV` unit literals, `A'` no longer starts a string; Notepad++ was missing the `none` constant; the VS Code indent rule said `elif` (the keyword is `elseif`); `qu.executablePath` (default `qu`) with a one-time actionable message instead of an error per keystroke; runtime-error traces (`at file.qu:LINE in f()`) appear in the Problems panel; new Vim/Neovim plugin (`editors/vim-qu`).
 
 - Scientific notation and printf: `sci(x, [digits=3], [style=])` writes `1.23 × 10⁻⁴⁵` (or `style="tex"`: `1.23 \times 10^{-45}`), `"{x:.2sci}"` / `"{x:.2tex}"` do the same inside strings, `{x:.3e}` is now C-style (`1.235e+05`, was `1.235e5`) with `E` added, and `sprintf` / `printf` are new (`%d %i %u %f %e %E %g %G %s %c %x %X %o %%`, flags, width, precision, `*`, C length modifiers, MATLAB-style recycling over vector arguments).
+
 - Plots: a figure whose data all lives below 1e-15 (a rate of 1e-45, a capacitance of 1e-20 F) is no longer treated as flat data: it used to collapse to a line on an axis padded to -1..1. The flat-data test is now relative to the data's size; heatmap and bubble-size scaling got the same fix.
 
 - New `diff_lines(a, b, [changed_only=])`: a line diff of two lists of strings (or two strings), returning records `{op, old, new, text}` with 1-based line numbers (it was missing: `diff` is numeric only and `pdf.text_diff` is PDF only).
+
 - `exec`: the documentation now lists `env=` and `timeout=` (both already worked); a timed-out `exec` no longer lets `taskkill`/`kill` print their own output onto the console.
 
 - Performance (measured in `docs/perf-0.4.9.md`, benchmarks in `benchmarks/perf-0.4.9/`): `inv` is now a blocked LU inverse when the matrix is clearly nonsingular (1000x1000: 1.25 s to 0.09 s; singular and borderline matrices still go through the SVD route and report exactly as before); `lu`, `det` and `solve` use a blocked LU on the SIMD matmul kernel (1000x1000: 2-2.4x faster); calling a user function no longer deep-copies the function's AST on every call (1.4x for a one-line function, 2x for a ~15-statement one, `quad` callbacks 4x); `sort`/`unique` of 65536+ values sort in parallel (1e7: 3-5x, results bit-identical); `filter_ba` with long coefficient vectors is about 2x faster (bit-identical); `M[i, j] = x` is about 1.4x faster; `read_npy` of float64 files is about 2.4x faster. Paired before/after numbers in `docs/perf-0.4.9.md`. Not fixed: `dict` is an association list (lookups and `set` are O(n)), sparse LU is ~6x slower than SuperLU, user-function calls are still ~0.5 us.
@@ -107,9 +138,13 @@ From Ahmed's feedback file and two internal audits: list element assignment, `ex
 - Fixed from the audits: `parse_json` of an array of objects no longer flattens nested arrays or objects to text (it returns a list of records unless every column is plain numbers or plain strings); the `g` number format follows C's significant-digit rules (`{x:.3g}` of 1.2345e-5 is `1.23e-05`); a list-assignment index error uses the same 0-based wording as reads; a syntax error in `qu run` is labelled a parse error and names the file; `--dry-run` names the path it skips, not the document handle.
 
 - Qu Studio's terminal and the Jupyter kernel now show where a runtime error happened: the `qu kernel` run reply carries `at file:LINE in f()` / `called from ...` lines under the message (an optional `file` field in the request names the script), and Studio prints each on its own terminal line.
+
 - **Security fix: `qu run --sandbox` now really denies file-writing calls.** It denied network, processes and a few file calls but let `write_text`, `append_text`, `write_all`, `save*`, `savefig`, `write_report`, `make_file`, `mkdir`, `write_array`, `bytes_write` and the rest through (found by an internal audit). One shared list (`is_file_writer`) now backs both `--sandbox` and `--dry-run`; `--dry-run` also refuses `fopen` in a write mode, since a file handle cannot be faked.
+
 - `qu run --watch` is only a flag before a bare `--`, ignores the moment an editor's atomic save removes the file, and both `--watch` and `--dry-run` are listed in `qu --help`.
+
 - Dependency security updates from Dependabot (dompurify 3.4.16, rustls 0.23.45, vitest 5 with vite 6.4, source-map-js 1.2.2, tokenizers 0.23, uuid 1.27, ...). `qu-ui-components/react` moved to vite ^6.4.3 so vitest 5 installs. The tailwindcss 3 -> 4 and vite 8 bumps are deliberately not applied.
+
 - Hardening of the NumPy/HDF5/zip/PDF readers against memory and CPU amplification from malformed files (caps on decoded strings, B-tree and continuation walks, total decompressed size).
 
 - From Ahmed's feedback file: `xs[i] = v` assigns a list element; `extend(list, other)` concatenates lists (`append` nests); `for row in table` iterates rows as records (so `for o in parse_json(...)` works on a JSON array of objects); `r"""..."""` is a raw string that can contain quotes and braces; `e.file` and `e.trace` in a `catch`; `qu run --watch` re-runs on save; `qu run --dry-run` skips file-writing calls; `--max-time` runs now stream output unbuffered so the last lines survive the kill.
@@ -120,18 +155,25 @@ New: numerical integration and ODE solvers (`trapz`, `cumtrapz`, `simpson`, `qua
 
 
 - New `qu test [paths] [--filter s] [--fail-fast] [--json]`: runs every top-level zero-argument `test_*` function (a fresh interpreter per file; a file with none runs as a script), prints PASS/FAIL with file:line, error location and time, exits 1 on failure and 2 if nothing was found. New `qu fmt [paths] [--check] [--stdin]`: a conservative lexer-driven formatter (block indentation, trailing whitespace, final newline, spacing after commas and around `== != <= >=` and the compound-assignment operators (`<` and `>` are left alone)); comments and string contents are untouched and the result is idempotent and token-for-token identical.
+
 - `import sparse`: compressed-sparse-row matrices as immutable values (zero-based indices). `from_triplets` (duplicates summed), `from_dense`, `eye`, `diag`, `random(m, n, density, seed=)`, `size`/`nnz`/`density`/`get`/`triplets`/`to_dense`/`transpose`, `add`/`sub`/`scale`/`hadamard`/`mul` (sparse, vector or dense right-hand side) and `solve` with sparse LU (Gilbert-Peierls, partial pivoting, reverse Cuthill-McKee ordering -- not COLAMD), conjugate gradient (optional Jacobi) and BiCGSTAB, the iterative ones returning `x`, `iterations`, `residual`, `converged`, `status`. Sizes are capped (10M rows/cols, 20M entries). `eigs` is not included. *Added in v0.4.7.*
+
 - Scientific binary-format interop. New `read_npy`/`write_npy`/`read_npz`/`write_npz` (NumPy format versions 1-3, either byte order, C or Fortran order, float16/32/64, all int/uint widths, bool, complex64/128; 0-d to 2-d arrays, N-d is an error naming the shape; pickled object arrays are refused and never unpickled; `write_npy` is bit-exact for NaN/inf/-0.0) and a pure-Rust read-only HDF5 reader behind `h5read(path, dataset)` and `h5info(path)` (superblock v0-v3, old-style and link-message groups, contiguous/compact/chunked storage with deflate, shuffle and fletcher32, fixed-point/float/enum/string types). No C library is needed. Anything unsupported -- compound types, other filters, dense link storage, external links -- fails with an error that names it, and every offset, length and allocation read from these untrusted files is bounds-checked and capped. `read_mat` now also reads MATLAB v7.3 files (numeric/logical arrays, char rows, scalar structs) through the HDF5 reader instead of refusing them. Verified against hand-built fixtures written from the format specifications, not yet against files produced by NumPy/h5py/libhdf5.
+
 - Numerical integration and ODEs, new flat builtins (documented in *Signal Processing & Filters*, "Numerical Integration & ODEs"): `trapz`, `cumtrapz`, `simpson` on sampled data (matrix columns integrate along dimension 1); `quad` / `quad_info` (adaptive Gauss-Kronrod G7K15, infinite limits, endpoint singularities; `quad` errors rather than return an unconverged value, `quad_info` returns `{value, error, nfev, intervals, status}`); `ode45` (Dormand-Prince with dense output for `t_eval=`), `ode23` (Bogacki-Shampine), `ode_stiff` (Rosenbrock 2(3) with a numerical Jacobian) and `rk4`, each returning a record `{t, y, steps, nfev, status}` with `y` one row per time point; `events=`/`terminal=` zero-crossing detection on the adaptive solvers. Limits: `ode_stiff` has no `jac=`, events detect one crossing per step and have no `direction=`, `rk4` has no events.
 
 - Runtime errors now say where: `qu run` prints `at file.qu:LINE in function()` and each `called from` line up to the top level under the error message (the `try`/`catch` exception record is unchanged). Line numbers inside an imported module are that module's, shown with the main script's name.
+
 - Hardening from an independent review: `pdf.extract_image` caps an Indexed palette at 255 entries, validates `/BitsPerComponent` and no longer reserves memory from an unchecked `/Width x /Height`; `pdf.to_html` escapes `"` in image names; `docx.split_cell(cols=)` on a table with fewer grid columns than its rows use is an error instead of a panic.
 
 - Friendlier errors and `get` default (from Ahmed's feedback file): using `pdf.x(..)` without `import pdf` says to import it; a reserved word used as a name says it is reserved and lists the keywords; appending a string to a number vector (`o = []`) points at `lines("")`; `get(d, key, default)` now returns `default` for an absent key instead of ignoring the argument.
+
 - `import pdf` reads more of a PDF. `pdf.extract_text` gains `normalize=true` (ligatures expanded, whitespace collapsed, line-end hyphenation re-joined) and `lines=true` (a `List` of lines rebuilt from glyph positions instead of one `Str`; errors rather than guessing when a page's lines cannot be recovered). New `pdf.images` (lists embedded images), `pdf.extract_image` (JPEG and raw/Flate images to an `Image`; JBIG2, CCITT and JPX are refused by name) and `pdf.to_html` (page sections with paragraphs, optional inline images). Layout and fonts are not reproduced, and defaults of the existing call are unchanged. `pdf.render` already gives a page as an `Image`.
 
 - `import xlsx` gains `copy_sheet`, `hide_sheet`, `clear`, `move_range`, `sort_range`, `autofilter`, `create_table`, `add_comment` and `add_image` (PNG/JPEG/GIF). Charts saved earlier survive every operation. Formulas pointing into moved cells are not rewritten; `autofilter` only switches filtering on.
+
 - `import pptx` gains `add_chart` (scatter/line/bar/barh), `add_nyquist_chart` (equal axes, square grid), `add_shape`, `rotate_shape` and `align_shapes`. Chart data is cached literals, not an embedded workbook; use `xlsx.add_chart` for an editable chart. `delete_shape` now removes a chart part when its frame was the last reference, and `duplicate_slide` gives the copy its own chart part.
+
 - `import docx` edits what a document already says: tables (`add_row`, `add_column`, `merge_cells`, `split_cell`), character formatting of a matched span of text (`format_text` -- runs are cut at the span's edges, inside links and tracked insertions too), `line_spacing`, `move_paragraph`, footnote creation (`add_footnote`, which builds the footnotes part and note styles when the document has none) and tracked changes (`track_insert`, `track_delete`, written as `w:ins`/`w:del` with author and date; `accept_changes` now also removes a paragraph whose mark was tracked-deleted). Fixed on the way: cutting a run in two (`add_link`/`add_comment` on part of a run) gave its right half a second `w:rPr`, which Word rejects.
 
 ## [0.4.6] - 2026-10-01
@@ -476,6 +518,7 @@ changelog update.
 ### Added
 
 - `global a, b` — declares that a function writes to module scope.
+
 - **Complex matrix linear algebra**: `det`, `norm`, `cond`, `rank`,
   `svd`, `lu`, `qr`, `chol`, `eig`, `pinv`, `solve` on complex matrices,
   plus complex index-assignment and complex `hstack`/`vstack`. `eig` is
@@ -534,22 +577,27 @@ changelog update.
   `compare`, `write_text`/`append_text`, `"ab" * 3`, and the
   `ucase`/`lcase`/`toupper`/`tolower` aliases.
 - **`md2html` / `html2md`**, both directions.
+
 - `round(x, digits)`, `log(x, base)`, `replace(s, old, new, count)`,
   `split(s, d, limit)`, `trim(s, chars)`, `sort` on a list of strings.
 - `nnls(A, b)` — non-negative least squares (Lawson–Hanson).
+
 - `least_squares(f, x0, lower=, upper=)` — nonlinear least squares on a
   residual function, with box bounds enforced at evaluation time.
 - `solve`, `cond`, `trace`, `diag`, `complex(re, im)`.
+
 - **Binary readers**: `read_array`, `read_values`, `read_struct`,
   `read_structs`, `file_size` — enough to read instrument captures
   directly.
 - `dash=` / `dot=` on any series-drawing call, matching `vline`/`hline`.
+
 - `alpha=` and `label=` on `fill_between`; `alpha=` on `xspan`/`yspan`;
   `alpha=` on `hist`; `marker=` and `label=` on `errorbar`; `dash=` and
   `width=` on `contour`.
 - Twin axes gained independent limits and scales: `ylim`/`yscale` after
   `yyaxis right` now apply to the right side.
 - Argument lists may span multiple lines.
+
 - `llms.txt` and an agent guide for coding assistants.
 
 ### Changed
