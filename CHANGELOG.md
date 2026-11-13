@@ -10,6 +10,10 @@ changes are called out.
 
 ## [Unreleased]
 
+- `fvtool` now starts a fresh figure, like `figure()`: whatever was drawn before is kept as its own figure instead of having the 2x2 filter panel merged into it.
+
+- Office files: the `zip` dependency of the OOXML reader is now version 9 (a file entry whose name is not valid UTF-8 is reported as a damaged package entry instead of being used with a lossy name).
+
 ## [0.4.12] - 2026-11-12
 
 - New `qu lsp`: a Language Server Protocol server on stdin/stdout, so any editor with an LSP client gets the same Qu intelligence. It serves syntax-error diagnostics on every change, hover (a builtin's signature and summary, or a user function's header), completion (builtins, the file's functions and variables, keywords, module members after `xlsx.`), signature help with the active parameter, the outline (functions, `#%%` cells, `# ---` sections) and go-to-definition within a file. The VS Code extension starts it automatically; `editors/README.md` has the configuration for Neovim, Helix, Sublime LSP, Kate and JetBrains (LSP4IJ), and says which of them were tested (the server and the VS Code extension were, the latter in a VSCodium extension host; the other editors' configurations were not run).

@@ -31493,6 +31493,13 @@ self.eval_grad(loss, wrt)
                 let impulse_y = repr_filt(&repr, &impulse_x)?;
                 let impulse_n: Vec<f64> = (0..n_impulse).map(|i| i as f64).collect();
 
+                // A fresh figure, like `figure()`: whatever was drawn before is
+                // finalized into history instead of having this 2x2 panel
+                // merged into it (and a later plot merging into the panel).
+                if !self.figure.is_pristine() {
+                    self.figure_history.push(self.figure.clone());
+                }
+                self.figure.clear_figure();
                 self.figure.select_grid(2, 2, 1).map_err(|msg| EvalError { msg })?;
                 self.figure.current_panel_mut().series.push(plotting::Series { x: freqs.clone(), y: mag_db, label: None, marker: "line".into(), ..Default::default() });
                 self.figure.current_panel_mut().title = Some("Magnitude Response".into());
@@ -83578,6 +83585,20 @@ end for");
              b = max(group_delay(f, 11)[0:3])",
         );
         assert!((num(&it, "a") - 10.0).abs() < 1e-6 && (num(&it, "b") - 10.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn fvtool_starts_a_fresh_figure_instead_of_drawing_into_the_live_one() {
+        let mut it = Interp::new();
+        it.run("plot([1, 2, 3], [4, 5, 6])").unwrap();
+        assert!(it.figure_history.is_empty());
+        it.run("f = butter(2, \"low\", 100, 1000)\nf.fvtool()").unwrap();
+        // the earlier plot was finalized, untouched...
+        assert_eq!(it.figure_history.len(), 1);
+        assert_eq!(it.figure_history[0].current_panel().series.len(), 1);
+        // ...and the fvtool figure holds only its own four panels
+        let panels = it.figure.panels.iter().filter(|p| !p.series.is_empty()).count();
+        assert_eq!(panels, 4, "fvtool figure should have its 4 panels, got {panels}");
     }
 
     #[test]

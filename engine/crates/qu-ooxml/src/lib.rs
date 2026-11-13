@@ -46,9 +46,11 @@ impl Package {
             if f.is_dir() {
                 continue;
             }
+            // zip 9: `name()` is fallible (an entry name that is not valid UTF-8)
+            let name = f.name().map(|n| n.into_owned()).map_err(|e| format!("damaged package entry {i}: {e}"))?;
             let mut data = Vec::with_capacity(f.size() as usize);
-            f.read_to_end(&mut data).map_err(|e| format!("damaged package entry `{}`: {e}", f.name()))?;
-            parts.push((f.name().to_string(), data));
+            f.read_to_end(&mut data).map_err(|e| format!("damaged package entry `{name}`: {e}"))?;
+            parts.push((name, data));
         }
         if !parts.iter().any(|(n, _)| n == "[Content_Types].xml") {
             return Err("not an Office file: the package has no [Content_Types].xml".into());
