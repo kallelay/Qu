@@ -140,8 +140,30 @@
   text-align: center;
   animation: qu-pop-in 200ms ease-out;
 }
+.qu-drop-card { position: relative; }
 .qu-drop-card strong { font-size: 16px; }
 .qu-drop-card span { font-size: 12px; color: var(--qu-muted); }
+.qu-drop-hint { margin-top: 4px; font-size: 11px; opacity: 0.8; }
+/* The overlay ignores the mouse so a real drop reaches the window; the close
+   button is the one thing on it that takes clicks. */
+.qu-drop-close {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: 1px solid var(--qu-border);
+  border-radius: 6px;
+  background: var(--qu-bg);
+  color: var(--qu-text);
+  cursor: pointer;
+  pointer-events: auto;
+}
+.qu-drop-close:hover { background: var(--qu-hover); }
+.qu-drop-close:focus-visible { outline: 2px solid var(--qu-accent); outline-offset: 2px; }
 
 /* ---- Toasts ----------------------------------------------------------- */
 .qu-toasts {

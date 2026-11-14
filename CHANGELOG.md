@@ -10,6 +10,20 @@ changes are called out.
 
 ## [Unreleased]
 
+## [0.4.13] - 2026-11-14
+
+- Qu Studio: the "Drop to open" overlay no longer gets stuck on screen. A drag that left the window quickly or was cancelled sent no "leave" event, so the overlay stayed up. It now clears on Esc, on any click, when the pointer moves again, or after 15 seconds, it has a ✕ button, and the drag counter behind it is reset each time.
+
+- `spectrogram` is about 3x faster: on a million samples with a 512-point window it takes about 25 ms instead of 60-100 ms (the STFT itself is 13 ms). The dB values are computed straight from the transform's data instead of one checked lookup, one `hypot` and one copy per element; the result is the same to floating-point rounding.
+
+- New linear time-invariant system objects, with an `lti_` prefix because `tf`, `zpk`, `step` and `simulate` already mean other things. `lti_ss(A, B, C, D, [dt])`, `lti_tf(num, den, [dt])` and `lti_zpk(z, p, k, [dt])` build a system (continuous when `dt` is 0 or omitted, discrete otherwise); it keeps both a state-space realization and the description it was built from. `lti_to_ss`, `lti_to_tf` and `lti_to_zpk` convert; `lti_poles`, `lti_zeros`, `lti_dcgain`, `lti_is_stable` and `lti_freqresp(sys, w)` analyse. Dimension mismatches and improper transfer functions are reported with the offending shape or degree.
+
+- New `lti_step(sys, t)`, `lti_impulse(sys, t)` and `lti_lsim(sys, u, t, [x0])`, each returning `{t, y, x}`. A continuous system is simulated exactly at the sample times for an input that is constant or linear between samples (matrix exponential of an augmented matrix, no ODE solver and no tolerance); a discrete system by its difference equation. A first-order lag's step response matches `1 - exp(-t/tau)` to 2e-15.
+
+- New `lti_series(a, b)`, `lti_parallel(a, b)` and `lti_feedback(plant, [controller], [sign=-1])` connect systems, and `lti_c2d(sys, dt, [method])` (`"zoh"`, `"tustin"`, `"euler"`, `"backward"`) and `lti_d2c(sys, [method])` (`"zoh"`, `"tustin"`) convert between continuous and discrete time.
+
+- New `lti_bode(sys, [w])`, returning `{w, mag_db, phase_deg}` with the phase unwrapped, and `lti_margin(sys)`, returning the gain and phase margins of a loop and the frequencies they are measured at. For `1/(s(s+1)(s+2))` the gain margin is 6 (15.56 dB) at `sqrt(2)` rad/s. A filter model from `butter`, `fir1` and the other designers can be passed to any `lti_` function as a discrete system.
+
 - `filtfilt` now raises an error when the signal is no longer than the padding the filter needs at each end (`3*(2*sections+1)` for an IIR design, `3*taps` for an FIR), as SciPy does. It used to return finite but meaningless numbers for such a signal. The message gives both numbers.
 
 - The VS Code plugin restarts `qu lsp` if it exits unexpectedly (after 1, 2 and 4 seconds, at most three times a minute), instead of leaving hover and completion off until the window is reloaded.

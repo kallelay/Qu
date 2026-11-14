@@ -2295,16 +2295,16 @@ function App() {
   // Browser side: HTML5 drops of FILES (a plain browser tab during
   // `npm run dev`, or a webview whose native drop handling is switched
   // off). Text drags are left alone so Monaco keeps handling those itself.
+  const dropDepth = useRef(0);
   useEffect(() => {
-    let depth = 0;
     const hasFiles = (e: DragEvent) => !!e.dataTransfer && Array.from(e.dataTransfer.types || []).includes('Files');
-    const onEnter = (e: DragEvent) => { if (hasFiles(e)) { depth++; setDropActive(true); } };
+    const onEnter = (e: DragEvent) => { if (hasFiles(e)) { dropDepth.current++; setDropActive(true); } };
     const onOver = (e: DragEvent) => { if (hasFiles(e)) { e.preventDefault(); if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy'; } };
-    const onLeave = (e: DragEvent) => { if (hasFiles(e)) { depth = Math.max(0, depth - 1); if (depth === 0) setDropActive(false); } };
+    const onLeave = (e: DragEvent) => { if (hasFiles(e)) { dropDepth.current = Math.max(0, dropDepth.current - 1); if (dropDepth.current === 0) setDropActive(false); } };
     const onDrop = (e: DragEvent) => {
       if (!hasFiles(e)) return;
       e.preventDefault();
-      depth = 0;
+      dropDepth.current = 0;
       setDropActive(false);
       // The native handler already took this drop (it fires first).
       if (Date.now() - lastNativeDrop.current < 600) return;
@@ -2321,6 +2321,33 @@ function App() {
       window.removeEventListener('drop', onDrop);
     };
   }, []);
+
+  // The window cannot always tell that a drag ended: a drag that leaves it
+  // quickly or is cancelled may send no leave/cancel event, which used to leave
+  // the "Drop to open" overlay stuck on screen. While it is showing, any of
+  // these clears it: Esc, a click, the pointer moving again (the OS delivers no
+  // pointer events during a real drag, so one means the drag is over; a short
+  // grace period skips the one that can arrive as the drag begins), or 15 s.
+  const dismissDrop = useCallback(() => {
+    dropDepth.current = 0;
+    setDropActive(false);
+  }, []);
+  useEffect(() => {
+    if (!dropActive) return;
+    const since = Date.now();
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') dismissDrop(); };
+    const onMove = () => { if (Date.now() - since > 400) dismissDrop(); };
+    window.addEventListener('keydown', onKey, true);
+    window.addEventListener('pointermove', onMove, true);
+    window.addEventListener('pointerdown', dismissDrop, true);
+    const failsafe = window.setTimeout(dismissDrop, 15000);
+    return () => {
+      window.removeEventListener('keydown', onKey, true);
+      window.removeEventListener('pointermove', onMove, true);
+      window.removeEventListener('pointerdown', dismissDrop, true);
+      window.clearTimeout(failsafe);
+    };
+  }, [dropActive, dismissDrop]);
 
   const openSvgSource = useCallback((tab: FileTab) => {
     openOrFocusTab({ id: `source:${tab.id}`, name: `${tab.name} (source)`, path: tab.path, content: tab.content });
@@ -3432,7 +3459,7 @@ function App() {
         <LlmBackendToast note={lastLlmBackendNote} onDone={() => setLastLlmBackendNote(null)} theme={resolvedTheme as 'light' | 'dark'} />
       )}
 
-      <DropOverlay visible={dropActive} />
+      <DropOverlay visible={dropActive} onDismiss={dismissDrop} />
       <ToastStack toasts={toasts} onDismiss={dismissToast} />
 
       <CommandPalette

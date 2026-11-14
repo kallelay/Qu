@@ -184,6 +184,7 @@ pub(crate) mod fit_stats;
 pub mod multivariate;
 pub mod native_ops;
 pub mod sparse_ops;
+pub mod lti_ops;
 mod basics_ops;
 #[cfg(any(feature = "docx", feature = "pptx", feature = "xlsx"))]
 pub mod office_ops;
@@ -33061,13 +33062,31 @@ self.eval_grad(loss, wrt)
                     return e("spectrogram: not enough samples for even one frame");
                 }
                 const FLOOR_DB: f64 = -120.0;
-                let idx_err = |se: qu_core::matrix::ShapeError| EvalError { msg: se.to_string() };
+                // dB straight from the column-major data, in storage order:
+                // 20*log10(max(|z|, 1e-10)) is 10*log10(max(|z|^2, 1e-20)), so
+                // the square root (hypot) per element is not needed, and there
+                // is no bounds-checked `get` per element either.
+                // `stft` returns the FULL transform (nfft rows per frame); only
+                // the first n_bins (DC..Nyquist) are kept, so the column stride
+                // is the matrix's row count, not n_bins.
+                let spec = s.as_slice();
+                let stride = s.shape().0;
+                let mut db = vec![0.0; n_bins * n_frames];
+                for c in 0..n_frames {
+                    let col = &spec[c * stride..c * stride + n_bins];
+                    let out = &mut db[c * n_bins..(c + 1) * n_bins];
+                    for (o, z) in out.iter_mut().zip(col.iter()) {
+                        let power = z.re * z.re + z.im * z.im;
+                        *o = (10.0 * power.max(1e-20).log10()).max(FLOOR_DB);
+                    }
+                }
+                // The picture wants row 0 = the highest frequency: the same
+                // numbers with the bin order flipped and rows/columns swapped.
                 let mut values = vec![0.0; n_bins * n_frames];
-                for r in 0..n_bins {
-                    let bin = n_bins - 1 - r;
-                    for c in 0..n_frames {
-                        let mag = s.get(bin, c).map_err(idx_err)?.magnitude();
-                        values[r * n_frames + c] = (20.0 * mag.max(1e-10).log10()).max(FLOOR_DB);
+                for c in 0..n_frames {
+                    let col = &db[c * n_bins..(c + 1) * n_bins];
+                    for (bin, v) in col.iter().enumerate() {
+                        values[(n_bins - 1 - bin) * n_frames + c] = *v;
                     }
                 }
                 let n_row_ticks = 5.min(n_bins);
@@ -33094,12 +33113,6 @@ self.eval_grad(loss, wrt)
                 // for anything that indexes it against `freq`.
                 // Column-major, which is how `Matrix` stores: element
                 // (bin, frame) sits at frame * n_bins + bin.
-                let mut db = vec![0.0; n_bins * n_frames];
-                for bin in 0..n_bins {
-                    for c in 0..n_frames {
-                        db[c * n_bins + bin] = values[(n_bins - 1 - bin) * n_frames + c];
-                    }
-                }
                 let freq: Vec<f64> = (0..n_bins)
                     .map(|b| b as f64 * fs / nfft as f64)
                     .collect();
@@ -35297,6 +35310,9 @@ self.eval_grad(loss, wrt)
                 }
                 Ok(Value::Vec(Arc::new(idx.into_iter().map(|i| i as f64).collect())))
             }
+            // lti_ss/lti_tf/lti_zpk and the rest of the `lti_` family: linear
+            // time-invariant system objects -- see `lti_ops.rs`.
+            f if lti_ops::NAMES.contains(&f) => lti_ops::call(f, &args, &style),
             // atan2/hypot/fix/rem/maximum/minimum/isnan/isinf/isfinite/cumprod/repmat/kron/outer/
             // cross/tril/triu/nnz/lstsq/expm -- see `basics_ops.rs`.
             "atan2" | "hypot" | "fix" | "rem" | "maximum" | "minimum" | "isnan" | "isinf" | "isfinite"
@@ -47071,7 +47087,11 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "load", "load_image", "load_library", "load_model", "load_svg", "log", "log10", "log1p", "log2",
     "logistic_model", "loglog", "logncdf", "lognfit", "logninv", "lognpdf", "lognrnd", "lognstat",
     "logspace", "logsumexp", "low_time", "lower", "lr_adaptive", "lr_plateau", "lse", "lstm_cell",
-    "lstm_forward", "lstm_init", "lstsq", "ltrim", "lu", "mae", "mag2db", "magnitude", "make_file",
+    "lstm_forward", "lstm_init", "lstsq",
+    "lti_bode", "lti_c2d", "lti_d2c", "lti_dcgain", "lti_feedback", "lti_freqresp", "lti_impulse", "lti_is_stable",
+    "lti_lsim", "lti_margin", "lti_parallel", "lti_poles", "lti_series", "lti_ss", "lti_step", "lti_tf",
+    "lti_to_ss", "lti_to_tf", "lti_to_zpk", "lti_zeros", "lti_zpk",
+    "ltrim", "lu", "mae", "mag2db", "magnitude", "make_file",
     "map", "markers", "markov_chain", "matlab_exec", "matmul", "max", "maximum", "maxpool2d",
     "md2html", "mean", "measure_snr", "medfilt", "medfilt2", "median", "median_filter",
     "mel_spectrogram", "mem_usage", "meshgrid", "metadata", "mid", "min", "minimize", "minimum",

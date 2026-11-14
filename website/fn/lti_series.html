@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>lti_series — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>lti_series</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/signal-processing.html">Signal processing</a></p>
+<pre class="fnsig">result = <code>lti_series(a, b)</code></pre>
+<p class="fnnote">Input: a, b &middot; Output: result</p>
+<h2>What it is</h2>
+<p>No chapter describes this one yet. It exists -- the name comes from the interpreter's own table -- but the prose has not been written. That is a gap in the documentation, not in the engine.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = lti_series(a, b)</code></td><td><div class="ioitem"><code>a</code> <span class="iotype">&mdash;</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>b</code> <span class="iotype">&mdash;</span><span class="iogap">not documented yet</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">number</span></div>
+</td><td>Returns the cascade <code>u -&gt; a -&gt; b -&gt; y</code> as an <code>"lti"</code> model in state-space form (the transfer function <code>b * a</code>). The number of outputs of <code>a</code> must equal the number of inputs of <code>b</code>, and both must be continuous or share one <code>dt</code>. A number stands for a static gain.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example hasout"><pre class="hl"><code>plant = <span class="f">lti_tf</span>([<span class="n">1</span>], [<span class="n">1</span>, <span class="n">3</span>, <span class="n">2</span>, <span class="n">0</span>])             <span class="c"># 1 / (s (s+1) (s+2))</span>
+m = <span class="f">lti_margin</span>(plant)
+<span class="f">print</span>(<span class="s">"{m.gm} at {m.w_gm} rad/s"</span>)             <span class="c"># 6 at 1.414214 rad/s</span>
+closed = <span class="f">lti_feedback</span>(<span class="f">lti_series</span>(<span class="n">2</span>, plant))    <span class="c"># gain 2, unity negative feedback</span>
+<span class="f">print</span>(<span class="f">lti_is_stable</span>(closed))                   <span class="c"># true</span>
+r = <span class="f">lti_step</span>(closed, <span class="n">20</span>)
+<span class="f">print</span>(r.y[<span class="f">len</span>(r.y) - <span class="n">1</span>])                       <span class="c"># 1.006126</span>
+d = <span class="f">lti_c2d</span>(<span class="f">lti_tf</span>([<span class="n">1</span>], [<span class="n">0.5</span>, <span class="n">1</span>]), <span class="n">0.1</span>)        <span class="c"># first-order lag, tau = 0.5</span>
+<span class="f">print</span>(d.A)                                     <span class="c"># [0.818731], exp(-0.1/0.5)</span>
+</code></pre>
+<div class="out"><span class="lbl">output</span><pre>6 at 1.414214 rad/s
+true
+1.006126
+[0.818731]</pre></div></div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.3.0 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

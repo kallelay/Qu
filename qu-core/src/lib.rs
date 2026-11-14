@@ -43,6 +43,7 @@ pub mod filter_design;
 pub mod geometry;
 pub mod linalg;
 pub mod lse;
+pub mod lti;
 /// SINAD/SNR/THD/SFDR/ENOB from a sampled record — the bridge from a
 /// crest factor to the converter resolution it costs.
 pub mod sinad;
