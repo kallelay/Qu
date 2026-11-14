@@ -20,7 +20,7 @@ qu-interp = { path = "../qu-interp" }
 # Jupyter clients (jupyterlab, VS Code's Jupyter extension) because ZMTP is a
 # wire protocol, not an ABI — they don't know or care which implementation is
 # on the other end of the socket.
-zeromq = { version = "0.6", default-features = false, features = ["tokio-runtime", "tcp-transport"] }
+zeromq = { version = "0.7", default-features = false, features = ["tokio-runtime", "tcp-transport"] }
 tokio = { version = "1", features = ["rt", "rt-multi-thread", "macros", "sync", "time", "signal"] }
 bytes = "1"
 # `StreamExt` for `stdin_sock.monitor()`'s event stream (`zeromq` already
