@@ -44,7 +44,30 @@
 </td><td><span class="ionone">not documented yet</span></td><td>Mean and variance of the hypergeometric distribution with these parameters, as a result with fields <code>.mean</code> and <code>.var</code>. Added in v0.4.4.</td></tr>
 </table></div>
 <h3>Examples</h3>
-<p class="fnnote">No documentation example calls this form yet. The <a href="../docs/statistics-ml.html">Statistics & ML</a> chapter is where one belongs.</p>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example hasout"><pre class="hl"><code><span class="f">print</span>(<span class="s">"geo = nbin(r=1): {geopdf(3, 0.2)} {nbinpdf(3, 1, 0.2)}"</span>)
+<span class="f">print</span>(<span class="s">"bern = bino(n=1): {bernpdf(1, 0.3)} {binopdf(1, 1, 0.3)}"</span>)
+<span class="f">print</span>(<span class="s">"chi2 = gam(k/2, 2): {chi2cdf(4.5, 3)} {gamcdf(4.5, 1.5, 2)}"</span>)
+<span class="f">print</span>(<span class="s">"exp = gam(1, mu): {expcdf(2, 3)} {gamcdf(2, 1, 3)}"</span>)
+<span class="f">print</span>(<span class="s">"bino -&gt; poiss: {binocdf(3, 10000, 0.0004)} vs {poisscdf(3, 4)}"</span>)
+
+s = <span class="f">hygestat</span>(<span class="n">50</span>, <span class="n">10</span>, <span class="n">12</span>)
+<span class="f">print</span>(<span class="s">"hypergeometric mean {s.mean}, variance {round(s.var, 4)}"</span>)
+
+x = <span class="f">gamrnd</span>(<span class="n">2.5</span>, <span class="n">1.5</span>, <span class="n">5000</span>, <span class="n">1</span>, <span class="a">seed</span> = <span class="n">7</span>)
+g = <span class="f">gamfit</span>(x)
+<span class="f">print</span>(<span class="s">"gamfit: a = {round(g.a, 2)}, b = {round(g.b, 2)}, loglik = {round(g.loglik, 1)}"</span>)
+k = <span class="f">binoinv</span>(<span class="n">0.95</span>, <span class="n">20</span>, <span class="n">0.3</span>)
+<span class="f">print</span>(<span class="s">"95% of Binomial(20, 0.3) draws are &lt;= {k}: binocdf = {round(binocdf(k, 20, 0.3), 4)}"</span>)
+</code></pre>
+<div class="out"><span class="lbl">output</span><pre>geo = nbin(r=1): 0.1024 0.1024
+bern = bino(n=1): 0.3 0.3
+chi2 = gam(k/2, 2): 0.78771 0.78771
+exp = gam(1, mu): 0.486583 0.486583
+bino -&gt; poiss: 0.433431 vs 0.43347
+hypergeometric mean 2.4, variance 1.489
+gamfit: a = 2.55, b = 1.47, loglik = -10647.1
+95% of Binomial(20, 0.3) draws are &lt;= 9: binocdf = 0.952</pre></div></div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
 </main>
 </div>
 <footer><div class="wrap">

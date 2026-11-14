@@ -44,11 +44,6 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example"><pre class="hl"><code><span class="c"># `grid` does not depend on `p`, so building it per call is waste.</span>
-grid   = <span class="f">outer</span>(f, t)            <span class="c"># K x N, built ONCE</span>
-<span class="f">shape</span>(p) := <span class="f">sum</span>(A .* <span class="f">cos</span>(grid + p), <span class="a">axis</span> = <span class="n">0</span>)
-</code></pre>
-</div><p class="fnfrom">from <a href="../docs/numerics-dsp.html">numerics-dsp</a></p>
 <div class="example hasout"><pre class="hl"><code>N = <span class="n">8</span>
 n = <span class="n">0</span> <span class="k">to</span> N - <span class="n">1</span>
 x = <span class="f">cos</span>(<span class="n">2</span> * pi * <span class="n">2</span> * n / N)     <span class="c"># a pure tone at bin 2</span>
@@ -56,6 +51,11 @@ X = <span class="f">fft</span>(x, N)
 <span class="f">print</span>(<span class="s">"mag = {abs(X)}"</span>)
 </code></pre>
 <div class="out"><span class="lbl">output</span><pre>mag = [2.449294e-16, 3.463824e-16, 4, 3.463824e-16, 2.449294e-16, 3.463824e-16, 4, 3.463824e-16]</pre></div></div><p class="fnfrom">from <a href="../docs/numerics-dsp.html">numerics-dsp</a></p>
+<div class="example"><pre class="hl"><code><span class="c"># `grid` does not depend on `p`, so building it per call is waste.</span>
+grid   = <span class="f">outer</span>(f, t)            <span class="c"># K x N, built ONCE</span>
+<span class="f">shape</span>(p) := <span class="f">sum</span>(A .* <span class="f">cos</span>(grid + p), <span class="a">axis</span> = <span class="n">0</span>)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/numerics-dsp.html">numerics-dsp</a></p>
 <div class="example"><pre class="hl"><code>K = <span class="n">4</span>
 N = <span class="n">64</span>
 Fs = <span class="n">64</span>

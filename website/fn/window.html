@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>window — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>window</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/signal-processing.html">Signal processing</a></p>
+<pre class="fnsig">result = <code>window(name, n, [sym=true], [beta=], [alpha=0.5], [std=])</code></pre>
+<p class="fnnote">Input: name, n, sym, beta, alpha, std &middot; Output: result</p>
+<h2>What it is</h2>
+<p><code>name</code>: string, one of <code>"hann"</code> (or <code>"hanning"</code>), <code>"hamming"</code>, <code>"blackman"</code>, <code>"kaiser"</code> (needs <code>beta=</code>), <code>"rect"</code> (or <code>"rectangular"</code>, <code>"boxcar"</code>), <code>"bartlett"</code> (triangle, zero at both ends), <code>"tukey"</code> (cosine taper over the fraction <code>alpha=</code> of the window, default <code>0.5</code>; <code>0</code> is rectangular, <code>1</code> is Hann), <code>"gaussian"</code> (needs <code>std=</code>, the standard deviation in samples), <code>"blackmanharris"</code> (4-term Blackman-Harris), <code>"nuttall"</code> (Nuttall's 4-term) and <code>"flattop"</code> (5-term, for amplitude accuracy; slightly negative near the ends); <code>n</code>: number (length); <code>sym</code> (optional bool, positional or <code>sym=</code>): <code>true</code> (default) gives the symmetric window, the one for filter design (<code>window("hann", 5)</code> is <code>[0, 0.5, 1, 0.5, 0]</code>); <code>false</code> gives the periodic window, the one for spectral analysis: the symmetric window of length <code>n+1</code> without its last sample (<code>window("hann", 4, sym=false)</code> is <code>[0, 0.5, 1, 0.5]</code>).</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = window(name, n, [sym=true], [beta=], [alpha=0.5], [std=])</code></td><td><div class="ioitem"><code>name</code> <span class="iotype">string</span><span class="iodesc"><code>name</code>: string, one of <code>"hann"</code> (or <code>"hanning"</code>), <code>"hamming"</code>, <code>"blackman"</code>, <code>"kaiser"</code> (needs <code>beta=</code>), <code>"rect"</code> (or <code>"rectangular"</code>, <code>"boxcar"</code>), <code>"bartlett"</code> (triangle, zero at both ends), <code>"tukey"</code> (cosine taper over the fraction <code>alpha=</code> of the window, default <code>0.5</code>.</span></div>
+<div class="ioitem"><code>n</code> <span class="iotype">number</span><span class="iodesc"><code>n</code>: number (length).</span></div>
+<div class="ioitem"><code>sym</code> <span class="iotype">bool, optional (default <code>true</code>)</span><span class="iodesc"><code>sym</code> (optional bool, positional or <code>sym=</code>): <code>true</code> (default) gives the symmetric window, the one for filter design (<code>window("hann", 5)</code> is <code>[0, 0.5, 1, 0.5, 0]</code>).</span></div>
+<div class="ioitem"><code>beta</code> <span class="iotype">string, optional</span><span class="iodesc"><code>name</code>: string, one of <code>"hann"</code> (or <code>"hanning"</code>), <code>"hamming"</code>, <code>"blackman"</code>, <code>"kaiser"</code> (needs <code>beta=</code>), <code>"rect"</code> (or <code>"rectangular"</code>, <code>"boxcar"</code>), <code>"bartlett"</code> (triangle, zero at both ends), <code>"tukey"</code> (cosine taper over the fraction <code>alpha=</code> of the window, default <code>0.5</code>.</span></div>
+<div class="ioitem"><code>alpha</code> <span class="iotype">string, optional (default <code>0.5</code>)</span><span class="iodesc"><code>name</code>: string, one of <code>"hann"</code> (or <code>"hanning"</code>), <code>"hamming"</code>, <code>"blackman"</code>, <code>"kaiser"</code> (needs <code>beta=</code>), <code>"rect"</code> (or <code>"rectangular"</code>, <code>"boxcar"</code>), <code>"bartlett"</code> (triangle, zero at both ends), <code>"tukey"</code> (cosine taper over the fraction <code>alpha=</code> of the window, default <code>0.5</code>.</span></div>
+<div class="ioitem"><code>std</code> <span class="iotype">optional</span><span class="iodesc"><code>0</code> is rectangular, <code>1</code> is Hann), <code>"gaussian"</code> (needs <code>std=</code>, the standard deviation in samples), <code>"blackmanharris"</code> (4-term Blackman-Harris), <code>"nuttall"</code> (Nuttall's 4-term) and <code>"flattop"</code> (5-term, for amplitude accuracy.</span></div>
+</td><td><div class="ioitem"><code>fir1</code> <span class="iotype">&mdash;</span><span class="iodesc">symmetric</span></div>
+<div class="ioitem"><code>impedance</code> <span class="iotype">&mdash;</span><span class="iodesc">periodic</span></div>
+</td><td>Returns the named window as a length-<code>n</code> real vector. The same names are accepted by <code>window=</code> in <code>fir1</code> (symmetric) and in <code>welch</code>, <code>periodogram</code>, <code>psd</code>, <code>csd</code>, <code>spectrum</code>, <code>spectral_coherence</code>, <code>transfer_function</code> and <code>impedance</code> (periodic), with the window's parameter passed alongside (<code>welch(x, fs, window="tukey", alpha=0.25)</code>). Coefficients are those of MATLAB and SciPy.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">No documentation example calls this form yet. The <a href="../docs/signal-processing.html">Signal processing</a> chapter is where one belongs.</p>
+<h2>How it works</h2>
+<p><code>window(name, n, [sym=true], ...)</code> -- any of the named windows as a vector. <code>sym=true</code> is the symmetric form (filter design), <code>sym=false</code> the periodic one (spectral analysis). The same table <code>fir1</code> and the spectral estimators read their <code>window=</code> from (<code>design_window</code>).</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.3.0 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

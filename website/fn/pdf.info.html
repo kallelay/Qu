@@ -46,7 +46,22 @@
 </td><td>Returns a <code>Record</code> with fields: <code>pages</code> (<code>Num</code>, as <code>pdf.page_count</code>), <code>version</code> (<code>Str</code>, the header version such as <code>"1.6"</code>), <code>title</code>, <code>author</code>, <code>subject</code>, <code>keywords</code>, <code>creator</code>, <code>producer</code> (each <code>Str</code>, <strong>or </strong><code>none</code><strong> where the file's </strong><code>/Info</code> dictionary omits the key — <code>none</code> and <code>""</code> are different answers and this does not merge them), and <code>encrypted</code> (<code>Bool</code>, whether the file carries an <code>/Encrypt</code> dictionary, which explains in advance why another call on it might fail).</td></tr>
 </table></div>
 <h3>Examples</h3>
-<p class="fnnote">No documentation example calls this form yet. The <a href="../docs/file-io.html">File I/O</a> chapter is where one belongs.</p>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example norun"><pre class="hl"><code><span class="k">import</span> pdf
+
+i = pdf.<span class="f">info</span>(<span class="s">"paper.pdf"</span>)
+<span class="f">print</span>(<span class="s">"{i.pages} pages, PDF {i.version}, produced by {i.producer}"</span>)
+
+<span class="c"># Join two files, then take one page out of the result -- no disk in</span>
+<span class="c"># between, because every function also accepts bytes.</span>
+both = pdf.<span class="f">merge</span>([<span class="s">"intro.pdf"</span>, <span class="s">"results.pdf"</span>])
+<span class="f">print</span>(pdf.<span class="f">page_count</span>(both))
+pdf.<span class="f">write_pages</span>(<span class="s">"just_page_3.pdf"</span>, both, <span class="n">3</span>)
+
+<span class="c"># A page range. `1 to 5` is already a Vec, so it just works.</span>
+pdf.<span class="f">write_pages</span>(<span class="s">"front.pdf"</span>, <span class="s">"paper.pdf"</span>, <span class="n">1</span> <span class="k">to</span> <span class="n">5</span>)
+</code></pre>
+</div><p class="fnfrom">not run by the build &mdash; this one needs something the repository cannot supply &middot; from <a href="../docs/file-io.html">file-io</a></p>
 </main>
 </div>
 <footer><div class="wrap">

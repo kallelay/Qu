@@ -43,6 +43,11 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code><span class="k">with</span> image
+    img = .<span class="f">load</span>(<span class="s">"photo.png"</span>) |&gt; .blur |&gt; .<span class="f">sobel</span>(<span class="a">direction</span>=<span class="s">"x"</span>)
+<span class="k">end</span>
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/stdlib-overview.html">stdlib-overview</a></p>
 <div class="example hasout"><pre class="hl"><code><span class="f">write_csv</span>(df, <span class="s">"data.csv"</span>)
 df2 = <span class="f">read_csv</span>(<span class="s">"data.csv"</span>)
 <span class="f">print</span>(df2)

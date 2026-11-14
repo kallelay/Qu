@@ -10,6 +10,24 @@ changes are called out.
 
 ## [Unreleased]
 
+- `filtfilt` now raises an error when the signal is no longer than the padding the filter needs at each end (`3*(2*sections+1)` for an IIR design, `3*taps` for an FIR), as SciPy does. It used to return finite but meaningless numbers for such a signal. The message gives both numbers.
+
+- The VS Code plugin restarts `qu lsp` if it exits unexpectedly (after 1, 2 and 4 seconds, at most three times a minute), instead of leaving hover and completion off until the window is reloaded.
+
+- New `window(name, n, [sym=true])`: the window vector for `"hann"`, `"hamming"`, `"blackman"`, `"kaiser"` (`beta=`), `"rect"`, `"bartlett"`, `"tukey"` (`alpha=`), `"gaussian"` (`std=`), `"blackmanharris"`, `"nuttall"` and `"flattop"`; `sym=false` gives the periodic form. `fir1` and the spectral estimators (`welch`, `periodogram`, `psd`, `csd`, `spectrum`, `spectral_coherence`) accept the same names in `window=`. Existing window names give the same values as before.
+
+- New `remez(order, bands, desired, [weights], [fs])` (also `firpm`): Parks-McClellan equiripple linear-phase FIR design by the Remez exchange algorithm, for even orders (Type I) and odd orders (Type II). The result is a filter model like `fir1`'s and works with `freqz`, `filtfilt`, `fvtool` and `filter_info`. Taps agree with SciPy's `remez` to 1e-6. Antisymmetric designs (Hilbert, differentiator) are reported as not supported.
+
+- New `kaiserord(freqs, amps, dev, [fs])`: Kaiser's estimate of the FIR order and window `beta` for a ripple specification. It returns `{order, beta, wn, kind}` for `fir1(r.order, r.wn, kind=r.kind, window="kaiser", beta=r.beta, fs=fs)`.
+
+- New `buttord`, `cheb1ord`, `cheb2ord` and `ellipord`: `buttord(wp, ws, rp, rs, fs)` returns `{order, wn, kind}`, the lowest filter order that loses at most `rp` dB over the passband and at least `rs` dB over the stopband, with the frequency and band shape to pass to `butter`/`cheby1`/`cheby2`/`ellip`. One edge each is a lowpass or highpass, two each a bandpass or bandstop. Orders and frequencies agree with SciPy; a design at the returned order is checked against its specification with `freqz` for all four families and band shapes.
+
+- Qu Studio: a syntax error caused by an unclosed `(`, `[` or `{` is now marked on the bracket that was never closed. The parser reports it where it finally notices (often the end of the file or a later line), which put the squiggle far from the mistake.
+
+- Qu Studio's Window Functions example skipped the DC bin (`W[1:512]`; Qu slices include both ends), labelled bin numbers as "Normalized Frequency", and a comment in the PSD example said slices were half-open. The example now plots 512 points against a real normalized-frequency axis.
+
+- A check that every built-in Studio template runs and that the plotting ones draw a figure now runs with the engine tests (`qu-cli/tests/studio_templates.rs`), so a broken template fails the build.
+
 - `fvtool` now starts a fresh figure, like `figure()`: whatever was drawn before is kept as its own figure instead of having the 2x2 filter panel merged into it.
 
 - Office files: the `zip` dependency of the OOXML reader is now version 9 (a file entry whose name is not valid UTF-8 is reported as a damaged package entry instead of being used with a lossy name).

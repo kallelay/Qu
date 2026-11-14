@@ -44,7 +44,40 @@
 </td><td>Returns a new <code>Mat</code> of labels, same shape as <code>surface</code>. Added in v0.4.0.</td></tr>
 </table></div>
 <h3>Examples</h3>
-<p class="fnnote">No documentation example calls this form yet. The <a href="../docs/images.html">Images</a> chapter is where one belongs.</p>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example hasout"><pre class="hl"><code><span class="k">import</span> image
+
+<span class="c"># Two overlapping circles -- one connected blob to bwlabel.</span>
+w = <span class="n">21</span>
+h = <span class="n">13</span>
+mask_m = <span class="f">zeros</span>(h, w)
+<span class="k">for</span> y <span class="k">in</span> <span class="n">0</span> <span class="k">to</span> h - <span class="n">1</span>
+  <span class="k">for</span> x <span class="k">in</span> <span class="n">0</span> <span class="k">to</span> w - <span class="n">1</span>
+    in_a = (x - <span class="n">6</span>) ^ <span class="n">2</span> + (y - <span class="n">6</span>) ^ <span class="n">2</span> &lt;= <span class="n">25</span>
+    in_b = (x - <span class="n">14</span>) ^ <span class="n">2</span> + (y - <span class="n">6</span>) ^ <span class="n">2</span> &lt;= <span class="n">25</span>
+    <span class="k">if</span> in_a <span class="k">or</span> in_b
+      mask_m[y, x] = <span class="n">255</span>
+    <span class="k">end</span> <span class="k">if</span>
+  <span class="k">end</span> <span class="k">for</span>
+<span class="k">end</span> <span class="k">for</span>
+mask = <span class="f">image_from_matrix</span>(mask_m)
+
+n_blobs = <span class="f">bwlabel</span>(mask).count
+<span class="f">print</span>(n_blobs)   <span class="c"># 1 -- the two circles are one connected blob</span>
+
+dt = image.<span class="f">distance_transform</span>(mask)
+surface = -dt                 <span class="c"># each circle's own center floods first</span>
+markers = <span class="f">zeros</span>(h, w)
+markers[<span class="n">6</span>, <span class="n">6</span>] = <span class="n">1</span>              <span class="c"># circle A's own center</span>
+markers[<span class="n">6</span>, <span class="n">14</span>] = <span class="n">2</span>             <span class="c"># circle B's own center</span>
+labels = image.<span class="f">watershed</span>(surface, <span class="a">markers</span>=markers)
+
+<span class="f">print</span>(labels[<span class="n">6</span>, <span class="n">2</span>])    <span class="c"># 1 -- deep inside circle A only</span>
+<span class="f">print</span>(labels[<span class="n">6</span>, <span class="n">18</span>])   <span class="c"># 2 -- deep inside circle B only</span>
+</code></pre>
+<div class="out"><span class="lbl">output</span><pre>1
+1
+2</pre></div></div><p class="fnfrom">from <a href="../docs/images.html">images</a></p>
 </main>
 </div>
 <footer><div class="wrap">

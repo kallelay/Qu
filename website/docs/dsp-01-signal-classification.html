@@ -93,7 +93,7 @@
 
 <main class="docmain">
 <h1>Signal Classification</h1>
-<nav class="onthispage"><a href="#s0">The idea</a><a href="#s26">In Qu</a></nav>
+<nav class="onthispage"><a href="#s0">The idea</a><a href="#s26">In Qu</a><a href="#s50">Exercises</a></nav>
 <h2 id="s0">The idea</h2>
 <p>A hospital's cardiac trace and its digital thermometer watch the same patient and disagree, in a precise sense, about what kind of thing a signal is.</p>
 <p>A <strong>signal</strong> is a value that changes along some axis — usually time — and carries information. Two independent questions classify it, and most beginner mistakes come from collapsing them into one.</p>
@@ -427,7 +427,7 @@ dd = (d - <span class="f">flip</span>(d)) / <span class="n">2</span>
 <span class="f">ylabel</span>(<span class="s">"d[n]"</span>)
 </code></pre>
 <div class="out"><span class="lbl">output</span><pre>d  = [0, 0, 0, 1, 0.8, 0.64, 0.512]
-de + do - d, worst: 0.00e0
+de + do - d, worst: 0.00e+00
 · plot: figure 5 (7 points)
 · plot: figure 6 (7 points)
 · plot: figure 7 (7 points)</pre></div><figure class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 600" width="900" height="600" font-family="'Inter', 'Latin Modern Math', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif">
@@ -521,6 +521,10 @@ de + do - d, worst: 0.00e0
 </code></pre>
 <p>The reconstruction is not approximate. Adding the even and odd parts back returns the original bit-for-bit, because the operations involved — sum, scale, negate an index — treat a sum of inputs as the sum of what they do to each input separately.</p>
 <p>That property has a name, and a system that has it, together with one more, can be described completely by a single measurement: what it does to one tap. Lesson 2 makes that measurement.</p>
+<h2 id="s50">Exercises</h2>
+<p>1. Double the quantizer's resolution from 3 bits (<code>q = 2/8</code>) to 4 bits (<code>q = 2/16</code>) on the same 50 Hz tone and re-measure the worst error. <strong>Check:</strong> the error should roughly halve, from 0.0878 to somewhere near 0.049 — a finer step means a smaller worst-case rounding distance, and it should still sit under half the new step, 0.03125.</p>
+<p>2. <code>x = sin(2*pi*50*t) + sin(2*pi*50*sqrt(2)*t)</code> sums two tones whose frequency ratio is irrational. Using only the periodicity definition from this lesson (\(x[n+P] = x[n]\) for a whole-number \(P\)), argue whether this signal is periodic at all, without running anything. <strong>Check:</strong> it is not — a common period would require the two frequencies' ratio to be rational, and \(\sqrt{2}\) is not. It looks periodic on any finite screen anyway, which is exactly the trap this lesson names.</p>
+<p>3. The even/odd decomposition example splits a one-sided decay <code>d</code> into <code>de</code> and <code>dd</code>. Is <code>de</code> (the even part alone) an energy signal or a power signal, in the sense this lesson defines those terms? Compute whichever measure you think applies. <strong>Check:</strong> <code>de</code> is a finite, seven-sample vector with no ongoing infinite tail, so it is an energy signal — <code>energy(de)</code> should return a specific finite number (about 1.66 for the values in this lesson), while a power signal's power over a genuinely infinite extent would not converge to something <code>energy()</code> could answer.</p>
 </main>
 </div>
 <footer><div class="wrap">

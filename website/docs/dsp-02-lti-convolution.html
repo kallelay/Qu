@@ -93,7 +93,7 @@
 
 <main class="docmain">
 <h1>LTI Systems and Convolution</h1>
-<nav class="onthispage"><a href="#s0">The idea</a><a href="#s26">In Qu</a></nav>
+<nav class="onthispage"><a href="#s0">The idea</a><a href="#s26">In Qu</a><a href="#s50">Exercises</a></nav>
 <h2 id="s0">The idea</h2>
 <p>A concrete stairwell returns more than the clap sent into it — copies of that same clap, delayed and shrunk by each wall. Talk in the stairwell instead, and every syllable gets the identical treatment.</p>
 <p>A <strong>system</strong> takes a signal in and returns a signal out: a stairwell, a microphone, a moving average, a car suspension. Two properties, independent of each other, decide whether that system is tractable.</p>
@@ -466,7 +466,7 @@ yr = <span class="f">room</span>(r)
 <span class="f">print</span>(<span class="s">"time invariance, worst difference: {max(abs(yr[7:19] - yp[0:12])):.2e}"</span>)
 </code></pre>
 <div class="out"><span class="lbl">output</span><pre>linearity, worst difference: 4.44e-16
-time invariance, worst difference: 0.00e0</pre></div></div>
+time invariance, worst difference: 0.00e+00</pre></div></div>
 <pre><code>linearity, worst difference: 4.44e-16
 time invariance, worst difference: 0.00e0
 </code></pre>
@@ -718,6 +718,10 @@ through the room:  worst difference: 1.03e-13</pre></div></div>
 through the room:  worst difference: 1.03e-13
 </code></pre>
 <p>A 900 Hz tone and a 100 Hz tone, sampled at 1000 Hz, are the same sequence with a minus sign — not similar, identical to thirteen decimal places. The room, behaving perfectly, returns one answer for two completely different sounds, and no processing afterwards can recover which one arrived. Convolution did nothing wrong here. The damage happened earlier, in the act of turning a wave into a list — which is exactly what Lesson 3 examines.</p>
+<h2 id="s50">Exercises</h2>
+<p>1. Replace the kernel <code>g = [0.5, 1, 0.5]</code> with a plain three-tap moving average <code>g = [1, 1, 1]</code> and hand-compute <code>y[3]</code> the same way the lesson does, then compare against <code>conv(xs, g)</code>. <strong>Check:</strong> by hand, <code>y[3] = xs[3]*g[0] + xs[2]*g[1] + xs[1]*g[2] = 4 + 3 + 2 = 9</code>, and <code>conv(xs, g)</code> should agree at that position.</p>
+<p>2. What does convolving any signal with the single-tap kernel <code>[1]</code> do? Predict it from the convolution sum before running anything, then check with <code>conv(xs, [1])</code>. <strong>Check:</strong> it returns <code>xs</code> unchanged — the sum collapses to one term, <code>y[n] = x[n] * 1</code>, which is the identity system. Every LTI system's impulse response describes what it does to a click, and <code>[1]</code>'s click passes straight through.</p>
+<p>3. <code>room()</code> is LTI, so linearity guarantees <code>room(high) + room(low) = room(high + low)</code>. The lesson already measured the left side (both terms individually processed, then summed) at a worst difference of about <code>1e-13</code> from zero. Using only that fact and the aliasing result two paragraphs above it (<code>high + low</code> is itself close to zero before any processing), what should <code>room(high + low)</code> alone come out to, without running it? <strong>Check:</strong> also close to zero, by linearity applied to an input that is already close to zero — <code>room</code> of a nearly-silent input is nearly silent output. If your answer required actually running <code>room(high + low)</code> to be sure, the linearity argument didn't do its job.</p>
 </main>
 </div>
 <footer><div class="wrap">

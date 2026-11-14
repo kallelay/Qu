@@ -43,7 +43,31 @@
 </td><td>Returns a new binary <code>Image</code>. Added in v0.4.0.</td></tr>
 </table></div>
 <h3>Examples</h3>
-<p class="fnnote">No documentation example calls this form yet. The <a href="../docs/images.html">Images</a> chapter is where one belongs.</p>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example hasout"><pre class="hl"><code><span class="c"># disk(1) is a plus shape, not a 3x3 square: eroding a 1-pixel-wide plus</span>
+<span class="c"># with the radius-implied square wipes it out completely, but a disk SE</span>
+<span class="c"># of the same radius exactly matches the plus's own footprint and leaves</span>
+<span class="c"># its center pixel standing.</span>
+plus = <span class="f">image_from_matrix</span>([<span class="n">0</span>,<span class="n">0</span>,<span class="n">0</span>,<span class="n">0</span>,<span class="n">0</span>; <span class="n">0</span>,<span class="n">0</span>,<span class="n">255</span>,<span class="n">0</span>,<span class="n">0</span>; <span class="n">0</span>,<span class="n">255</span>,<span class="n">255</span>,<span class="n">255</span>,<span class="n">0</span>; <span class="n">0</span>,<span class="n">0</span>,<span class="n">255</span>,<span class="n">0</span>,<span class="n">0</span>; <span class="n">0</span>,<span class="n">0</span>,<span class="n">0</span>,<span class="n">0</span>,<span class="n">0</span>])
+square_eroded = <span class="f">imerode</span>(plus, <span class="n">1</span>)
+<span class="f">print</span>(<span class="f">imhist</span>(square_eroded, <span class="a">n_bins</span>=<span class="n">2</span>))   <span class="c"># [25, 0] -- wiped out entirely</span>
+
+se = <span class="f">disk</span>(<span class="n">1</span>)
+disk_eroded = <span class="f">imerode</span>(plus, <span class="a">se</span>=se)
+<span class="f">print</span>(<span class="f">imhist</span>(disk_eroded, <span class="a">n_bins</span>=<span class="n">2</span>))     <span class="c"># [24, 1] -- only the center pixel survives</span>
+
+<span class="c"># hit_miss isolating the top-left corner of a solid 3x3 square: fg</span>
+<span class="c"># requires self/east/south/south-east foreground, bg requires</span>
+<span class="c"># west/north/north-west background -- true only at the one corner pixel.</span>
+sq = <span class="f">image_from_matrix</span>([<span class="n">0</span>,<span class="n">0</span>,<span class="n">0</span>,<span class="n">0</span>,<span class="n">0</span>; <span class="n">0</span>,<span class="n">255</span>,<span class="n">255</span>,<span class="n">255</span>,<span class="n">0</span>; <span class="n">0</span>,<span class="n">255</span>,<span class="n">255</span>,<span class="n">255</span>,<span class="n">0</span>; <span class="n">0</span>,<span class="n">255</span>,<span class="n">255</span>,<span class="n">255</span>,<span class="n">0</span>; <span class="n">0</span>,<span class="n">0</span>,<span class="n">0</span>,<span class="n">0</span>,<span class="n">0</span>])
+fg = <span class="f">image_from_matrix</span>([<span class="n">0</span>,<span class="n">0</span>,<span class="n">0</span>; <span class="n">0</span>,<span class="n">255</span>,<span class="n">255</span>; <span class="n">0</span>,<span class="n">255</span>,<span class="n">255</span>])
+bg = <span class="f">image_from_matrix</span>([<span class="n">255</span>,<span class="n">255</span>,<span class="n">0</span>; <span class="n">255</span>,<span class="n">0</span>,<span class="n">0</span>; <span class="n">0</span>,<span class="n">0</span>,<span class="n">0</span>])
+corner = <span class="f">hit_miss</span>(sq, fg, bg)
+<span class="f">print</span>(<span class="f">imhist</span>(corner, <span class="a">n_bins</span>=<span class="n">2</span>))          <span class="c"># [24, 1] -- exactly one corner pixel found</span>
+</code></pre>
+<div class="out"><span class="lbl">output</span><pre>[25, 0]
+[24, 1]
+[24, 1]</pre></div></div><p class="fnfrom">from <a href="../docs/images.html">images</a></p>
 <h2>How it works</h2>
 <p><code>disk(radius)</code> / <code>line(length, angle_degrees)</code> — structuring- element constructors (§ SE/hit-miss/watershed pass, 2026-09-25). Neither takes an image at all: both build a small binary-mask <code>Image</code> (the same "a mask is just a bool image" convention <code>docs/design/toolkit-image.md</code> §2 uses) a script can <code>imshow</code> directly, or pass as <code>se=</code>/<code>se_fg</code>/ <code>se_bg</code> to the morphology builtins above. See <code>image::Image::disk_offsets</code>/<code>line_offsets</code>'s own doc comments for the exact shape each produces.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

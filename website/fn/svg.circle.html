@@ -49,10 +49,26 @@
 </td><td>Returns a <code>Record</code> with fields <code>kind</code>, <code>cx</code>, <code>cy</code>, <code>r</code> and the four styling fields. Added in v0.3.0.</td></tr>
 </table></div>
 <h3>Examples</h3>
-<p class="fnnote">No documentation example calls this form yet. The <a href="../docs/images.html">Images</a> chapter is where one belongs.</p>
-<h2>How it works</h2>
-<p>Same shape again for <code>svg</code>, minus the <code>cfg</code> -- this module is always compiled in (see <code>native_module</code>). These names are reachable ONLY qualified as <code>svg.rect(...)</code> etc.: three of the five (<code>rect</code>, <code>text</code>, and <code>circle</code> via plotting) already exist as unrelated top-level drawing builtins, so <code>import svg</code> + a bare <code>rect(...)</code> is deliberately the "ambiguous, qualify it" error <code>open_module_name</code> raises -- exactly as <code>image</code> already collides on <code>regions</code>/<code>blur</code>.</p>
-<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code><span class="k">import</span> svg
+
+shapes = [
+  svg.<span class="f">rect</span>(<span class="n">10</span>, <span class="n">10</span>, <span class="n">100</span>, <span class="n">50</span>, <span class="a">fill</span> = <span class="s">"#e74c3c"</span>),
+  svg.<span class="f">circle</span>(<span class="n">200</span>, <span class="n">60</span>, <span class="n">40</span>, <span class="a">fill</span> = <span class="s">"#3498db"</span>, <span class="a">stroke</span> = <span class="s">"#000000"</span>, <span class="a">stroke_width</span> = <span class="n">2</span>),
+  svg.<span class="f">line</span>(<span class="n">0</span>, <span class="n">0</span>, <span class="n">300</span>, <span class="n">120</span>, <span class="a">stroke</span> = <span class="s">"#333333"</span>, <span class="a">stroke_width</span> = <span class="n">1.5</span>),
+  svg.<span class="f">path</span>(<span class="s">"M 10 100 L 60 40 L 110 100 Z"</span>, <span class="a">stroke</span> = <span class="s">"#2ecc71"</span>, <span class="a">stroke_width</span> = <span class="n">2</span>),
+  svg.<span class="f">text</span>(<span class="n">20</span>, <span class="n">150</span>, <span class="s">"R&amp;D output"</span>, <span class="a">font_size</span> = <span class="n">16</span>, <span class="a">fill</span> = <span class="s">"#111111"</span>)
+]
+
+<span class="f">save_svg</span>(<span class="s">"drawing.svg"</span>, shapes, <span class="a">width</span> = <span class="n">320</span>, <span class="a">height</span> = <span class="n">180</span>)
+
+doc = <span class="f">load_svg</span>(<span class="s">"drawing.svg"</span>)
+<span class="f">print</span>(doc.width)             <span class="c"># 320</span>
+<span class="f">print</span>(<span class="f">len</span>(doc.shapes))       <span class="c"># 5</span>
+<span class="f">print</span>(doc.shapes[<span class="n">1</span>].kind)    <span class="c"># circle</span>
+<span class="f">print</span>(doc.shapes[<span class="n">1</span>].r)       <span class="c"># 40</span>
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/images.html">images</a></p>
 </main>
 </div>
 <footer><div class="wrap">

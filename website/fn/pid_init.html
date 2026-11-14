@@ -51,7 +51,28 @@
 </td><td>Returns a <code>Model</code> (kind <code>"pid"</code>) with fields <code>kp</code>, <code>ki</code>, <code>kd</code>, <code>dt</code>, <code>integral</code> (the running sum, 0), <code>e_prev</code> (the previous error, 0), <code>u</code> (the last output, 0) and <code>integral_clamp</code> (the limit, or <code>Nothing</code>). State is immutable, the same convention <code>kalman_init</code>/<code>lms_init</code> use: thread the value returned by <code>.update(error)</code> through successive calls rather than mutating in place, so the whole control trajectory stays available. The gains are deliberately <strong>not</strong> range-checked — a negative gain is correct for a sign-inverted plant, and whether a triple is stable is a property of the plant, which <code>pid_init</code> has not seen. Added in v0.3.0.</td></tr>
 </table></div>
 <h3>Examples</h3>
-<p class="fnnote">No documentation example calls this form yet. The <a href="../docs/signal-processing.html">Signal processing</a> chapter is where one belongs.</p>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code>s = <span class="f">pid_init</span>(<span class="n">2.0</span>, <span class="n">1.5</span>, <span class="n">0.1</span>, <span class="n">0.05</span>, <span class="a">integral_clamp</span> = <span class="n">2.0</span>)   <span class="c"># |integral| &lt;= 2.0</span>
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
+<div class="example hasout"><pre class="hl"><code>setpoint = <span class="n">1.0</span>
+tau = <span class="n">1.2</span>
+K   = <span class="n">2.0</span>
+dt  = <span class="n">0.05</span>
+s   = <span class="f">pid_init</span>(<span class="n">2.0</span>, <span class="n">1.5</span>, <span class="n">0.1</span>, dt)
+plant_y = <span class="n">0.0</span>
+<span class="k">for</span> k = <span class="n">0</span> <span class="k">to</span> <span class="n">199</span>
+    err = setpoint - plant_y
+    s   = s.<span class="f">update</span>(err)                              <span class="c"># new state, `.u` is the output</span>
+    plant_y = plant_y + (K*s.u - plant_y)/tau * dt   <span class="c"># the caller applies it</span>
+<span class="k">end</span> <span class="k">for</span>
+<span class="f">print</span>(<span class="s">"final = {plant_y}"</span>)        <span class="c"># final = 0.999975  (1.0000)</span>
+<span class="f">print</span>(<span class="s">"u = {s.u}"</span>)                <span class="c"># u = 0.499998  -- K*u = setpoint, as it must be</span>
+<span class="f">print</span>(<span class="s">"integral = {s.integral}"</span>)  <span class="c"># integral = 0.333299  -- u/Ki</span>
+</code></pre>
+<div class="out"><span class="lbl">output</span><pre>final = 0.999975
+u = 0.499998
+integral = 0.333299</pre></div></div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
 <h2>How it works</h2>
 <p>A discrete PID controller, on the SAME immutable <code>Value::Model</code> state handle as <code>kalman_init</code>/<code>lms_init</code> (kind <code>"pid"</code>) and reached through the SAME shared <code>"update"</code> arm — not a parallel mechanism. The reason is the one <code>lms_init</code> gives: a controller's whole diagnostic value is the trajectory of its integral term and its output, and an in-place update destroys exactly that history. <code>pid_init(Kp, Ki, Kd, dt, [integral_clamp=])</code> — gains, the fixed sample period <code>dt</code>, and an optional anti-windup limit. Fields: <code>kp</code>/<code>ki</code>/<code>kd</code>/<code>dt</code> (the configuration, echoed back so a state is self-describing), <code>integral</code> (the running sum <code>sum(e[i]*dt)</code>, 0), <code>e_prev</code> (the previous error, 0), <code>u</code> (the last output, 0) and <code>integral_clamp</code> (the limit, or <code>Nothing</code> when uncapped). <code>e_prev</code> starts at 0, so the first <code>.update(e)</code> sees a derivative of <code>e/dt</code>. That is the textbook definition of the recursion (<code>u[k] = Kp*e[k] + Ki*sum(e[i]*dt) + Kd*(e[k]-e[k-1])/dt</code> with <code>e[-1] = 0</code>) and is deliberate: a step applied at <code>k = 0</code> genuinely IS a step, and suppressing the first derivative kick would silently change the response the gains were tuned against. <code>dt</code> must be positive — it divides into the derivative term and multiplies into the integral one, so <code>dt = 0</code> is not a degenerate-but-usable case, it is a division by zero. The gains themselves are NOT range-checked: a negative gain is legitimate for a plant with inverted sign, and whether a given triple is stable is a property of the plant, which <code>pid_init</code> has not seen.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

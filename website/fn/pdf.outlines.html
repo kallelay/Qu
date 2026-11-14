@@ -42,7 +42,20 @@
 </td><td><span class="ionone">not documented yet</span></td><td>The document's bookmark/outline tree, flattened into a <code>Table</code> — one row per entry, depth-first. Columns: <code>index</code> (the row's own position, and the handle <code>parent=</code> below takes), <code>level</code> (<code>Num</code>, 0 for a top-level entry), <code>parent_index</code> (<code>Num</code>, the <code>index</code> of the entry this one is nested under, or <code>-1</code> for a top-level entry), <code>title</code> (<code>Str</code>), and <code>page_index</code> (<code>Num</code>, one-based, or <code>NaN</code> where the entry's destination is not a direct page reference this reads — a named destination or a non-<code>GoTo</code> action). An empty <code>Table</code> (zero rows), not an error, for a PDF with no outlines.</td></tr>
 </table></div>
 <h3>Examples</h3>
-<p class="fnnote">No documentation example calls this form yet. The <a href="../docs/file-io.html">File I/O</a> chapter is where one belongs.</p>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example norun"><pre class="hl"><code><span class="k">import</span> pdf
+
+doc = pdf.<span class="f">merge</span>([<span class="s">"intro.pdf"</span>, <span class="s">"results.pdf"</span>])
+doc = pdf.<span class="f">add_bookmark</span>(doc, <span class="s">"Introduction"</span>, <span class="n">1</span>)
+doc = pdf.<span class="f">add_bookmark</span>(doc, <span class="s">"Results"</span>, <span class="n">3</span>)
+rows = pdf.<span class="f">outlines</span>(doc)
+<span class="f">print</span>(rows)  <span class="c"># index, level, parent_index, title, page_index</span>
+
+doc = pdf.<span class="f">add_annotation</span>(doc, <span class="n">1</span>, <span class="a">type</span> = <span class="s">"Text"</span>, <span class="a">rect</span> = [<span class="n">10</span>, <span class="n">10</span>, <span class="n">200</span>, <span class="n">40</span>], <span class="a">text</span> = <span class="s">"draft"</span>)
+doc = pdf.<span class="f">add_attachment</span>(doc, <span class="s">"notes.txt"</span>, <span class="s">"notes.txt"</span>)
+pdf.<span class="f">write_pages</span>(<span class="s">"with_extras.pdf"</span>, doc, <span class="n">1</span> <span class="k">to</span> pdf.<span class="f">page_count</span>(doc))
+</code></pre>
+</div><p class="fnfrom">not run by the build &mdash; this one needs something the repository cannot supply &middot; from <a href="../docs/file-io.html">file-io</a></p>
 <h2>How it works</h2>
 <p>Bookmarks/outlines -- see <code>qu_pdf::OutlineEntry</code>'s doc comment for why the shape is a flat, indexed table rather than a nested structure, and why that same index is what <code>add_bookmark</code>'s <code>parent=</code> takes.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

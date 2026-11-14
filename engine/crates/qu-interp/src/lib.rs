@@ -30991,18 +30991,7 @@ self.eval_grad(loss, wrt)
                 };
                 let window_name = style_str(&style, "window").unwrap_or_else(|| "hamming".to_string());
                 let taps = n + 1;
-                let window = match window_name.as_str() {
-                    "hamming" => raised_cosine_window(taps, 0.54, 0.46, 0.0),
-                    "hann" | "hanning" => raised_cosine_window(taps, 0.5, 0.5, 0.0),
-                    "blackman" => raised_cosine_window(taps, 0.42, 0.5, 0.08),
-                    "kaiser" => {
-                        let beta = style_num(&style, "beta").ok_or_else(|| EvalError {
-                            msg: "fir1: window=\"kaiser\" needs a beta= argument".into(),
-                        })?;
-                        kaiser_window(taps, beta)
-                    }
-                    other => return e(format!("fir1: unknown window `{other}`, expected \"hamming\", \"hann\", \"blackman\", or \"kaiser\"")),
-                };
+                let window = design_window("fir1", &window_name, taps, true, &style)?;
                 let fs = style_num(&style, "fs").unwrap_or(2.0);
                 check_cutoff_below_nyquist("fir1", &cutoff, fs)?;
                 if n % 2 == 1 && matches!(kind, numeric::filter::FilterKind::High | numeric::filter::FilterKind::Stop) {
@@ -31045,6 +31034,109 @@ self.eval_grad(loss, wrt)
                     "filter",
                     vec![("b".to_string(), Value::Vec(Arc::new(b))), ("fs".to_string(), Value::Num(fs))],
                 ))))
+            }
+            // `buttord(wp, ws, rp, rs, fs)` / `cheb1ord` / `cheb2ord` /
+            // `ellipord` -- the lowest order of that family meeting a
+            // passband/stopband specification, and the frequency to design
+            // it with: a record `{order, wn, kind}` for
+            // `butter(r.order, r.kind, r.wn, fs)` and its siblings. The band
+            // shape is read from the edges (one each: low/high by which is
+            // lower; two each: band/stop by which pair is inside).
+            "buttord" | "cheb1ord" | "cheb2ord" | "ellipord" => {
+                let usage = || EvalError { msg: format!("{f}(wp, ws, rp, rs, fs) needs 5 arguments") };
+                let wp = to_vec(arg_get(&args, 0).ok_or_else(usage)?)?;
+                let ws = to_vec(arg_get(&args, 1).ok_or_else(usage)?)?;
+                let rp = arg_get(&args, 2).ok_or_else(usage)?.as_num().map_err(|msg| EvalError { msg })?;
+                let rs = arg_get(&args, 3).ok_or_else(usage)?.as_num().map_err(|msg| EvalError { msg })?;
+                let fs = match style_entry(&style, "fs") {
+                    Some((_, v)) => v.as_num().map_err(|msg| EvalError { msg })?,
+                    None => arg_get(&args, 4).ok_or_else(usage)?.as_num().map_err(|msg| EvalError { msg })?,
+                };
+                let family = match f {
+                    "buttord" => numeric::filter_design::IirFamily::Butter,
+                    "cheb1ord" => numeric::filter_design::IirFamily::Cheby1,
+                    "cheb2ord" => numeric::filter_design::IirFamily::Cheby2,
+                    _ => numeric::filter_design::IirFamily::Ellip,
+                };
+                let est = numeric::filter_design::iir_order(family, &wp, &ws, rp, rs, fs)
+                    .map_err(|msg| EvalError { msg: format!("{f}: {msg}") })?;
+                Ok(Value::Record(Arc::new(vec![
+                    ("order".to_string(), Value::Num(est.order as f64)),
+                    ("wn".to_string(), cutoff_value(&est.wn)),
+                    ("kind".to_string(), Value::Str(filter_kind_name(est.kind).to_string())),
+                ])))
+            }
+            // `kaiserord(freqs, amps, dev, [fs=2])` -- Kaiser's estimate of
+            // the FIR order and window `beta` for a deviation specification:
+            // a record `{order, beta, wn, kind}` for
+            // `fir1(r.order, r.wn, kind=r.kind, window="kaiser", beta=r.beta, fs=fs)`.
+            "kaiserord" => {
+                let usage = || EvalError { msg: "kaiserord(freqs, amps, dev, [fs=2]) needs at least 3 arguments".into() };
+                let freqs = to_vec(arg_get(&args, 0).ok_or_else(usage)?)?;
+                let amps = to_vec(arg_get(&args, 1).ok_or_else(usage)?)?;
+                let dev = to_vec(arg_get(&args, 2).ok_or_else(usage)?)?;
+                let fs = positional_or_named_num(&args, 3, &style, "fs", 2.0, "kaiserord")?;
+                let est = numeric::filter_design::kaiserord(&freqs, &amps, &dev, fs)
+                    .map_err(|msg| EvalError { msg: format!("kaiserord: {msg}") })?;
+                Ok(Value::Record(Arc::new(vec![
+                    ("order".to_string(), Value::Num(est.order as f64)),
+                    ("beta".to_string(), Value::Num(est.beta)),
+                    ("wn".to_string(), cutoff_value(&est.wn)),
+                    ("kind".to_string(), Value::Str(filter_kind_name(est.kind).to_string())),
+                ])))
+            }
+            // `remez(order, bands, desired, [weights], [fs=2])` (alias
+            // `firpm`) -- Parks-McClellan equiripple linear-phase FIR design.
+            // `bands` are band-edge pairs, `desired` the amplitude at each
+            // edge, `weights` one per band. Same `"filter"` model (field `b`)
+            // as `fir1`/`firls`.
+            "remez" | "firpm" => {
+                let usage = || EvalError { msg: format!("{f}(order, bands, desired, [weights], [fs=2]) needs at least 3 arguments") };
+                let order = arg_get(&args, 0).ok_or_else(usage)?.as_index().map_err(|msg| EvalError { msg: format!("{f}: order: {msg}") })?;
+                let bands = to_vec(arg_get(&args, 1).ok_or_else(usage)?)?;
+                let desired = to_vec(arg_get(&args, 2).ok_or_else(usage)?)?;
+                let weights = match style_vec(&style, "weights") {
+                    Some(w) => Some(w?),
+                    None => arg_get(&args, 3).map(to_vec).transpose()?,
+                };
+                let fs = positional_or_named_num(&args, 4, &style, "fs", 2.0, f)?;
+                if !(fs.is_finite() && fs > 0.0) {
+                    return e(format!("{f}: the sample rate fs must be a positive number, got {fs}"));
+                }
+                if let Some(kind) = style_str(&style, "type") {
+                    match kind.as_str() {
+                        "bandpass" | "multiband" => {}
+                        "hilbert" | "differentiator" => return e(format!(
+                            "{f}: type=\"{kind}\" needs an antisymmetric filter (Type III or IV), which is not built; only the symmetric Types I (even order) and II (odd order) are"
+                        )),
+                        other => return e(format!("{f}: unknown type `{other}`, expected \"bandpass\"")),
+                    }
+                }
+                let nyquist = fs / 2.0;
+                let normalized: Vec<f64> = bands.iter().map(|b| b / nyquist).collect();
+                let b = numeric::filter_design::remez(order, &normalized, &desired, weights.as_deref())
+                    .map_err(|msg| EvalError { msg: format!("{f}: {msg}") })?;
+                Ok(Value::Model(Arc::new(ModelHandle::new(
+                    "filter",
+                    vec![("b".to_string(), Value::Vec(Arc::new(b))), ("fs".to_string(), Value::Num(fs))],
+                ))))
+            }
+            // `window(name, n, [sym=true], ...)` -- any of the named windows
+            // as a vector. `sym=true` is the symmetric form (filter design),
+            // `sym=false` the periodic one (spectral analysis). The same
+            // table `fir1` and the spectral estimators read their `window=`
+            // from (`design_window`).
+            "window" => {
+                let name = text_arg(&args, 0)?;
+                let n = arg_get(&args, 1)
+                    .ok_or_else(|| EvalError { msg: "window(name, n, [sym=true]) needs a name and a length".into() })?
+                    .as_index()
+                    .map_err(|msg| EvalError { msg: format!("window: n: {msg}") })?;
+                let sym = match style_entry(&style, "sym") {
+                    Some((_, v)) => truthy(v),
+                    None => arg_get(&args, 2).map(truthy).unwrap_or(true),
+                };
+                Ok(Value::Vec(Arc::new(design_window("window", &name, n, sym, &style)?)))
             }
             // `bessel(order, kind, cutoff, fs)` -- Bessel (Thomson) design:
             // maximally flat group delay, so pulses keep their shape. Same
@@ -46917,9 +47009,9 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "binornd", "binostat", "bitand", "bitcmp", "bitor", "bitshift", "bitxor", "blackman",
     "blob_stats", "block_process", "blocks", "blur", "blur_backdrop", "bode", "bode_magnitude",
     "bode_phase", "bootstrap_ci", "box", "boxplot", "brier", "bubble", "builtins", "butter",
-    "bwareaopen", "bwlabel", "bytes_read", "bytes_write", "calibrate", "capacitor", "capitalize",
+    "buttord", "bwareaopen", "bwlabel", "bytes_read", "bytes_write", "calibrate", "capacitor", "capitalize",
     "capture", "casefold", "cast", "cat", "cbrt", "cd", "ceil", "channel", "channel_len",
-    "channel_recv", "channel_send", "channel_try_recv", "chars", "cheby1", "cheby2", "check_grads",
+    "channel_recv", "channel_send", "channel_try_recv", "chars", "cheb1ord", "cheb2ord", "cheby1", "cheby2", "check_grads",
     "chi2cdf", "chi2inv", "chi2pdf", "chi2rnd", "chi2stat", "chirp", "chisquare", "chol", "chr",
     "circle", "circuit", "circuit_fit", "circuit_impedance", "clahe", "clamp", "clear_bit", "clip",
     "close", "cm", "cmyk", "codepoints", "coherence", "colorbar", "colormap", "cols", "compare",
@@ -46937,7 +47029,7 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "dot", "double_buffer", "downsample", "draw_arrow", "draw_circle", "draw_line", "draw_rect",
     "draw_scale_bar", "drop", "drop_row", "dropout", "dropout_layer", "duration", "duty_cycle",
     "dwt", "ecdf", "echo", "eda", "edge_detect", "edges", "eig", "elapsed", "elediv", "elemul",
-    "elepow", "ellip", "ellipse", "emd", "emf", "end_time", "ends_with", "energy", "enob",
+    "elepow", "ellip", "ellipord", "ellipse", "emd", "emf", "end_time", "ends_with", "energy", "enob",
     "enob_estimate", "entropy", "enum_values", "eof", "erf", "erfc", "error", "errorbar",
     "estimate", "estimate_complexity", "estimate_frequency", "exec", "exit", "exp", "exp2",
     "expcdf", "expfit", "expinv", "explain", "explore", "expm", "expm1", "exponential", "exppdf",
@@ -46946,7 +47038,7 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "file_info", "file_size", "file_versioning", "fill_between", "fill_missing", "filter",
     "filter_ba", "filter_from_sos", "filter_from_tf", "filter_from_zpk", "filter_info", "filter_init", "filter_next", "filtfilt", "find", "find_clipping",
     "find_edges", "find_hex", "find_missing", "find_outliers", "find_peaks", "find_pulses",
-    "find_trigger", "find_zero_crossings", "findpeaks", "finv", "fir1", "firls", "first", "fit",
+    "find_trigger", "find_zero_crossings", "findpeaks", "finv", "fir1", "firls", "firpm", "first", "fit",
     "fit_scaler", "fix", "flatten", "flip", "fliplr", "flipud", "floor", "fold", "fontfamily",
     "fontsize", "fopen", "foreground_mask", "format", "forward", "fpdf", "freqz", "frnd", "fstat",
     "fuzzy_pid_init", "fvtool", "fzero", "gain", "gamcdf", "gamfit", "gaminv", "gamma", "gampdf",
@@ -46969,7 +47061,7 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "interpolate_at", "interpolate_nan", "inv", "inverse_transform", "invert", "iqr", "irfft",
     "is_clipped", "is_empty", "is_full", "is_readonly", "is_stable", "isfinite", "isinf", "isnan",
     "isolation_forest", "items", "jacobian", "join", "js_exec", "json2csv", "json2xml",
-    "json_delete", "json_get", "json_set", "jsonify", "k_fold", "kaiser", "kalman_init",
+    "json_delete", "json_get", "json_set", "jsonify", "k_fold", "kaiser", "kaiserord", "kalman_init",
     "kapur_threshold", "keys", "kfold", "kill", "kmeans", "kmeans_centers", "kmeans_model",
     "kmedians_model", "kmedoids_model", "knn_model", "kron", "kurtosis", "lab", "label_blobs",
     "last", "last_index_of", "layer_norm", "lcase", "lda_model", "least_squares", "left", "legend",
@@ -47017,7 +47109,7 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "read_uint32", "read_uint64", "read_until", "read_values", "read_version", "real", "recall",
     "rect", "rectangle", "reduce", "reflection_coefficient", "regex_count", "regex_find",
     "regex_find_all", "regex_groups", "regex_match", "regex_replace", "regex_split", "regionprops",
-    "regions", "relu", "rem", "remove", "remove_dir", "remove_file", "remove_nan", "remove_noise",
+    "regions", "relu", "rem", "remez", "remove", "remove_dir", "remove_file", "remove_nan", "remove_noise",
     "remove_outliers", "remove_small_blobs", "rename_file", "repeat_str", "replace",
     "replace_bytes", "replace_outliers", "repmat", "resample_int", "resample_to", "reset",
     "reshape", "residual_acf", "resistor", "resize", "restart", "restore_version", "return_loss",
@@ -47058,7 +47150,7 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "values", "vanicek", "var", "verify_signal", "violin", "viterbi", "vline", "vmap", "vmd",
     "voronoi", "vstack", "vswr", "warburg", "warburg_open", "warburg_short", "warn", "waterfall",
     "wblcdf", "wblfit", "wblinv", "wblpdf", "wblrnd", "wblstat", "welch", "where", "wigner_ville",
-    "word_wrap", "worker_done", "wrap", "write", "write_array", "write_bin", "write_bit",
+    "window", "word_wrap", "worker_done", "wrap", "write", "write_array", "write_bin", "write_bit",
     "write_byte", "write_char", "write_csv", "write_double", "write_float", "write_int",
     "write_int16", "write_int32", "write_int64", "write_line", "write_npy", "write_npz",
     "write_report", "write_text", "write_uint16", "write_uint32", "write_uint64", "writeline",
@@ -47994,33 +48086,70 @@ fn periodic_analysis_window(
     n: usize,
     style: &[(String, Value)],
 ) -> R<Vec<f64>> {
-    if n == 0 {
-        return Ok(Vec::new());
-    }
-    if name == "rectangular" || name == "boxcar" || name == "none" {
-        return Ok(vec![1.0; n]);
-    }
-    if n == 1 {
-        return Ok(vec![1.0]);
-    }
-    let symmetric = match name {
-        "hann" | "hanning" => raised_cosine_window(n + 1, 0.5, 0.5, 0.0),
-        "hamming" => raised_cosine_window(n + 1, 0.54, 0.46, 0.0),
-        "blackman" => raised_cosine_window(n + 1, 0.42, 0.5, 0.08),
+    design_window(who, name, n, false, style)
+}
+
+/// The one table of named windows: what `window(name, n)` returns, what
+/// `fir1(..., window=)` multiplies its taps by (`sym = true`) and what the
+/// spectral estimators taper a segment with (`sym = false`, through
+/// `periodic_analysis_window`).
+///
+/// `sym = true` is the symmetric window of length `n`; `sym = false` the
+/// periodic one, built the way SciPy builds it: the symmetric window one
+/// sample longer, without its last sample. A window's own parameter is read
+/// from `style` (`beta=` for `"kaiser"`, `alpha=` for `"tukey"`, `std=` for
+/// `"gaussian"`), so a parameter given to a window that has none is reported
+/// as an unknown keyword like any other. `who` is the builtin the user
+/// called, for the messages.
+fn design_window(who: &str, name: &str, n: usize, sym: bool, style: &[(String, Value)]) -> R<Vec<f64>> {
+    use numeric::filter_design as fd;
+    let m = if sym { n } else { n + 1 };
+    let mut w = match name {
+        "rect" | "rectangular" | "boxcar" | "none" => vec![1.0; m],
+        "hann" | "hanning" => raised_cosine_window(m, 0.5, 0.5, 0.0),
+        "hamming" => raised_cosine_window(m, 0.54, 0.46, 0.0),
+        "blackman" => raised_cosine_window(m, 0.42, 0.5, 0.08),
         "kaiser" => {
             let beta = style_num(style, "beta").ok_or_else(|| EvalError {
                 msg: format!("{who}: window=\"kaiser\" needs a beta= argument"),
             })?;
-            kaiser_window(n + 1, beta)
+            kaiser_window(m, beta)
         }
+        "bartlett" => fd::bartlett_window(m),
+        "tukey" => {
+            let alpha = style_num_checked(style, "alpha", 0.5, who)?;
+            if !(0.0..=1.0).contains(&alpha) {
+                return e(format!("{who}: the tukey window's alpha must be between 0 and 1, got {alpha}"));
+            }
+            fd::tukey_window(m, alpha)
+        }
+        "gaussian" => {
+            let std = style_num(style, "std").ok_or_else(|| EvalError {
+                msg: format!("{who}: window=\"gaussian\" needs a std= argument (standard deviation in samples)"),
+            })?;
+            if !(std.is_finite() && std > 0.0) {
+                return e(format!("{who}: the gaussian window's std must be above 0, got {std}"));
+            }
+            fd::gaussian_window(m, std)
+        }
+        "blackmanharris" => fd::general_cosine_window(m, &fd::BLACKMANHARRIS),
+        "nuttall" => fd::general_cosine_window(m, &fd::NUTTALL),
+        "flattop" => fd::general_cosine_window(m, &fd::FLATTOP),
         other => {
             return e(format!(
-                "{who}: unknown window `{other}`, expected \"hann\", \"hamming\", \
-                 \"blackman\", \"kaiser\", or \"rectangular\""
+                "{who}: unknown window `{other}`, expected \"hann\", \"hamming\", \"blackman\", \
+                 \"kaiser\", \"rect\" (or \"rectangular\"), \"bartlett\", \"tukey\", \"gaussian\", \
+                 \"blackmanharris\", \"nuttall\", or \"flattop\""
             ))
         }
     };
-    Ok(symmetric[..n].to_vec())
+    if n == 1 {
+        // One sample: nothing to shape (and the periodic form of a window
+        // that starts at zero would otherwise be a single zero).
+        return Ok(vec![1.0]);
+    }
+    w.truncate(n);
+    Ok(w)
 }
 
 /// First-order (error-feedback) 1-bit sigma-delta modulator: quantize each
@@ -53021,6 +53150,27 @@ fn check_cutoff_below_nyquist(fn_name: &str, cutoff: &[f64], fs: f64) -> R<()> {
     Ok(())
 }
 
+/// The `kind` string the design functions take, for a band shape an
+/// estimator worked out.
+fn filter_kind_name(kind: numeric::filter::FilterKind) -> &'static str {
+    match kind {
+        numeric::filter::FilterKind::Low => "low",
+        numeric::filter::FilterKind::High => "high",
+        numeric::filter::FilterKind::Band => "band",
+        numeric::filter::FilterKind::Stop => "stop",
+    }
+}
+
+/// A cutoff as the design functions take it: a number for one edge, a
+/// vector for `[low, high]`.
+fn cutoff_value(wn: &[f64]) -> Value {
+    if wn.len() == 1 {
+        Value::Num(wn[0])
+    } else {
+        Value::Vec(Arc::new(wn.to_vec()))
+    }
+}
+
 /// A `Sos`'s coefficients as a matrix, one section per row:
 /// `[b0, b1, b2, a1, a2]` — the `"filter"` model's own `sos` field
 /// representation.
@@ -53330,6 +53480,19 @@ fn filter_bode_curve(repr: &FilterRepr, n: usize, fs: f64) -> (Vec<Complex64>, V
 }
 
 fn repr_filtfilt(repr: &FilterRepr, x: &[f64]) -> R<Vec<f64>> {
+    // Forward-backward filtering pads each end by reflection; a signal no
+    // longer than that padding has nothing to reflect, and the answer would be
+    // finite but meaningless. SciPy raises here too.
+    let pad = match repr {
+        FilterRepr::Iir(sos) => 3 * (2 * sos.sections.len() + 1),
+        FilterRepr::Fir(b) => 3 * b.len(),
+    };
+    if !x.is_empty() && x.len() <= pad {
+        return e(format!(
+            "filtfilt: the signal has {} samples but this filter pads each end by {pad}, so it needs more than {pad} -- use a shorter filter, a longer signal, or sosfilt for a one-way pass",
+            x.len()
+        ));
+    }
     match repr {
         FilterRepr::Iir(sos) => Ok(numeric::filter::filtfilt(sos, x)),
         FilterRepr::Fir(b) => numeric::filter::fir_filtfilt(b, x).map_err(|ne| EvalError { msg: ne.to_string() }),
@@ -67899,8 +68062,13 @@ out = both.x");
         }
         // Warm up (page faults, allocator warmup) before the timed sizes.
         let _ = time_materialize(1000);
-        let small = time_materialize(20_000);
-        let large = time_materialize(160_000); // 8x the elements
+        // Best of three per size: a single sample of a ~0.5 ms run is easily
+        // doubled by another process on a loaded machine, which made this fail
+        // at 31x under a parallel build while passing 4 of 4 alone. Quadratic
+        // growth (~64x) still shows in the minimum.
+        let best = |n: usize| (0..3).map(|_| time_materialize(n)).min().unwrap();
+        let small = best(20_000);
+        let large = best(160_000); // 8x the elements
         // O(N^2) would show ~64x; O(N) should show roughly ~8x (allow
         // generous slack for timing noise on a shared/loaded machine).
         let ratio = large.as_secs_f64() / small.as_secs_f64().max(1e-6);
@@ -83602,6 +83770,16 @@ end for");
     }
 
     #[test]
+    fn filtfilt_refuses_a_signal_no_longer_than_its_padding() {
+        // butter(4) is two sections: pads 3*(2*2+1) = 15 samples each end
+        let err = run_err("f = butter(4, \"low\", 50, 1000)\ny = filtfilt(f, [1, 2, 3])");
+        assert!(err.msg.contains("needs more than 15"), "got: {}", err.msg);
+        // a long enough signal is fine, and a constant stays constant
+        let it = run("f = butter(4, \"low\", 50, 1000)\ny = filtfilt(f, ones(40))\nfirst = y[0]\nlast = y[39]");
+        assert!((num(&it, "first") - 1.0).abs() < 1e-6 && (num(&it, "last") - 1.0).abs() < 1e-6);
+    }
+
+    #[test]
     fn filter_info_reads_a_butterworth_lowpass_correctly() {
         let it = run(
             "fs = 1000
@@ -83639,15 +83817,12 @@ end for");
     }
 
     #[test]
-    fn filtfilt_of_a_constant_stays_constant_and_short_inputs_stay_finite() {
+    fn filtfilt_of_a_constant_stays_constant() {
         let it = run(
             "lp = butter(4, \"low\", 50, 1000)
              y = filtfilt(lp, zeros(500) + 1)
              first = y[0]
              last = y[length(y) - 1]
-             s = filtfilt(lp, [1, 2, 3])
-             ns = length(s)
-             smax = max(abs(s))
              fir = fir1(20, 100, kind=\"low\", fs=1000)
              yf = filtfilt(fir, zeros(200) + 1)
              ffirst = yf[0]
@@ -83655,8 +83830,6 @@ end for");
         );
         assert!((num(&it, "first") - 1.0).abs() < 1e-9, "first {}", num(&it, "first"));
         assert!((num(&it, "last") - 1.0).abs() < 1e-9, "last {}", num(&it, "last"));
-        assert_eq!(num(&it, "ns"), 3.0);
-        assert!(num(&it, "smax") < 10.0, "short input blew up: {}", num(&it, "smax"));
         assert!((num(&it, "ffirst") - 1.0).abs() < 1e-3 && (num(&it, "flast") - 1.0).abs() < 1e-3);
     }
 

@@ -30,24 +30,28 @@
 <h1>exec</h1>
 <nav class="onthispage"></nav>
 <p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/file-io.html">File I/O</a></p>
-<pre class="fnsig">result = <code>exec(program, [args], [shell=], [cwd=], [stdin=])</code></pre>
-<p class="fnnote">Input: program, args, shell, cwd, stdin &middot; Output: result</p>
+<pre class="fnsig">result = <code>exec(program, [args], [shell=], [cwd=], [stdin=], [env=], [timeout=])</code></pre>
+<p class="fnnote">Input: program, args, shell, cwd, stdin, env, timeout &middot; Output: result</p>
 <h2>What it is</h2>
 <p>Runs <code>program</code> (a <code>Str</code>) and <strong>waits</strong>, capturing what it printed. <code>args</code> is an optional <code>List</code> of arguments passed to the OS as separate items — not joined into a command line and re-split — so a path with a space in it needs no quoting rule. <code>shell=true</code> instead reads <code>program</code> as a whole command line for <code>cmd /C</code> (Windows) or <code>sh -c</code>, so pipes and <code>&amp;&amp;</code> work. <code>cwd=</code> (a <code>Str</code>) runs it in that directory without moving the caller. <code>stdin=</code> (a <code>Str</code>) is written to the program's input, which is then closed, so a program reading to EOF gets exactly that and does not hang.</p>
 <h2>Overloads</h2>
 <p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
 <div class="tablewrap"><table class="iotable">
 <tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
-<tr><td class="iocode"><code>result = exec(program, [args], [shell=], [cwd=], [stdin=])</code></td><td><div class="ioitem"><code>program</code> <span class="iotype">Str</span><span class="iodesc">Runs <code>program</code> (a <code>Str</code>) and <strong>waits</strong>, capturing what it printed.</span></div>
+<tr><td class="iocode"><code>result = exec(program, [args], [shell=], [cwd=], [stdin=], [env=], [timeout=])</code></td><td><div class="ioitem"><code>program</code> <span class="iotype">Str</span><span class="iodesc">Runs <code>program</code> (a <code>Str</code>) and <strong>waits</strong>, capturing what it printed.</span></div>
 <div class="ioitem"><code>args</code> <span class="iotype">List, optional</span><span class="iodesc"><code>args</code> is an optional <code>List</code> of arguments passed to the OS as separate items — not joined into a command line and re-split — so a path with a space in it needs no quoting rule.</span></div>
 <div class="ioitem"><code>shell</code> <span class="iotype">optional</span><span class="iodesc"><code>shell=true</code> instead reads <code>program</code> as a whole command line for <code>cmd /C</code> (Windows) or <code>sh -c</code>, so pipes and <code>&amp;&amp;</code> work.</span></div>
 <div class="ioitem"><code>cwd</code> <span class="iotype">Str, optional</span><span class="iodesc"><code>cwd=</code> (a <code>Str</code>) runs it in that directory without moving the caller.</span></div>
 <div class="ioitem"><code>stdin</code> <span class="iotype">Str, optional</span><span class="iodesc"><code>stdin=</code> (a <code>Str</code>) is written to the program's input, which is then closed, so a program reading to EOF gets exactly that and does not hang.</span></div>
+<div class="ioitem"><code>env</code> <span class="iotype">Record, optional</span><span class="iodesc"><code>env=</code> (a <code>Record</code> of <code>NAME = "value"</code> pairs, written <code>{NAME = "value"}</code>) adds environment variables for the child only, e.g.</span></div>
+<div class="ioitem"><code>timeout</code> <span class="iotype">Record, optional</span><span class="iodesc"><code>timeout=</code> (positive seconds) kills the child and its whole process tree when it runs longer: the Record then has <code>timed_out = true</code>, and <code>success</code>/<code>exit_code</code> report the killed process, not a lie.</span></div>
 </td><td><div class="ioitem"><code>stdout</code> <span class="iotype">Str</span><span class="iodesc">a <code>Str</code></span></div>
 <div class="ioitem"><code>stderr</code> <span class="iotype">Str</span><span class="iodesc">a <code>Str</code></span></div>
 <div class="ioitem"><code>success</code> <span class="iotype">&mdash;</span><span class="iodesc">a <code>Bool</code></span></div>
 <div class="ioitem"><code>exit_code</code> <span class="iotype">Num</span><span class="iodesc">a <code>Num</code></span></div>
-</td><td>Returns a <code>Record</code> with <code>stdout</code> (a <code>Str</code>), <code>stderr</code> (a <code>Str</code>), <code>success</code> (a <code>Bool</code>) and <code>exit_code</code> (a <code>Num</code>) — the same four fields <code>python_exec</code>/<code>js_exec</code>/<code>matlab_exec</code> already give back.</td></tr>
+<div class="ioitem"><code>env=</code> <span class="iotype">Record</span><span class="iodesc">a <code>Record</code> of <code>NAME = "value"</code> pairs, written <code>{NAME = "value"}</code></span></div>
+<div class="ioitem"><code>timeout=</code> <span class="iotype">&mdash;</span><span class="iodesc">positive seconds</span></div>
+</td><td>Returns a <code>Record</code> with <code>stdout</code> (a <code>Str</code>), <code>stderr</code> (a <code>Str</code>), <code>success</code> (a <code>Bool</code>) and <code>exit_code</code> (a <code>Num</code>) — the same fields <code>python_exec</code>/<code>js_exec</code>/<code>matlab_exec</code> give back, plus <code>timed_out</code>. <code>env=</code> (a <code>Record</code> of <code>NAME = "value"</code> pairs, written <code>{NAME = "value"}</code>) adds environment variables for the child only, e.g. <code>env = {main_memory = "12000000"}</code> for <code>pdflatex</code>. <code>timeout=</code> (positive seconds) kills the child and its whole process tree when it runs longer: the Record then has <code>timed_out = true</code>, and <code>success</code>/<code>exit_code</code> report the killed process, not a lie.</td></tr>
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>

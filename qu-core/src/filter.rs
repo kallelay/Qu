@@ -401,7 +401,7 @@ fn agm(a0: f64, b0: f64) -> f64 {
 /// Complete elliptic integral of the first kind `K(m)`, parameterized by
 /// `m = k^2` (SciPy's own `scipy.special.ellipk` convention, not the
 /// modulus `k`) via `K(m) = pi / (2*AGM(1, sqrt(1-m)))`.
-fn ellip_k(m: f64) -> f64 {
+pub(crate) fn ellip_k(m: f64) -> f64 {
     PI / (2.0 * agm(1.0, (1.0 - m).sqrt()))
 }
 
@@ -410,7 +410,7 @@ fn ellip_k(m: f64) -> f64 {
 /// [`ellip_k`] on that -- avoids the catastrophic cancellation that would
 /// otherwise show up whenever `m` is very small (SciPy's own `ellipkm1`
 /// exists for exactly this reason).
-fn ellip_k_comp(m: f64) -> f64 {
+pub(crate) fn ellip_k_comp(m: f64) -> f64 {
     PI / (2.0 * agm(1.0, m.sqrt()))
 }
 

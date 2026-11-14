@@ -192,7 +192,7 @@ y = A * x
 r = <span class="f">cs_recover</span>(A, y, <span class="a">method</span> = <span class="s">"fista"</span>, <span class="a">lambda</span> = <span class="n">1e-3</span>)
 <span class="f">print</span>(<span class="s">"{r.iterations} iterations, converged {r.converged}, error {norm(r.x - x):.2e}"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>563 iterations, converged true, error 1.75e-3</pre></div></div>
+<div class="out"><span class="lbl">output</span><pre>563 iterations, converged true, error 1.75e-03</pre></div></div>
 <h4>Case: Greedy (<code>cosamp</code>)</h4>
 <p>Same problem, <code>2k</code>-at-a-time candidate selection with pruning — converges in even fewer iterations than plain OMP here because the prune corrects for any early misstep, though OMP already had no misstep to correct on this well-conditioned a matrix.</p>
 <div class="example hasout"><pre class="hl"><code>A = <span class="f">randn</span>(<span class="n">60</span>, <span class="n">200</span>, <span class="a">seed</span> = <span class="n">7</span>) / <span class="f">sqrt</span>(<span class="n">60</span>)
@@ -257,7 +257,7 @@ y = A * x
 r = <span class="f">cs_recover</span>(A, y, <span class="a">method</span> = <span class="s">"ista"</span>, <span class="a">lambda</span> = <span class="n">1e-3</span>)
 <span class="f">print</span>(<span class="s">"{r.iterations} iterations, converged {r.converged}, error {norm(r.x - x):.2e}"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>1000 iterations, converged false, error 1.58e0</pre></div></div>
+<div class="out"><span class="lbl">output</span><pre>1000 iterations, converged false, error 1.58e+00</pre></div></div>
 <h4>Case: Convex (<code>bp</code>)</h4>
 <p>Basis pursuit by ADMM: solves <code>min ‖x‖₁ subject to Ax = y</code> exactly rather than a penalized version of it — no <code>lambda=</code> to choose at all — landing between the greedy methods' machine precision and FISTA/ISTA's shrinkage bias, at a cost of roughly a hundred iterations on this problem.</p>
 <div class="example hasout"><pre class="hl"><code>A = <span class="f">randn</span>(<span class="n">60</span>, <span class="n">200</span>, <span class="a">seed</span> = <span class="n">7</span>) / <span class="f">sqrt</span>(<span class="n">60</span>)
@@ -270,7 +270,7 @@ y = A * x
 r = <span class="f">cs_recover</span>(A, y, <span class="a">method</span> = <span class="s">"bp"</span>)
 <span class="f">print</span>(<span class="s">"{r.iterations} iterations, converged {r.converged}, error {norm(r.x - x):.2e}"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>115 iterations, converged true, error 1.02e-8</pre></div></div>
+<div class="out"><span class="lbl">output</span><pre>115 iterations, converged true, error 1.02e-08</pre></div></div>
 <h3>The shrinkage, and <code>debias=true</code></h3>
 <p>The <code>l1</code> penalty does two jobs with one term: it finds the support, and it pulls every coefficient toward zero. The first is what you wanted; the second is a systematic bias, visible as a few parts in ten thousand.</p>
 <p>Once the support is known that pull has no purpose. <code>debias = true</code> re-fits those columns by plain least squares and discards the shrunk values.</p>
@@ -286,7 +286,7 @@ fixed = <span class="f">cs_recover</span>(A, y, <span class="a">method</span> = 
 <span class="f">print</span>(<span class="s">"fista alone    {max(abs(raw.x - x)):.2e}"</span>)
 <span class="f">print</span>(<span class="s">"fista debiased {max(abs(fixed.x - x)):.2e}"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>fista alone    9.41e-4
+<div class="out"><span class="lbl">output</span><pre>fista alone    9.41e-04
 fista debiased 2.11e-12</pre></div></div>
 <p>Standard practice, and cheap. The one reason not to: if the support is wrong, debiasing commits to the error instead of leaving it visibly shrunk.</p>
 <h3>What comes back</h3>

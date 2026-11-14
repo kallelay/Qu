@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Grammars (all four editors): `window` is no longer coloured as a keyword.
+  It is a builtin function since Qu 0.4.13 (`window("hann", 64)`), and the
+  language has no `window` statement.
 - VS Code extension: hover, completion, signature help, the outline
   (Ctrl+Shift+O, breadcrumbs), go-to-definition and diagnostics now come from
   `qu lsp`, the language server in the `qu` binary, through a small built-in

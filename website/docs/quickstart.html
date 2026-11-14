@@ -93,10 +93,37 @@
 
 <main class="docmain">
 <h1>Quickstart</h1>
-<nav class="onthispage"><a href="#s0">1. Install and run</a><a href="#s36">2. Core syntax in one script</a><a href="#s83">3. Vectors and matrices</a><a href="#s125">4. Plotting</a><a href="#s156">5. Signal processing: filtering a noisy signal</a><a href="#s222">6. Working with data</a><a href="#s262">7. Machine learning: train, predict, check accuracy</a><a href="#s333">8. Concurrency: spawn and join</a><a href="#s383">Where to go from here</a></nav>
+<nav class="onthispage"><a href="#s0">1. Install and run</a><a href="#s36">2. Core syntax in one script</a><a href="#s83">3. Vectors and matrices</a><a href="#s125">4. Plotting</a><a href="#s156">5. Signal processing: filtering a noisy signal</a><a href="#s222">6. Working with data</a><a href="#s262">7. Machine learning: train, predict, check accuracy</a><a href="#s333">8. Concurrency: spawn and join</a><a href="#s383">Opening .qu files</a><a href="#s420">Qu Studio: opening files</a><a href="#s464">PDF page rendering needs PDFium</a><a href="#s515">Where to go from here</a><a href="#s556">Text with braces, quotes and backslashes</a><a href="#s616">Where did my script fail?</a><a href="#s661">Lists</a><a href="#s686">Scientific notation and formatted numbers</a></nav>
 <p>This chapter is the on-ramp: install Qu, run your first script, then one short, runnable example per domain — syntax, matrices, plotting, signal processing, data, machine learning, concurrency. Every snippet below has been run against the reference interpreter and its printed output is the actual output, not a mockup. For real depth on any one of these topics, this chapter hands off to <strong><a href="fundamentals.html">Book 1</a></strong>, <strong><a href="numerics-dsp.html">Book 2</a></strong>, and <strong><a href="specialized.html">Book 3</a></strong>, plus the <a href="stdlib-overview.html">Standard Library Reference</a> and the <a href="spec.html">language specification</a> — this walkthrough deliberately stays shallow so it stays fast.</p>
 <h2 id="s0">1. Install and run</h2>
-<p>Qu ships today as <strong>source you build yourself</strong> — there is no packaged binary or installer yet. You need a working Rust toolchain (<a href="https://rustup.rs">rustup.rs</a>) and a clone of this repository:</p>
+<p>Each <a href="https://github.com/kallelay/Qu/releases/latest">release</a> carries a prebuilt <code>qu</code> command-line binary per platform (<code>.zip</code>, <code>.tar.gz</code>, and <code>.deb</code> on Linux) plus Qu Studio installers. Whether <code>qu</code> then works from an ordinary terminal depends on which package you installed:</p>
+<div class="tablewrap"><table>
+<tr><td>Package</td><td><code>qu</code> on your <code>PATH</code> afterwards?</td></tr>
+<tr><td>Qu Studio Windows setup (<code>Qu Studio_&lt;version&gt;_x64-setup.exe</code>)</td><td><strong>Yes, from 0.4.6</strong> (earlier setups claimed to but did not) — adds its install folder (which holds the bundled <code>qu.exe</code>) to *your user's* <code>PATH</code>; the uninstaller removes exactly that entry. Open a new terminal afterwards.</td></tr>
+<tr><td>Qu Studio <code>.msi</code>, macOS <code>.dmg</code>, Linux <code>.AppImage</code> / <code>.deb</code> / <code>.rpm</code></td><td><strong>No</strong> — <code>qu</code> is bundled for Studio's own use only. Install the command-line build too, or add the folder yourself.</td></tr>
+<tr><td>Command-line Windows setup (<code>qu-&lt;version&gt;-windows-&lt;arch&gt;-setup.exe</code>)</td><td><strong>Yes</strong> — see below; adds <code>qu</code> to your user <code>PATH</code>, no admin needed.</td></tr>
+<tr><td>Command-line <code>.zip</code> / <code>.tar.gz</code></td><td>No — unpack it and put the folder on <code>PATH</code> yourself.</td></tr>
+<tr><td>Command-line <code>.deb</code></td><td>Yes — installs <code>qu</code> into <code>/usr/bin</code>.</td></tr>
+</table></div>
+<p>Both Windows setups (from 0.4.6) have a <strong>Components</strong> page:</p>
+<div class="tablewrap"><table>
+<tr><td>Component</td><td>Default</td><td>What it does</td></tr>
+<tr><td>Add qu to the PATH</td><td>on</td><td>adds just the install folder to your user <code>PATH</code> (the rest of it is left exactly as it was); untick it to run <code>qu</code> by its full path or from the Start menu instead</td></tr>
+<tr><td>Jupyter kernel</td><td>on</td><td>installs <code>qu-jupyter.exe</code> and registers the "Qu" kernel, so it appears in JupyterLab, Notebook and VS Code's Jupyter extension (Jupyter itself: <code>pip install jupyterlab</code>); the uninstaller unregisters it</td></tr>
+<tr><td>Offline documentation</td><td>off</td><td>the whole reference and guides (~25 MB) in <code>docs\</code> beside <code>qu.exe</code>; <code>help(name)</code> then names the local page</td></tr>
+<tr><td>Editor plugins</td><td>per editor</td><td>VS Code, Sublime Text and Notepad++ syntax and run commands -- each ticked only if that editor is installed</td></tr>
+<tr><td>Start menu shortcuts</td><td>on</td><td>a <strong>Qu</strong> folder (Qu Studio's own folder for the Studio setup) with <strong>Qu CLI (REPL)</strong>, <strong>Start Jupyter (Qu)</strong> and <strong>Qu Documentation</strong></td></tr>
+<tr><td>Desktop shortcuts</td><td>off</td><td>Qu CLI (REPL) and Start Jupyter (Qu) on the desktop (Studio: alongside its own desktop shortcut)</td></tr>
+</table></div>
+<p>For a silent install the same choices are switches: <code>/NOPATH</code>, <code>/WITHDOCS</code>, <code>/NOJUPYTER</code>, <code>/NOPLUGINS</code>, <code>/NOSHORTCUTS</code>, <code>/DESKTOP</code> (the last two are the command-line setup's; Studio follows its own shortcut options). The <code>.zip</code> and <code>.tar.gz</code> archives carry the same pieces -- <code>qu-jupyter</code>, <code>docs/</code>, <code>editors/</code> -- for a manual setup: <code>qu-jupyter install</code> registers the kernel (<code>--system</code> for every user, <code>qu-jupyter uninstall</code> to remove it).</p>
+<p><strong>On Windows, from a release</strong> (releases after 0.4.4): download <code>qu-&lt;version&gt;-windows-x86_64-setup.exe</code> (or <code>-arm64-setup.exe</code> for Windows on ARM) and run it. It installs <code>qu.exe</code> for your user only — no administrator prompt — into <code>%LOCALAPPDATA%\Programs\Qu</code> and adds that folder to your user <code>PATH</code>, leaving the rest of the <code>PATH</code> exactly as it was. Open a <strong>new</strong> terminal and <code>qu --version</code> works. Switches:</p>
+<pre><code>qu-&lt;version&gt;-windows-x86_64-setup.exe /S                  silent, per-user
+qu-&lt;version&gt;-windows-x86_64-setup.exe /S /D=C:\Tools\Qu   silent, chosen folder (/D= must be last)
+qu-&lt;version&gt;-windows-x86_64-setup.exe /ALLUSERS           machine-wide (Program Files, system PATH; asks for admin)
+qu-&lt;version&gt;-windows-x86_64-setup.exe /S /WITHDOCS /DESKTOP   silent, with offline docs and desktop shortcuts
+</code></pre>
+<p>To uninstall, use *Settings → Apps* ("Qu … (command line)"), or run <code>uninstall.exe /S</code> from the install folder. It removes the files it installed and its own <code>PATH</code> entry, and nothing else. The plain <code>.zip</code> is still there if you would rather put <code>qu.exe</code> somewhere yourself.</p>
+<p><strong>From source</strong>, on any platform: you need a working Rust toolchain (<a href="https://rustup.rs">rustup.rs</a>) and a clone of this repository:</p>
 <pre><code>git clone &lt;this repository&gt;
 cd Qu
 cargo build --manifest-path engine/Cargo.toml -p qu-cli
@@ -118,6 +145,83 @@ cargo build --manifest-path engine/Cargo.toml -p qu-cli
 qu&gt;
 </code></pre>
 <p>A line that doesn't end in <code>;</code> echoes its result automatically (<code>ans = ...</code> for a bare expression). <code>:vars</code> lists everything currently bound, <code>:clear</code> resets the session, <code>:quit</code>/<code>:exit</code> (or Ctrl+D) leaves — type <code>:help</code> inside the REPL for the full list. The rest of this chapter uses <code>qu run &lt;file&gt;</code> for every example; every one of them works pasted into the REPL too.</p>
+<p><strong>Or run a script, then keep going.</strong> Give <code>repl</code> a file and it runs the file first, then leaves you at the prompt with everything the script defined still in place (like <code>python -i</code>). With <code>hello.qu</code> extended to also set <code>msg = "hi"</code>:</p>
+<pre><code>qu repl hello.qu
+</code></pre>
+<pre><code>Hello, Qu!
+qu&gt; print(msg)
+hi
+qu&gt;
+</code></pre>
+<p>Top-level variables and function definitions carry over. If the script fails (a runtime error, or a file that cannot be read), <code>qu repl</code> prints the error and exits with status 1 rather than giving you a prompt. This is the quickest way to load your data and setup once, then try things against it.</p>
+<h3><code>qu test</code> -- run your tests (*new in v0.4.7*)</h3>
+<pre><code>qu test                       # ./tests/**/*.qu plus test_*.qu / *_test.qu here
+qu test path/to/dir file.qu   # explicit files; directories are searched recursively
+qu test --filter sum          # only test functions whose name contains "sum"
+qu test --fail-fast           # stop at the first failure
+qu test --json                # one JSON document on stdout, for CI tooling
+qu test --timeout 10          # kill a test running longer than 10 s (default 60; 0 = no limit)
+</code></pre>
+<p>A <strong>test</strong> is a top-level function with no parameters whose name starts with <code>test_</code>. It passes if it returns and fails if it raises an error. Qu has no <code>assert</code> builtin; the idiom is <code>error(...)</code>:</p>
+<div class="example"><pre class="hl"><code><span class="k">function</span> <span class="f">test_sum</span>()
+  <span class="k">if</span> <span class="f">sum</span>([<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>]) != <span class="n">6</span>
+    <span class="f">error</span>(<span class="s">"sum([1,2,3]) was not 6"</span>)
+  <span class="k">end</span> <span class="k">if</span>
+<span class="k">end</span> <span class="k">function</span>
+</code></pre>
+</div>
+<p>Each test runs in its own child <code>qu</code> process with a <strong>fresh interpreter</strong> (the file's top-level code is re-run for each test), so nothing leaks from one test or file into the next, and a test that hangs is killed alone and reported <code>FAILED (timeout)</code> while the run continues. With <code>--timeout 0</code> the tests of a file share one in-process interpreter instead: top-level code runs once (fixtures, helpers), then each <code>test_</code> function in source order. A file that defines no <code>test_</code> function is run as a <strong>script</strong> and passes if it finishes without an error.</p>
+<p>Every test prints <code>PASS</code>/<code>FAIL</code> with <code>file:line</code> and its name and time; a failure also shows the error, where it happened (<code>at file:LINE in test_x()</code> and the call chain) and whatever the test printed. The last line is <code>test result: N passed, M failed</code>. The exit status is <strong>0</strong> if everything passed, <strong>1</strong> if anything failed and <strong>2</strong> if no tests were found.</p>
+<h3><code>qu fmt</code> -- tidy source files (*new in v0.4.7*)</h3>
+<pre><code>qu fmt                  # reformat every .qu under the current directory, in place
+qu fmt src/ tool.qu     # specific files or directories
+qu fmt --check          # change nothing; list files that would change; exit 1 if any
+qu fmt --stdin          # read source on stdin, write the formatted text to stdout
+</code></pre>
+<p>The formatter is deliberately conservative. It works from the token stream, so comments, strings, raw strings and <code>{...}</code> interpolations are copied byte for byte, and it only changes whitespace:</p>
+<ul>
+<li>indentation by block, four spaces per level (<code>else</code>/<code>elseif</code>/<code>catch</code> sit at their block's level; <code>case</code> is indented one level inside <code>select case</code>); a line continued inside brackets or after an operator moves together with its statement;</li>
+<li>trailing whitespace removed, exactly one final newline, trailing blank lines dropped;</li>
+<li>one space after each comma, and one space around <code>== != &lt;= &gt;= := += -= *= /= ^= |&gt;</code> and around a statement-level <code>=</code>. Nothing else is respaced: <code>f(x=1)</code>, <code>a-b</code>, <code>x'</code> stay as written.</li>
+</ul>
+<p>Line endings are kept per line (a <code>\r\n</code> file stays <code>\r\n</code>). Lines inside a multi-line string literal are never touched. <code>qu fmt</code> is idempotent and checks its own output (same tokens, only whitespace changed) before it writes a file, refusing with exit status 2 if that ever fails.</p>
+<h3>Editor plugins -- <code>qu editors</code> (*new in v0.4.9*)</h3>
+<p>Highlighting, "run this file" and live syntax errors for Qu are available for VS Code, VSCodium, Cursor, Windsurf, Notepad++, Sublime Text, Vim and Neovim, and the Qu kernel for Jupyter. The <code>qu</code> binary carries the plugin files and installs them itself; nothing else is needed.</p>
+<pre><code>qu editors detect                 # which editors qu finds, how, and where each plugin goes
+qu editors install                # install into every detected editor
+qu editors install --editor vscode,nvim --dry-run   # only these; print, change nothing
+qu editors status                 # installed? version? is qu itself on PATH?
+qu editors check                  # validate the plugin files; exit 0 only if healthy
+qu editors uninstall              # remove exactly what install wrote
+</code></pre>
+<p><code>detect</code> looks in the Windows registry, <code>PATH</code> and the usual folders (and finds portable copies by their <code>data/</code>, <code>Data/</code> or <code>doLocalConf.xml</code> folder), and <code>qu editors detect vscode</code> exits 0 if VS Code is found and 1 if not, so a script can branch on it. <code>install --editor all</code> writes to every default location even for editors that are not installed. Files you edited are saved as <code>.bak</code> before they are replaced, and <code>--dry-run</code> prints what would happen. Restart the editor afterwards.</p>
+<p>The editor extension runs <code>qu</code>, so it must find it: the VS Code setting <code>qu.executablePath</code> (default <code>qu</code>) is a bare name looked up on <code>PATH</code> or a full path. <code>qu editors status</code> says whether <code>qu</code> is on <code>PATH</code> and prints the path to use when it is not. In VS Code, <strong>Qu: Run File</strong> (Ctrl+Alt+R) runs the file and turns the <code>at file.qu:LINE in f()</code> lines of a runtime error into entries in the Problems panel. Notebooks in VS Code also need Microsoft's Jupyter extension; <code>status</code> prints the command (<code>code --install-extension ms-toolsai.jupyter</code>) but never runs it. <code>qu editors install --editor jupyter</code> registers the Qu kernelspec using the <code>qu-jupyter</code> binary that ships next to <code>qu</code>, and <code>check</code> verifies that kernel can start. JetBrains, Zed, Helix and Emacs have no plugin yet (see <code>editors/README.md</code>); those with an LSP client can still use the language server described next.</p>
+<h3>Language server -- <code>qu lsp</code> (*new in v0.4.12*)</h3>
+<p><code>qu lsp</code> is a Language Server Protocol server. An editor starts it, sends it the text you are editing, and gets back what it needs to show:</p>
+<ul>
+<li>syntax errors as you type, from the same parser <code>qu run</code> uses;</li>
+<li>on hover, a builtin's signature and one-line summary (<code>butter(order, kind, cutoff, fs)</code>), or the header line of a function you wrote;</li>
+<li>completion of builtins, of the functions and variables in the file, and of keywords; after <code>xlsx.</code>, that module's members;</li>
+<li>the parameter list while you type a call, with the current parameter marked;</li>
+<li>an outline of the file: functions, <code>#%%</code> cells and <code># --- title</code> sections;</li>
+<li>go to definition, for a function or variable defined in the same file.</li>
+</ul>
+<p>The VS Code extension (<code>qu editors install</code>) starts it for you. In any other editor with an LSP client, tell the client to run this command for <code>*.qu</code> files:</p>
+<pre><code>qu lsp          # speaks LSP on stdin/stdout; not meant to be run by hand
+</code></pre>
+<p>For Neovim that is, in <code>init.lua</code>:</p>
+<pre><code>vim.api.nvim_create_autocmd('FileType', {
+  pattern = 'qu',
+  callback = function(args)
+    vim.lsp.start({
+      name = 'qu-lsp',
+      cmd = { 'qu', 'lsp' },
+      root_dir = vim.fs.dirname(vim.api.nvim_buf_get_name(args.buf)),
+    })
+  end,
+})
+</code></pre>
+<p><code>editors/README.md</code> has the same for Helix, Sublime Text (LSP package), Kate and JetBrains IDEs (LSP4IJ), and says which were tested: the server and the VS Code extension are, but the configurations for the other editors, including the Neovim one above, have not been run inside the editor yet. The server works on one file at a time (nothing is resolved across <code>import</code>s), reports the parser's first error rather than all of them, and does not rename, find references or format (<code>qu fmt</code> formats).</p>
 <h3><code>qu run</code> flags for running untrusted or unattended scripts</h3>
 <p><code>qu run &lt;file.qu&gt;</code> takes a few flags for running a script you don't fully trust or don't want to babysit — useful for a script from someone else, a CI job, or anything you want a hard ceiling on:</p>
 <ul>
@@ -223,6 +327,7 @@ r = [0, 2, 4, 6, 8, 10]
 <ul>
 <li>Variables are implicitly typed — no declarations. <code>for</code>/<code>while</code>/<code>if</code> all close with an explicit <code>end</code> (or <code>end for</code>/<code>end while</code>/<code>end if</code>).</li>
 <li><code>:=</code> defines a one-line, non-recursive, *elemental* function (call it on a vector and it maps automatically); <code>function ... end function</code> is the multi-statement form with explicit <code>return</code>.</li>
+<li><strong>Qu has no closures.</strong> A function (nested, or an anonymous lambda) cannot see the local variables of the function that encloses it; it can read top-level (global) variables, and anything it needs from its caller must be passed as an argument. A function definition nested inside another function is not private to it: running the outer function defines the inner one in the <strong>global</strong> function namespace, where it can clash with (and replace) a function of the same name.</li>
 <li><code>start to stop [step delta]</code> is a range, <strong>inclusive at both ends</strong> — unlike Python's <code>range</code>.</li>
 <li><code>"{expr}"</code> interpolates directly in a double-quoted string, with an optional <code>:spec</code> (<code>.4f</code>, <code>.2e</code>, <code>d</code>, ...) for formatting.</li>
 </ul>
@@ -380,7 +485,7 @@ err_filtered = <span class="f">rms</span>(filtered - clean)
 <span class="f">print</span>(<span class="s">"rms error after filtering  = {err_filtered:.4f}"</span>)
 </code></pre>
 <div class="out"><span class="lbl">output</span><pre>rms error before filtering = 0.7071
-rms error after filtering  = 0.0266</pre></div></div>
+rms error after filtering  = 0.0350</pre></div></div>
 <pre><code>rms error before filtering = 0.7071
 rms error after filtering  = 0.0266
 </code></pre>
@@ -524,12 +629,66 @@ result = <span class="f">join</span>(w)
 <pre><code>result = 49
 </code></pre>
 <p><code>spawn("fn_name", args...)</code> runs a user-defined function on its own OS thread (only a function you defined can be spawned, never a builtin); <code>join(w)</code> blocks for its result. <code>parallel for</code> and <code>pmap</code> are the shared-nothing loop/pipeline-stage equivalents for "apply this to every element"; <code>mutex</code>/<code>semaphore</code> opt in to real shared state when you need it. See Book 3 §4 and §5 for timers (<code>every</code>/<code>after</code>), <code>parallel for</code>, and real serial-port I/O.</p>
-<h2 id="s383">Where to go from here</h2>
+<h2 id="s383">Opening .qu files</h2>
+<p>A <code>.qu</code> file is a "Qu script". The installers register the type so that the usual desktop gestures work:</p>
+<ul>
+<li><strong>Windows.</strong> The Qu Studio installer registers the type for your user account only (no administrator needed): double-click opens the file in Qu Studio, and right-click offers *Edit with Qu Studio* and *Open with*. Skip it with <code>/NOASSOC</code>, or untick *Open .qu files with Qu Studio* on the Components page. The command-line installer registers the type too, but its double-click opens the file in a text editor, and *Run with Qu* is a separate right-click entry. Uninstalling removes exactly what was added.</li>
+<li><strong>macOS.</strong> Qu Studio declares the type, so Finder offers *Open With &gt; Qu Studio*. To make it the default: select a <code>.qu</code> file, *Get Info &gt; Open with*, choose Qu Studio, *Change All*.</li>
+<li><strong>Linux.</strong> The <code>.deb</code> and <code>.rpm</code> install a MIME definition (<code>application/x-qu-script</code>, <code>*.qu</code>) and a desktop entry that accepts files, so file managers list Qu Studio for <code>.qu</code> files; set it as the default from the file's *Properties &gt; Open With*. An AppImage does not install anything by itself; tools such as AppImageLauncher integrate it.</li>
+</ul>
+<p><strong>Making Qu Studio the default.</strong> The installers never take over a <code>.qu</code> association another program already holds. Windows protects that choice (it is signed per user, and no installer may overwrite it), so if <code>.qu</code> already opens elsewhere, do it once yourself: right-click a <code>.qu</code> file, *Open with &gt; Choose another app &gt; Qu Studio &gt; Always*. If nothing handled <code>.qu</code> before, the Studio installer makes itself the default.</p>
+<p><strong>Double-click never runs a script.</strong> A script can do whatever you can, so opening a file only opens it. To run one, use *Run with Qu* from the right-click menu (Windows command-line install), Qu Studio's run command, or <code>qu run file.qu</code>.</p>
+<h2 id="s420">Qu Studio: opening files</h2>
+<p>Qu Studio opens files three ways, and every way adds a tab (or focuses the tab that already holds the file) -- opening never replaces what you are editing.</p>
+<ul>
+<li><strong>From the command line or a file association.</strong> Pass a path as the first argument: <code>"Qu Studio.exe" "C:\work\my script.qu"</code> on Windows, <code>qu-studio ~/work/script.qu</code> on Linux and macOS. Paths with spaces and non-ASCII characters are fine. A path that does not exist, or is a folder, shows a message instead of opening. Each launch opens its own window; there is no single-instance hand-off yet. macOS "Open With" and dock drops are not supported in this release (they need a newer Tauri).</li>
+<li><strong>Drag and drop.</strong> Drop one or more files onto the window; a dashed "Drop to open" target appears while you hover. <code>.qu</code> files (and plain text such as <code>.txt</code>, <code>.md</code>, <code>.csv</code>) open in the editor, <code>.svg</code> and <code>.pdf</code> open in a viewer. Anything else is ignored with a message naming the file.</li>
+<li><strong>The Open button (Ctrl+O)</strong> and the file tree route by extension the same way.</li>
+</ul>
+<p>The <strong>SVG viewer</strong> draws the file with scripts, <code>foreignObject</code> and event handlers removed (an SVG can never run code in Studio). Scroll to zoom, drag to pan, <strong>Fit</strong> (key <code>0</code>) fits the window, <strong>100%</strong> (key <code>1</code>) shows actual size, and <strong>View source</strong> opens the SVG as text in the editor.</p>
+<p>The <strong>PDF viewer</strong> uses the web view's built-in PDF support (Windows and macOS). On Linux the web view has none, so the pane shows a notice with an <strong>Open in system viewer</strong> button instead. Files over 200 MB (viewers) or 50 MB (text) are refused with a message.</p>
+<h2 id="s464">PDF page rendering needs PDFium</h2>
+<p>Everything in <code>import pdf</code> that reads or edits a document's structure, text, pages, bookmarks, annotations and attachments is built in. <code>pdf.render</code>, which turns a page into an image, is the one exception: it uses Google's PDFium, which Qu loads when you first call it rather than shipping it.</p>
+<p>1. Download the build for your platform from github.com/bblanchon/pdfium-binaries (<code>pdfium-win-x64.tgz</code>, <code>pdfium-linux-x64.tgz</code>, <code>pdfium-mac-arm64.tgz</code>, ... -- the plain ones, not the <code>v8</code> ones). 2. Unpack it and copy <code>bin/pdfium.dll</code> (Windows), <code>lib/libpdfium.so</code> (Linux) or <code>lib/libpdfium.dylib</code> (macOS) <strong>next to the </strong><code>qu</code> program<strong> -- for the Windows installers that is the install folder, beside </strong><code>qu.exe</code>. Or set the <code>QU_PDFIUM</code> environment variable to the file or its folder. 3. <code>import pdf</code> and <code>img = pdf.render("report.pdf", page=1, dpi=120)</code>.</p>
+<p>Without the library the call stops with an error that says exactly this. Nothing else in <code>import pdf</code> needs it.</p>
+<p>Annotations are editable from Qu itself: <code>pdf.add_annotation</code> takes <code>type=</code> (<code>"Text"</code> for a note, <code>"Square"</code>, <code>"Highlight"</code>, <code>"Underline"</code>, <code>"StrikeOut"</code>, <code>"Squiggly"</code>, ...), <code>rect=</code>, <code>text=</code> and an optional <code>color=[r, g, b]</code>; <code>pdf.annotations</code> lists them and <code>pdf.remove_annotation</code> removes one. They return the new file as bytes, so save with <code>bytes_write(path, ...)</code>. Pages are counted from 1.</p>
+<h2 id="s515">Where to go from here</h2>
 <ul>
 <li><strong><a href="fundamentals.html">Book 1 — Fundamentals</a></strong>, <strong><a href="numerics-dsp.html">Book 2 — Numerics, DSP &amp; Linear Algebra</a></strong>, and <strong><a href="specialized.html">Book 3 — Specialized Domains</a></strong> go deep on everything this chapter only sampled, in that order.</li>
 <li>The <strong><a href="stdlib-overview.html">Standard Library Reference</a></strong> is the function-by-function index, organized by domain, generated straight from the interpreter's own builtin dispatch table.</li>
 <li><strong><a href="spec.html">The Specification</a></strong> is the source of truth for anything this book and the spec ever disagree on.</li>
 </ul>
+<h2 id="s556">Text with braces, quotes and backslashes</h2>
+<p>An ordinary string treats <code>{...}</code> as interpolation, so JSON, CSS and JavaScript need one of these spellings:</p>
+<div class="tablewrap"><table>
+<tr><td>You want</td><td>Write</td><td>Result</td></tr>
+<tr><td>a literal <code>{</code> or <code>}</code></td><td><code>"config={{a:1}}"</code></td><td><code>config={a:1}</code></td></tr>
+<tr><td>a backslash with no escape processing</td><td><code>r"C:\temp\new"</code></td><td><code>C:\temp\new</code></td></tr>
+<tr><td>text with braces AND double quotes (JSON, CSS)</td><td><code>r"""[{"a":1},{"a":2}]"""</code></td><td>the text exactly as written</td></tr>
+<tr><td>a double quote inside an ordinary string</td><td><code>"say \"hi\""</code></td><td><code>say "hi"</code></td></tr>
+</table></div>
+<p><code>r"..."</code> ends at the first <code>"</code>; <code>r"""..."""</code> (new in v0.4.8) ends at the next three quotes, so it can hold quotes, braces and backslashes. So <code>parse_json(r"""[{"a":1}]""")</code> works without escaping anything. (<code>r'...'</code> is not a raw string: after a variable <code>r</code>, <code>'</code> is the transpose.) In a run of four or more quotes the closing three are the last three, as in Python, so <code>r"""say "hi""""</code> ends in a literal <code>"</code>. A string that is never closed (either form) is an error at the line and column where it opened, not a silent swallow of the rest of the file.</p>
+<h2 id="s616">Where did my script fail?</h2>
+<p>A runtime error from <code>qu run</code> names the file and line, the function it was in and every call up to the top level:</p>
+<pre><code><span class="e">qu: runtime error: cannot apply a numeric operation to string</span>
+  at nested.qu:2 in inner()
+  called from nested.qu:6 in outer()
+  called from nested.qu:8 (top level)
+</code></pre>
+<p>Inside <code>catch e</code>, <code>e.message</code> stays the bare message; <code>e.file</code> is the script, <code>e.line</code> the failing line, <code>e.stack</code> the function chain and <code>e.trace</code> the multi-line text above.</p>
+<p><code>qu run --watch script.qu</code> runs the script again every time you save it (a run still going is stopped first; only the script file itself is watched, not the files it imports). <code>qu run --dry-run script.qu</code> runs it but skips every call that writes or deletes files (<code>write_text</code>, <code>write_csv</code>, <code>remove_file</code>, ...) and prints <code>dry-run: skipped write_text(path)</code> on stderr for each, so a script that publishes to a share can be rehearsed first. <code>--dry-run</code> does not stop processes or network calls; use <code>--sandbox</code> for those.</p>
+<h2 id="s661">Lists</h2>
+<p><code>xs[i] = value</code> replaces one element of a list. <code>append(list, other)</code> adds <code>other</code> as ONE element (nesting); <code>extend(list, other)</code> adds its elements (concatenation). <code>for row in table</code> walks a table's rows as records.</p>
+<h2 id="s686">Scientific notation and formatted numbers</h2>
+<div class="tablewrap"><table>
+<tr><td>You want</td><td>Write</td><td>Result</td></tr>
+<tr><td>typeset, for titles and labels</td><td><code>sci(1.2345e-45)</code> or <code>"{x:.2sci}"</code></td><td><code>1.23 × 10⁻⁴⁵</code></td></tr>
+<tr><td>the same for LaTeX / MathJax</td><td><code>sci(x, 3, style="tex")</code> or <code>"{x:.2tex}"</code></td><td><code>1.23 \times 10^{-45}</code></td></tr>
+<tr><td>C's <code>%e</code></td><td><code>"{x:.3e}"</code> or <code>sprintf("%.3e", x)</code></td><td><code>1.235e+05</code></td></tr>
+<tr><td>C's <code>%g</code> (significant digits)</td><td><code>"{x:.3g}"</code> or <code>sprintf("%.3g", x)</code></td><td><code>1.23e-05</code></td></tr>
+<tr><td>padded, aligned columns</td><td><code>sprintf("%-10s %8.3f", name, v)</code></td><td><code>alpha        3.142</code></td></tr>
+</table></div>
+<p><code>sprintf(fmt, ...)</code> returns the string and <code>printf(fmt, ...)</code> prints it with no newline added (write <code>\n</code> yourself), the way C does. Conversions: <code>%d %i %u %f %e %E %g %G %s %c %x %X %o %%</code> with the flags <code>- + space 0 #</code>, a width and a <code>.precision</code>. <code>sci(x)</code> counts *significant* digits (3 gives <code>1.23</code>), while <code>{x:.2sci}</code> counts digits after the point, like <code>{x:.2e}</code>.</p>
 </main>
 </div>
 <footer><div class="wrap">

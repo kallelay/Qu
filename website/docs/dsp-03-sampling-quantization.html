@@ -93,7 +93,7 @@
 
 <main class="docmain">
 <h1>Sampling and Quantization</h1>
-<nav class="onthispage"><a href="#s0">The idea</a><a href="#s26">In Qu</a></nav>
+<nav class="onthispage"><a href="#s0">The idea</a><a href="#s26">In Qu</a><a href="#s50">Exercises</a></nav>
 <h2 id="s0">The idea</h2>
 <p>A camera watching a spinning fan can show the blades slow, stop, and turn backwards while the real fan spins forward at full speed. Every frame is a correct photograph; the lie is assembled from a sequence of truths. Turning a continuous wave into a list of numbers is exactly this operation, and it carries the same hazard.</p>
 <p><strong>Sampling</strong> reads a continuous-time signal at instants \(T\) apart:</p>
@@ -542,6 +542,10 @@ undamaged tone would give: 4.8000
 </code></pre>
 <p>Without dither the output has exactly one value — the tone is not buried, it is gone, and its spectral line reads 0.0000. With a small noise push added first, the signal crosses quantizer boundaries often enough that which side it lands on carries information, and averaging over four thousand samples recovers 4.68 against an undamaged 4.80. A signal below the converter's resolution came out anyway, because rounding is a hard nonlinearity and adding noise before it is not the same as adding noise after it.</p>
 <p>Twice in this lesson a spectrum was asked where energy went, and both times it answered without being told anything about the signal in advance. That function — <code>rfft</code> — is the change of representation the next lesson derives from first principles: what a transform actually is, why the answer is complex, and how Cooley and Tukey made it fast enough, in 1965, for the rest of this subject to be practical.</p>
+<h2 id="s50">Exercises</h2>
+<p>1. Add <code>bits = 20</code> to the SQNR loop's range and predict the theoretical SQNR from <code>6.02*bits + 1.76</code> before running it. <strong>Check:</strong> about 122.16 dB. Measuring anywhere near that in practice needs a correspondingly precise <code>x .^ 2</code>/<code>err .^ 2</code> computation — floating- point round-off itself starts to compete with the quantization error you're trying to measure, which is a real practical limit the formula alone does not warn you about.</p>
+<p>2. The dither example pushes a tone three-tenths of a quantization step tall through an 8-bit quantizer, with and without added noise. What would you expect if the tone were instead *larger* than one full step — say 2 quantization steps tall — quantized plain, no dither? <strong>Check:</strong> it should quantize essentially fine without dither, same general shape as the plain sinewave data earlier in this lesson, because dither only rescues a signal that a quantizer's resolution would otherwise erase entirely; a signal already several steps tall was never at risk of disappearing.</p>
+<p>3. The reconstruction formula near the start of this lesson rebuilds \(x_c(t)\) from samples using a sum of shifted <code>sinc</code> functions. The dither example later shows that quantization error is a deterministic function of a deterministic input, not true randomness. Using both facts: if you reconstructed a quantized (not dithered) signal with the sinc-sum formula, would the reconstruction error at the *original* sample points be zero, even though the samples themselves are wrong? <strong>Check:</strong> yes — the sinc sum reconstructs whatever discrete sequence you feed it exactly at the sample points (that is what makes it a valid interpolant at all), so it would faithfully reproduce the *quantized* value, not the original one. Reconstruction fixes the representation, not information the quantizer already discarded.</p>
 </main>
 </div>
 <footer><div class="wrap">

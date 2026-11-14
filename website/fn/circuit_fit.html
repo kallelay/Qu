@@ -56,7 +56,18 @@
 </td><td>Returns a model handle on the same <code>predict</code>/<code>score</code> protocol as the other <code>_model</code> builtins — see *What a fit returns* below. <code>initial_guess=</code> is a flat parameter vector in the spec's leaf order; without one, a starting point is read off the spectrum's own shape. <code>bounds=(lower, upper)</code> — or <code>lower=</code>/<code>upper=</code> separately, as <code>least_squares</code> spells it — are per-parameter boxes in linear space. <code>sigma=</code> is the per-point noise level in ohms (a number or one value per point); without it, <code>weight=</code> selects <code>"modulus"</code> (the default, residuals relative to <code>|Z|</code>) or <code>"unit"</code> (absolute). <code>n_starts=</code> (default 8) is how many starting points are tried, <code>seed=</code> makes that choice reproducible. *v0.4.4:* the fit also reports <code>t</code>, <code>p_values</code> and <code>ci</code> at <code>level=</code> (default 0.95); a magnitude parameter's interval is built in log space and mapped back, so it is asymmetric and never negative. <code>summary(fit)</code> prints the table.</td></tr>
 </table></div>
 <h3>Examples</h3>
-<p class="fnnote">No documentation example calls this form yet. The <a href="../docs/signal-processing.html">Signal processing</a> chapter is where one belongs.</p>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example hasout"><pre class="hl"><code>f = <span class="f">logspace</span>(-<span class="n">1</span>, <span class="n">5</span>, <span class="n">61</span>)                              <span class="c"># 0.1 Hz .. 100 kHz</span>
+z = <span class="f">circuit_impedance</span>(<span class="s">"R-p(R-W,C)"</span>, f, [<span class="n">10</span>, <span class="n">100</span>, <span class="n">50</span>, <span class="n">1e-5</span>])
+m = <span class="f">circuit_fit</span>(f, z, <span class="s">"R-p(R-W,C)"</span>)
+<span class="f">print</span>(<span class="s">"Rs  = {m.R1}"</span>)                                <span class="c"># 10</span>
+<span class="f">print</span>(<span class="s">"Rct = {m.R2} +- {m.stderr[1]}"</span>)               <span class="c"># 100</span>
+<span class="f">print</span>(<span class="s">"{m.chi2_red}"</span>)
+zi = m.<span class="f">predict</span>(<span class="f">logspace</span>(-<span class="n">2</span>, <span class="n">6</span>, <span class="n">200</span>))                 <span class="c"># any axis, in Hz</span>
+</code></pre>
+<div class="out"><span class="lbl">output</span><pre>Rs  = 10
+Rct = 100 +- 1.100815e-15
+1.883163e-33</pre></div></div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
 </main>
 </div>
 <footer><div class="wrap">

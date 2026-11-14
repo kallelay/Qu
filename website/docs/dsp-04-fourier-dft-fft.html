@@ -93,7 +93,7 @@
 
 <main class="docmain">
 <h1>Fourier, DFT & FFT</h1>
-<nav class="onthispage"><a href="#s0">The idea</a><a href="#s26">In Qu</a></nav>
+<nav class="onthispage"><a href="#s0">The idea</a><a href="#s26">In Qu</a><a href="#s50">Exercises</a></nav>
 <h2 id="s0">The idea</h2>
 <p>A chord sounds like one sound, yet a piano string tuned to any of its notes will start resonating when the chord plays — proof that several pure tones are hiding inside the single pressure wave your ear receives.</p>
 <p>Joseph Fourier proposed, in 1822, that essentially any function can be built from a sum of sines and cosines at different frequencies, amplitudes, and phases. The continuous Fourier transform makes that claim precise:</p>
@@ -473,6 +473,10 @@ hann,        far bins: [0.000462, 0.000415, 0.0004, 0.000415]
 </code></pre>
 <p>Bin <code>2.5</code> does not exist, so <code>leaky</code>'s energy — the same total energy as <code>aligned</code> carries — scatters across every bin instead of sitting in two. Bins 30–33 sit far from the 10.5 tone and should carry nothing: without a window they hover near 1.0; with a Hann window applied first, that floor drops by roughly a factor of two thousand. The cost is real too — the main peak gets shorter and wider under the Hann window — a genuine trade of resolution for cleanliness, not a free improvement.</p>
 <p><code>X[k]</code> is one number per frequency, computed from all <code>N</code> samples at once: time has been averaged away completely to obtain it. Ask this spectrum *when* the 5 Hz energy occurred relative to the 12 Hz energy and there is no answer — every property demonstrated here (resolution, leakage, windowing) belongs to a signal Fourier analysis assumes holds still for its entire record. Lesson 5 asks what happens to this picture when the thing being measured is also growing or decaying while you watch it.</p>
+<h2 id="s50">Exercises</h2>
+<p>1. Double the 12 Hz component's amplitude from <code>0.5</code> to <code>1.0</code> in <code>x = cos(2*pi*5*t) + 0.5*cos(2*pi*12*t)</code> and re-measure <code>mag[12]</code>. <strong>Check:</strong> it should double too, from 16.0 to 32.0 — the DFT is linear, so scaling one input cosine scales its own bin by the same factor and leaves every other bin untouched.</p>
+<p>2. Before running anything, predict <code>mag[0]</code> (the DC bin) for the original two-cosine mixture. <strong>Check:</strong> it should come out essentially zero (floating-point dust, around <code>1e-14</code>) — a pure sum of cosines with no constant offset has no DC component by construction, and the DFT's bin 0 measures exactly that.</p>
+<p>3. The leakage example shows a 10.5 Hz tone's energy scattering across every bin because 2.5 isn't a whole bin index, and that a Hann window drops the far-bin floor by roughly two thousand times at the cost of a wider main peak. Given that trade, would windowing help or hurt if you were instead trying to resolve two tones very close together in frequency (say 10.0 Hz and 10.3 Hz, both landing near real bins)? <strong>Check:</strong> it would hurt — the whole point of a window in the leakage example is trading peak width for lower sidelobes, and two close tones need the *narrowest* possible peak to stay resolved as two peaks rather than blur into one. Windowing solves leakage, not resolution; those are different problems with opposite remedies.</p>
 </main>
 </div>
 <footer><div class="wrap">

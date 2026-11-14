@@ -39,6 +39,7 @@ pub mod diagnostics;
 pub mod eis;
 pub mod estimation;
 pub mod filter;
+pub mod filter_design;
 pub mod geometry;
 pub mod linalg;
 pub mod lse;

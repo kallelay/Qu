@@ -41,7 +41,7 @@
 <tr><td class="iocode"><code>result = filtfilt(filt, x)</code></td><td><div class="ioitem"><code>filt</code> <span class="iotype">Model</span><span class="iodesc"><code>filt</code>: a <code>Model</code> (kind <code>"filter"</code>).</span></div>
 <div class="ioitem"><code>x</code> <span class="iotype">vector or Signal</span><span class="iodesc"><code>x</code>: a length-N vector or <code>Signal</code>.</span></div>
 </td><td><div class="ioitem"><code>result</code> <span class="iotype">vector or Signal</span></div>
-</td><td>Returns a same-length vector or <code>Signal</code>, same <code>Fs</code>-preserving convention as <code>sosfilt</code>. Zero-phase filtering (forward, then backward): doubles the effective order but cancels phase distortion entirely — the standard offline-analysis choice.</td></tr>
+</td><td>Returns a same-length vector or <code>Signal</code>, same <code>Fs</code>-preserving convention as <code>sosfilt</code>. Zero-phase filtering (forward, then backward): doubles the effective order but cancels phase distortion entirely — the standard offline-analysis choice. Each end is odd-reflected by <code>3*(order+1)</code> samples (fewer for a signal shorter than that) and each pass starts from its steady state, so a constant input stays constant and there is no start-up transient at either edge. Errors if <code>x</code> is a <code>Signal</code> whose <code>Fs</code> differs from the rate the filter was designed for (a filter with no <code>fs</code>, or the normalized <code>fs = 2</code>, is exempt).</td></tr>
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
@@ -53,7 +53,7 @@
 smoothed = <span class="f">filtfilt</span>(lp, y)                    <span class="c"># zero-phase, forward and back</span>
 <span class="f">print</span>(<span class="s">"noise removed: rms {rms(y - x):.4f} -&gt; {rms(smoothed - x):.4f}"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>noise removed: rms 0.2010 -&gt; 0.0978</pre></div></div><p class="fnfrom">from <a href="../docs/from-zero.html">from-zero</a></p>
+<div class="out"><span class="lbl">output</span><pre>noise removed: rms 0.2010 -&gt; 0.0916</pre></div></div><p class="fnfrom">from <a href="../docs/from-zero.html">from-zero</a></p>
 <div class="example hasout"><pre class="hl"><code>fs = <span class="n">1000</span>
 n = <span class="n">0</span> <span class="k">to</span> <span class="n">999</span>
 t = n / fs
@@ -69,7 +69,7 @@ err_filtered = <span class="f">rms</span>(filtered - clean)
 <span class="f">print</span>(<span class="s">"rms error after filtering  = {err_filtered:.4f}"</span>)
 </code></pre>
 <div class="out"><span class="lbl">output</span><pre>rms error before filtering = 0.7071
-rms error after filtering  = 0.0266</pre></div></div><p class="fnfrom">from <a href="../docs/quickstart.html">quickstart</a></p>
+rms error after filtering  = 0.0350</pre></div></div><p class="fnfrom">from <a href="../docs/quickstart.html">quickstart</a></p>
 <div class="example"><pre class="hl"><code>Fs = <span class="n">2000</span>
 fc = <span class="n">60</span>
 lp = <span class="f">butter</span>(<span class="n">4</span>, <span class="s">"low"</span>, fc, Fs)

@@ -43,7 +43,26 @@
 </td><td>Returns a <code>Record</code> with fields <code>width</code>, <code>height</code> (from the <code>width</code>/<code>height</code> attributes, falling back to the <code>viewBox</code> when those are absent or a percentage; absolute CSS units <code>px</code>/<code>pt</code>/<code>pc</code>/<code>in</code>/<code>cm</code>/<code>mm</code> are converted to user units) and <code>shapes</code>, a <code>List</code> of shape records in document order. Reads the <strong>presentation attributes</strong> of <code>rect</code>, <code>circle</code>, <code>line</code>, <code>path</code> and <code>text</code>, descending into <code>&lt;g&gt;</code> groups. It does <strong>not</strong> apply <code>transform=</code>, resolve CSS (<code>&lt;style&gt;</code>, <code>style=</code>, <code>class=</code>), inherit styling from an ancestor group, or resolve <code>&lt;use&gt;</code>/<code>&lt;symbol&gt;</code>/gradients/patterns/masks/clip paths, and it skips <code>&lt;ellipse&gt;</code>/<code>&lt;polygon&gt;</code>/<code>&lt;polyline&gt;</code>/<code>&lt;image&gt;</code>. Unrecognized elements are skipped rather than rejected, so "loaded without error" does <strong>not</strong> mean "read everything in the file" — a round trip of a file <code>save_svg</code> wrote is exact, and that is the case it is built for. A file with no <code>&lt;svg&gt;</code> root is refused by name. Added in v0.3.0.</td></tr>
 </table></div>
 <h3>Examples</h3>
-<p class="fnnote">No documentation example calls this form yet. The <a href="../docs/images.html">Images</a> chapter is where one belongs.</p>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code><span class="k">import</span> svg
+
+shapes = [
+  svg.<span class="f">rect</span>(<span class="n">10</span>, <span class="n">10</span>, <span class="n">100</span>, <span class="n">50</span>, <span class="a">fill</span> = <span class="s">"#e74c3c"</span>),
+  svg.<span class="f">circle</span>(<span class="n">200</span>, <span class="n">60</span>, <span class="n">40</span>, <span class="a">fill</span> = <span class="s">"#3498db"</span>, <span class="a">stroke</span> = <span class="s">"#000000"</span>, <span class="a">stroke_width</span> = <span class="n">2</span>),
+  svg.<span class="f">line</span>(<span class="n">0</span>, <span class="n">0</span>, <span class="n">300</span>, <span class="n">120</span>, <span class="a">stroke</span> = <span class="s">"#333333"</span>, <span class="a">stroke_width</span> = <span class="n">1.5</span>),
+  svg.<span class="f">path</span>(<span class="s">"M 10 100 L 60 40 L 110 100 Z"</span>, <span class="a">stroke</span> = <span class="s">"#2ecc71"</span>, <span class="a">stroke_width</span> = <span class="n">2</span>),
+  svg.<span class="f">text</span>(<span class="n">20</span>, <span class="n">150</span>, <span class="s">"R&amp;D output"</span>, <span class="a">font_size</span> = <span class="n">16</span>, <span class="a">fill</span> = <span class="s">"#111111"</span>)
+]
+
+<span class="f">save_svg</span>(<span class="s">"drawing.svg"</span>, shapes, <span class="a">width</span> = <span class="n">320</span>, <span class="a">height</span> = <span class="n">180</span>)
+
+doc = <span class="f">load_svg</span>(<span class="s">"drawing.svg"</span>)
+<span class="f">print</span>(doc.width)             <span class="c"># 320</span>
+<span class="f">print</span>(<span class="f">len</span>(doc.shapes))       <span class="c"># 5</span>
+<span class="f">print</span>(doc.shapes[<span class="n">1</span>].kind)    <span class="c"># circle</span>
+<span class="f">print</span>(doc.shapes[<span class="n">1</span>].r)       <span class="c"># 40</span>
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/images.html">images</a></p>
 </main>
 </div>
 <footer><div class="wrap">

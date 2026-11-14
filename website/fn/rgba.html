@@ -30,10 +30,10 @@
 <h1>rgba</h1>
 <nav class="onthispage"></nav>
 <p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/plotting.html">Plotting</a></p>
-<pre class="fnsig">result = <code>rgb(r, g, b)</code></pre>
-<p class="fnnote">Input: r, g, b &middot; Output: result</p>
+<pre class="fnsig">result = <code>rgb(r, g, b, [scale=])</code></pre>
+<p class="fnnote">Input: r, g, b, scale &middot; Output: result</p>
 <h2>What it is</h2>
-<p>Builds a colour from channel numbers: <code>r</code>, <code>g</code>, <code>b</code> (and, for <code>rgba</code>, a fourth channel <code>a</code>) — a fractional 0–1 fourth channel is an opacity, a whole number 0–255 is a byte value like the other three. For channels that are computed rather than typed literally.</p>
+<p>Builds a colour from channel numbers: <code>r</code>, <code>g</code>, <code>b</code> (and, for <code>rgba</code>, a fourth channel <code>a</code>). The channels are 0–255 bytes (<code>rgb(128, 192, 255)</code>) -- always, whatever the values look like: <code>rgb(0.5, 0.75, 1.0)</code> is the byte colour #010101. For 0–1 fractions pass <code>scale = 1</code> or <code>scale = "normalized"</code> (<code>rgb(0.5, 0.75, 1.0, scale = 1)</code> is #80bfff); <code>scale = 255</code> is the default spelled out. A fourth channel of at most 1 is an opacity, otherwise a byte.</p>
 <h2>Overloads</h2>
 <p><code>rgba(r, g, b, a)</code> reads its fourth channel <code>a</code> two different ways depending on its own magnitude, so the same call can be written either the "raw byte" way or the CSS "opacity fraction" way and land on the same colour.</p>
 <p class="fnnote">2 forms. Each carries its own inputs, outputs and worked example &mdash; pick the tab for the one you are calling.</p>
@@ -48,9 +48,10 @@
 <div class="panel">
 <div class="tablewrap"><table class="iotable">
 <tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
-<tr><td class="iocode"><code>result = rgb(r, g, b)</code></td><td><div class="ioitem"><code>r</code> <span class="iotype">number</span><span class="iogap">not documented yet</span></div>
-<div class="ioitem"><code>g</code> <span class="iotype">number</span><span class="iogap">not documented yet</span></div>
-<div class="ioitem"><code>b</code> <span class="iotype">number</span><span class="iogap">not documented yet</span></div>
+<tr><td class="iocode"><code>result = rgb(r, g, b, [scale=])</code></td><td><div class="ioitem"><code>r</code> <span class="iotype">number</span><span class="iodesc">Builds a colour from channel numbers: <code>r</code>, <code>g</code>, <code>b</code> (and, for <code>rgba</code>, a fourth channel <code>a</code>).</span></div>
+<div class="ioitem"><code>g</code> <span class="iotype">number</span><span class="iodesc">Builds a colour from channel numbers: <code>r</code>, <code>g</code>, <code>b</code> (and, for <code>rgba</code>, a fourth channel <code>a</code>).</span></div>
+<div class="ioitem"><code>b</code> <span class="iotype">number</span><span class="iodesc">Builds a colour from channel numbers: <code>r</code>, <code>g</code>, <code>b</code> (and, for <code>rgba</code>, a fourth channel <code>a</code>).</span></div>
+<div class="ioitem"><code>scale</code> <span class="iotype">number, optional</span><span class="iodesc"><code>scale = 255</code> is the default spelled out.</span></div>
 </td><td><div class="ioitem"><code>result</code> <span class="iotype">string</span></div>
 </td><td>Written as a whole number sharing the other three channels' 0–255 range, <code>a</code> is read as a raw alpha byte.</td></tr>
 </table></div>
@@ -64,9 +65,10 @@
 <div class="panel">
 <div class="tablewrap"><table class="iotable">
 <tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
-<tr><td class="iocode"><code>result = rgb(r, g, b)</code></td><td><div class="ioitem"><code>r</code> <span class="iotype">number</span><span class="iogap">not documented yet</span></div>
-<div class="ioitem"><code>g</code> <span class="iotype">number</span><span class="iogap">not documented yet</span></div>
-<div class="ioitem"><code>b</code> <span class="iotype">number</span><span class="iogap">not documented yet</span></div>
+<tr><td class="iocode"><code>result = rgb(r, g, b, [scale=])</code></td><td><div class="ioitem"><code>r</code> <span class="iotype">number</span><span class="iodesc">The boundary sits at <code>1</code>: <code>rgba(r, g, b, 1)</code> is read as the fraction (fully opaque), never as the barely-visible byte value <code>1</code>.</span></div>
+<div class="ioitem"><code>g</code> <span class="iotype">number</span><span class="iodesc">The boundary sits at <code>1</code>: <code>rgba(r, g, b, 1)</code> is read as the fraction (fully opaque), never as the barely-visible byte value <code>1</code>.</span></div>
+<div class="ioitem"><code>b</code> <span class="iotype">number</span><span class="iodesc">The boundary sits at <code>1</code>: <code>rgba(r, g, b, 1)</code> is read as the fraction (fully opaque), never as the barely-visible byte value <code>1</code>.</span></div>
+<div class="ioitem"><code>scale</code> <span class="iotype">number, optional</span><span class="iodesc"><code>scale = 255</code> is the default spelled out.</span></div>
 </td><td><div class="ioitem"><code>result</code> <span class="iotype">string</span></div>
 </td><td>Written as a number 0–1 instead, <code>a</code> is read as an opacity fraction — the CSS convention — so <code>0.5</code> here lands on the exact same byte as <code>128</code> above.</td></tr>
 </table></div>

@@ -51,7 +51,19 @@
 </td><td><span class="ionone">not documented yet</span></td><td>Dormand-Prince 5(4) with adaptive step size and the 4th-order continuous extension, for non-stiff problems.</td></tr>
 </table></div>
 <h3>Examples</h3>
-<p class="fnnote">No documentation example calls this form yet. The <a href="../docs/signal-processing.html">Signal processing</a> chapter is where one belongs.</p>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example hasout"><pre class="hl"><code><span class="k">function</span> <span class="f">vdp</span>(t, y)
+    <span class="k">return</span> [y[<span class="n">1</span>], <span class="n">1.0</span> * (<span class="n">1</span> - y[<span class="n">0</span>] * y[<span class="n">0</span>]) * y[<span class="n">1</span>] - y[<span class="n">0</span>]]
+<span class="k">end</span> <span class="k">function</span>
+
+r = <span class="f">ode45</span>(<span class="s">"vdp"</span>, [<span class="n">0</span>, <span class="n">20</span>], [<span class="n">2</span>, <span class="n">0</span>])
+<span class="f">print</span>(r.status)                 <span class="c"># ok</span>
+<span class="f">print</span>(r.y[<span class="f">length</span>(r.t) - <span class="n">1</span>, <span class="n">0</span>])  <span class="c"># position at t = 20</span>
+<span class="f">print</span>(<span class="f">quad</span>((x) := <span class="f">exp</span>(-x * x), -inf, inf))   <span class="c"># 1.7724538509 = sqrt(pi)</span>
+</code></pre>
+<div class="out"><span class="lbl">output</span><pre>ok
+2.008149
+1.772454</pre></div></div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
 <h2>How it works</h2>
 <p>and general minimization. Only a user-defined function (by name, the same convention <code>pmap</code>/<code>spawn</code> use) can be the target of any of these — not a builtin. <code>fzero(f, a, b, [tol=1e-10], [max_iter=100])</code> — Brent's method: robust root finding (guaranteed convergence given a bracket <code>[a,b]</code> where <code>f</code> changes sign), no derivative needed. The "something better than plain bisection" choice.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

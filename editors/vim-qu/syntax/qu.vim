@@ -16,7 +16,7 @@ endif
 syn case match
 
 syn keyword quControl and as break by case cases catch continue do each else elseif elsewhere end for from if in loop mod not on or otherwise repeat return skip step then to try until use using while with
-syn keyword quKeyword assert async await backend base class collect compose const constant data def device dimension distributed ease elemental enum every export finetune flag frame function global hold implements import inherits inline interface layer let local method mesh model module namespace new node optional override project property pure render reserve release restore run scene3d schedule simd sketch stencil sub train tune unit unsafe vectorize view watch window
+syn keyword quKeyword assert async await backend base class collect compose const constant data def device dimension distributed ease elemental enum every export finetune flag frame function global hold implements import inherits inline interface layer let local method mesh model module namespace new node optional override project property pure render reserve release restore run scene3d schedule simd sketch stencil sub train tune unit unsafe vectorize view watch
 " Contextual keywords (they are also ordinary names / builtin functions, so
 " colour them only where the parser treats them as keywords).
 syn match quKeyword /^\s*\zs\%(after\)\>\%(\s*[=(]\)\@!/

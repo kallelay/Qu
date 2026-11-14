@@ -48,14 +48,14 @@
 <span class="f">listen_pool</span>(<span class="n">9000</span>, <span class="a">allow</span>=(<span class="s">"square"</span>))   <span class="c"># blocks forever, serving requests</span>
 </code></pre>
 </div><p class="fnfrom">from <a href="../docs/tour.html">tour</a></p>
-<div class="example"><pre class="hl"><code><span class="f">square</span>(x) := x * x
+<div class="example hasout"><pre class="hl"><code><span class="f">square</span>(x) := x * x
 
 <span class="k">function</span> <span class="f">run_listener</span>()
     <span class="f">listen_pool</span>(<span class="n">9321</span>, <span class="a">allow</span>=(<span class="s">"square"</span>))
 <span class="k">end</span> <span class="k">function</span>
 
 w = <span class="f">spawn</span>(<span class="s">"run_listener"</span>)     <span class="c"># the "remote" side, on its own thread here</span>
-<span class="f">sleep</span>(<span class="n">0.3</span>)                    <span class="c"># give it time to bind before connecting</span>
+<span class="f">sleep</span>(<span class="n">300</span> ms)                 <span class="c"># give it time to bind before connecting</span>
 
 pool workers <span class="k">with</span> cpu=<span class="n">1</span>, remote=(<span class="s">"127.0.0.1:9321"</span>)
 <span class="k">end</span> pool
@@ -68,7 +68,8 @@ q = <span class="f">queue</span>()
 results = run q on workers    <span class="c"># some local, some "remote" — one ordered List</span>
 <span class="f">print</span>(results)                <span class="c"># (0, 1, 4, 9, 16)</span>
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/concurrency.html">concurrency</a></p>
+<div class="out"><span class="lbl">output</span><pre>listen_pool: listening on 0.0.0.0:9321 (allow: [square])
+(0, 1, 4, 9, 16)</pre></div></div><p class="fnfrom">from <a href="../docs/concurrency.html">concurrency</a></p>
 <h2>How it works</h2>
 <p><code>listen_pool(port, allow=("fnA", "fnB", ...))</code> (§ distributed job dispatch, 2026-08-31) — the remote-worker half of <code>pool ... with cpu=N, remote=("host:port", ...)</code>: blocks forever, accepting job requests over TCP and running only functions named in <code>allow</code> (a hard security requirement — never an arbitrary requested name; see <code>remote_pool</code>'s own doc comment for the wire protocol, the allowlist check, and the isolation model). <code>allow</code> is required and must be non-empty — an empty allowlist could never run anything.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

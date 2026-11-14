@@ -93,7 +93,7 @@
 
 <main class="docmain">
 <h1>Overview</h1>
-<nav class="onthispage"><a href="#s0">You already own the instrument</a><a href="#s48">Why bother mastering it</a><a href="#s90">What this course does differently</a><a href="#s142">The map</a><a href="#s169">A taste, before you go</a></nav>
+<nav class="onthispage"><a href="#s0">You already own the instrument</a><a href="#s48">Why bother mastering it</a><a href="#s90">What this course does differently</a><a href="#s142">The map</a><a href="#s169">A taste, before you go</a><a href="#s211">Exercises</a></nav>
 <p><strong>A course in 24 lessons. Start here.</strong></p>
 <hr>
 <p>The last time you heard someone's voice on the phone, you did not hear their voice.</p>
@@ -145,6 +145,10 @@ peak = <span class="f">argmax</span>(mag)
 <p>Three ingredients went in. <code>rfft</code> found them, sorted by strength, without being told they were there, without being told anything about music. Plot <code>mag</code> against <code>f</code> and the three spikes stand alone at 440, 880 and 1320 Hz with nothing in between — the recipe recovered from the cake.</p>
 <p>That is a one-second demonstration of the idea that took humanity until 1822 to state and until 1965 to make fast. Lesson 4 explains why it works. Lesson 1 starts three steps before it, with a question worth more than it first appears: what kind of signal is this, actually?</p>
 <p><strong>Next: <a href="01-signal-classification.html">Lesson 1 — Signal classification</a>.</strong> Open a terminal first. This course is not a spectator sport.</p>
+<h2 id="s211">Exercises</h2>
+<p>1. Change the three-tone mixture's amplitudes to <code>1, 1, 1</code> (equal strength) instead of <code>1, 0.5, 0.25</code>, keep the frequencies, and re-run <code>argmax(mag)</code>. Does the strongest component change? <strong>Check:</strong> <code>argmax</code> breaks ties by returning the first match, so it should still report 440 Hz — the frequencies didn't move, only the heights did, and 440 is still first in the bin order.</p>
+<p>2. Add a fourth tone at 2000 Hz to the mixture. Before running anything, predict whether <code>rfft</code> will find it as cleanly as the first three. <strong>Check:</strong> it should — nothing about the method depends on the tones being harmonics of 440 Hz. Confirm by checking that <code>mag</code> has a fifth clean spike near bin <code>2000/fs*len(y)</code>, same as the other three.</p>
+<p>3. The wrist-pulse example earlier in this lesson describes finding a ~0.25 Hz breathing peak buried in heartbeat timing, by transforming a list of inter-beat gaps rather than the raw pulse waveform. Using only what this lesson showed (<code>rfft</code>, <code>argmax</code>, and the frequency-axis formula <code>f = (0 to len(mag)-1) * fs / len(y)</code>), sketch in words what <code>fs</code> would even mean for a signal built from gap durations rather than evenly-sampled time. <strong>Check:</strong> there is no natural sample rate for an unevenly-timed list of gaps — this is the actual reason "resample the gaps onto an even time grid first" is a real, necessary step, not a convenience. If your sketch didn't run into that problem, look again at what <code>fs</code> is doing in the frequency-axis formula.</p>
 </main>
 </div>
 <footer><div class="wrap">

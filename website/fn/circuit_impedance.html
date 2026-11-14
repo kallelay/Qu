@@ -39,7 +39,18 @@
 <tr><td class="iocode"><code></code></td><td><span class="ionone">no input</span></td><td><span class="ionone">not documented yet</span></td><td>&mdash;</td></tr>
 </table></div>
 <h3>Examples</h3>
-<p class="fnnote">No documentation example calls this form yet.</p>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example hasout"><pre class="hl"><code>f = <span class="f">logspace</span>(-<span class="n">1</span>, <span class="n">5</span>, <span class="n">61</span>)                              <span class="c"># 0.1 Hz .. 100 kHz</span>
+z = <span class="f">circuit_impedance</span>(<span class="s">"R-p(R-W,C)"</span>, f, [<span class="n">10</span>, <span class="n">100</span>, <span class="n">50</span>, <span class="n">1e-5</span>])
+m = <span class="f">circuit_fit</span>(f, z, <span class="s">"R-p(R-W,C)"</span>)
+<span class="f">print</span>(<span class="s">"Rs  = {m.R1}"</span>)                                <span class="c"># 10</span>
+<span class="f">print</span>(<span class="s">"Rct = {m.R2} +- {m.stderr[1]}"</span>)               <span class="c"># 100</span>
+<span class="f">print</span>(<span class="s">"{m.chi2_red}"</span>)
+zi = m.<span class="f">predict</span>(<span class="f">logspace</span>(-<span class="n">2</span>, <span class="n">6</span>, <span class="n">200</span>))                 <span class="c"># any axis, in Hz</span>
+</code></pre>
+<div class="out"><span class="lbl">output</span><pre>Rs  = 10
+Rct = 100 +- 1.100815e-15
+1.883163e-33</pre></div></div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
 <h2>How it works</h2>
 <p><code>circuit_impedance(expr, f, theta)</code> -- spec string straight to spectrum, in one call. This exists as its own builtin rather than as sugar for <code>impedance(circuit(expr, theta), f)</code> because of what it is FOR: <code>papers/ecm-pf</code>'s cross-language check runs the same circuits through a Python implementation, a Qu library implementation and this one, and compares. Taking the STRING (not a circuit value built by a shared parser) is what keeps the columns independent -- if two of them shared a parser, a parser bug would cancel out of the comparison and the check would pass with both columns wrong. Argument order and Hz are that suite's, adopted rather than invented.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

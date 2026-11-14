@@ -47,7 +47,27 @@
 </td><td>Returns a <code>Record</code>: <code>pages_a</code>, <code>pages_b</code> (<code>Num</code>), <code>differing_dimensions</code> (<code>List</code> of <code>Record</code>s <strong>only for pages whose size differs or that exist on only one side</strong>, each with <code>page</code> (<code>Num</code>) and <code>a</code>/<code>b</code> — a <code>Record</code> <code>{width, height}</code> in PDF points, or <code>none</code> when that side lacks the page), <code>bookmarks_a</code>/<code>bookmarks_b</code> (<code>Bool</code>) and <code>annotations_a</code>/<code>annotations_b</code> (<code>Num</code>). Deliberately shallow — bookmark-by-bookmark or annotation-by-annotation comparison is a larger feature this does not attempt.</td></tr>
 </table></div>
 <h3>Examples</h3>
-<p class="fnnote">No documentation example calls this form yet. The <a href="../docs/file-io.html">File I/O</a> chapter is where one belongs.</p>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example norun"><pre class="hl"><code><span class="k">import</span> pdf
+
+<span class="c"># Only `subject` changes; title/author/producer/... are untouched.</span>
+tagged = pdf.<span class="f">set_metadata</span>(<span class="s">"paper.pdf"</span>, <span class="a">subject</span> = <span class="s">"Impedance spectroscopy"</span>)
+pdf.<span class="f">write_merge</span>(<span class="s">"tagged.pdf"</span>, [tagged])  <span class="c"># or write it out any other way</span>
+
+hits = pdf.<span class="f">find_text</span>(<span class="s">"paper.pdf"</span>, <span class="s">"impedance"</span>, <span class="a">case_sensitive</span> = <span class="k">false</span>)
+<span class="k">for</span> h <span class="k">in</span> hits
+    <span class="f">print</span>(<span class="s">"page {h.page}, offset {h.offset}"</span>)
+<span class="k">end</span>
+
+d = pdf.<span class="f">text_diff</span>(<span class="s">"draft_v1.pdf"</span>, <span class="s">"draft_v2.pdf"</span>)
+<span class="f">print</span>(<span class="s">"{length(d.differing_pages)} of {d.pages_b} pages changed"</span>)
+
+s = pdf.<span class="f">structural_diff</span>(<span class="s">"draft_v1.pdf"</span>, <span class="s">"draft_v2.pdf"</span>)
+<span class="k">if</span> s.pages_a != s.pages_b
+    <span class="f">print</span>(<span class="s">"page count changed: {s.pages_a} -&gt; {s.pages_b}"</span>)
+<span class="k">end</span>
+</code></pre>
+</div><p class="fnfrom">not run by the build &mdash; this one needs something the repository cannot supply &middot; from <a href="../docs/file-io.html">file-io</a></p>
 </main>
 </div>
 <footer><div class="wrap">

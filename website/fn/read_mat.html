@@ -40,7 +40,7 @@
 <tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
 <tr><td class="iocode"><code>result = read_mat(path)</code></td><td><div class="ioitem"><code>path</code> <span class="iotype">string</span><span class="iogap">not documented yet</span></div>
 </td><td><div class="ioitem"><code>result</code> <span class="iotype">scalar, vector, or matrix</span></div>
-</td><td>Returns a record with one field per saved variable, named after the variable, each holding that variable's data (a scalar, vector, or matrix depending on what was saved).</td></tr>
+</td><td>Returns a record with one field per saved variable, named after the variable, each holding that variable's data (a scalar, vector, or matrix depending on what was saved). MATLAB v7.3 files (HDF5 containers) are read through the built-in HDF5 reader: numeric and logical arrays, char row vectors and scalar structs come through; cell arrays, complex, sparse and N-d variables read as <code>&lt;unsupported ...&gt;</code> text.</td></tr>
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>

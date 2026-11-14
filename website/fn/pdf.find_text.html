@@ -47,7 +47,27 @@
 </td><td>Returns a <code>List</code> of <code>Record</code>s, one per match, each with <code>page</code> (<code>Num</code>, from 1), <code>offset</code> (<code>Num</code>, a <strong>character</strong> offset into that page's <code>extract_text</code> string — not a byte offset, and not an on-page coordinate; this module reads PDF structure, not rendered glyph positions) and <code>length</code> (<code>Num</code>, the match's length in characters).</td></tr>
 </table></div>
 <h3>Examples</h3>
-<p class="fnnote">No documentation example calls this form yet. The <a href="../docs/file-io.html">File I/O</a> chapter is where one belongs.</p>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example norun"><pre class="hl"><code><span class="k">import</span> pdf
+
+<span class="c"># Only `subject` changes; title/author/producer/... are untouched.</span>
+tagged = pdf.<span class="f">set_metadata</span>(<span class="s">"paper.pdf"</span>, <span class="a">subject</span> = <span class="s">"Impedance spectroscopy"</span>)
+pdf.<span class="f">write_merge</span>(<span class="s">"tagged.pdf"</span>, [tagged])  <span class="c"># or write it out any other way</span>
+
+hits = pdf.<span class="f">find_text</span>(<span class="s">"paper.pdf"</span>, <span class="s">"impedance"</span>, <span class="a">case_sensitive</span> = <span class="k">false</span>)
+<span class="k">for</span> h <span class="k">in</span> hits
+    <span class="f">print</span>(<span class="s">"page {h.page}, offset {h.offset}"</span>)
+<span class="k">end</span>
+
+d = pdf.<span class="f">text_diff</span>(<span class="s">"draft_v1.pdf"</span>, <span class="s">"draft_v2.pdf"</span>)
+<span class="f">print</span>(<span class="s">"{length(d.differing_pages)} of {d.pages_b} pages changed"</span>)
+
+s = pdf.<span class="f">structural_diff</span>(<span class="s">"draft_v1.pdf"</span>, <span class="s">"draft_v2.pdf"</span>)
+<span class="k">if</span> s.pages_a != s.pages_b
+    <span class="f">print</span>(<span class="s">"page count changed: {s.pages_a} -&gt; {s.pages_b}"</span>)
+<span class="k">end</span>
+</code></pre>
+</div><p class="fnfrom">not run by the build &mdash; this one needs something the repository cannot supply &middot; from <a href="../docs/file-io.html">file-io</a></p>
 </main>
 </div>
 <footer><div class="wrap">

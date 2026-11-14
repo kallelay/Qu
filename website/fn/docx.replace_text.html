@@ -45,7 +45,37 @@
 </td><td>Returns the number of replacements.</td></tr>
 </table></div>
 <h3>Examples</h3>
-<p class="fnnote">No documentation example calls this form yet. The <a href="../docs/file-io.html">File I/O</a> chapter is where one belongs.</p>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example norun"><pre class="hl"><code><span class="k">import</span> docx
+<span class="k">import</span> pptx
+<span class="k">import</span> xlsx
+
+doc = docx.<span class="f">open</span>(<span class="s">"paper.docx"</span>)
+docx.<span class="f">replace_text</span>(doc, <span class="s">"2025"</span>, <span class="s">"2026"</span>)
+docx.<span class="f">add_heading</span>(doc, <span class="s">"Results"</span>, <span class="n">1</span>)
+docx.<span class="f">add_paragraph</span>(doc, <span class="s">"The measured impedance was 42.3 ohm."</span>, <span class="a">bold</span> = <span class="k">true</span>)
+docx.<span class="f">add_table</span>(doc, <span class="f">table</span>(<span class="a">f</span> = [<span class="n">1000</span>, <span class="n">2000</span>], <span class="a">Z</span> = [<span class="n">42.3</span>, <span class="n">40.1</span>]))
+docx.<span class="f">add_image</span>(doc, <span class="s">"nyquist.png"</span>, <span class="a">width</span> = <span class="n">12</span> cm)
+docx.<span class="f">add_link</span>(doc, <span class="n">1</span>, <span class="s">"https://example.org/eis-primer"</span>, <span class="a">on</span> = <span class="s">"impedance"</span>)
+docx.<span class="f">add_comment</span>(doc, <span class="n">2</span>, <span class="s">"Check this value"</span>, <span class="a">on</span> = <span class="s">"42.3"</span>, <span class="a">author</span> = <span class="s">"Ahmed"</span>)
+docx.<span class="f">set_footer</span>(doc, <span class="s">"Page #page of #pages"</span>, <span class="a">align</span> = <span class="s">"center"</span>)
+docx.<span class="f">add_toc</span>(doc, <span class="a">at</span> = <span class="n">0</span>, <span class="a">title</span> = <span class="s">"Contents"</span>)      <span class="c"># Word builds it on open</span>
+docx.<span class="f">save_as</span>(doc, <span class="s">"paper_2026.docx"</span>)
+docx.<span class="f">to_pdf</span>(doc, <span class="s">"paper_2026.pdf"</span>)          <span class="c"># needs LibreOffice</span>
+docx.<span class="f">to_latex</span>(doc, <span class="s">"latex/paper.tex"</span>)       <span class="c"># images go to latex/figures/</span>
+
+p = pptx.<span class="f">open</span>(<span class="s">"lecture.pptx"</span>)
+s = pptx.<span class="f">add_slide</span>(p, <span class="a">title</span> = <span class="s">"Impedance Spectroscopy"</span>, <span class="a">body</span> = [<span class="s">"Nyquist"</span>, <span class="s">"Bode"</span>])
+pptx.<span class="f">add_image</span>(p, s, <span class="s">"eis.png"</span>, <span class="a">x</span> = <span class="n">120</span> mm, <span class="a">y</span> = <span class="n">40</span> mm, <span class="a">w</span> = <span class="n">100</span> mm)
+pptx.<span class="f">save_as</span>(p, <span class="s">"lecture_new.pptx"</span>)
+
+wb = xlsx.<span class="f">open</span>(<span class="s">"results.xlsx"</span>)
+xlsx.<span class="f">set_cell</span>(wb, <span class="s">"Results"</span>, <span class="s">"A1"</span>, <span class="s">"Frequency"</span>)
+xlsx.<span class="f">fill_formula</span>(wb, <span class="s">"Results"</span>, <span class="s">"C2:C100"</span>, <span class="s">"=A2*B2"</span>)
+xlsx.<span class="f">freeze_panes</span>(wb, <span class="s">"Results"</span>, <span class="s">"A2"</span>)
+xlsx.<span class="f">save_as</span>(wb, <span class="s">"results_new.xlsx"</span>)
+</code></pre>
+</div><p class="fnfrom">not run by the build &mdash; this one needs something the repository cannot supply &middot; from <a href="../docs/file-io.html">file-io</a></p>
 </main>
 </div>
 <footer><div class="wrap">

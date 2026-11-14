@@ -43,7 +43,39 @@
 </td><td>Returns a new <code>Image</code>, same dimensions as the input <code>Mat</code>s. Added in v0.4.0.</td></tr>
 </table></div>
 <h3>Examples</h3>
-<p class="fnnote">No documentation example calls this form yet. The <a href="../docs/images.html">Images</a> chapter is where one belongs.</p>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example hasout"><pre class="hl"><code><span class="k">import</span> image
+
+<span class="c"># A vertical edge: left half dark, right half bright.</span>
+m = <span class="f">zeros</span>(<span class="n">4</span>, <span class="n">8</span>)
+<span class="k">for</span> y <span class="k">in</span> <span class="n">0</span> <span class="k">to</span> <span class="n">3</span>
+  <span class="k">for</span> x <span class="k">in</span> <span class="n">4</span> <span class="k">to</span> <span class="n">7</span>
+    m[y, x] = <span class="n">255</span>
+  <span class="k">end</span> <span class="k">for</span>
+<span class="k">end</span> <span class="k">for</span>
+img = <span class="f">image_from_matrix</span>(m)
+
+gx = image.<span class="f">sobel</span>(img, <span class="a">direction</span>=<span class="s">"x"</span>)
+gy = image.<span class="f">sobel</span>(img, <span class="a">direction</span>=<span class="s">"y"</span>)
+<span class="f">print</span>(gx[<span class="n">0</span>, <span class="n">3</span>], gx[<span class="n">0</span>, <span class="n">4</span>])   <span class="c"># 1020 1020 -- the edge, straddled from both sides</span>
+<span class="f">print</span>(gy[<span class="n">0</span>, <span class="n">3</span>])             <span class="c"># 0 -- no variation along y at all</span>
+
+mag = image.<span class="f">gradient_magnitude</span>(img)
+<span class="f">print</span>(mag[<span class="n">0</span>, <span class="n">3</span>] == gx[<span class="n">0</span>, <span class="n">3</span>])   <span class="c"># true -- gy is zero here, so magnitude reduces to |gx|</span>
+
+<span class="c"># A colorspace round trip: pure red is hue 0, full saturation, full value.</span>
+red = <span class="f">image_new</span>(<span class="n">2</span>, <span class="n">2</span>, <span class="a">r</span>=<span class="n">255</span>, <span class="a">g</span>=<span class="n">0</span>, <span class="a">b</span>=<span class="n">0</span>)
+hsv = image.<span class="f">rgb2hsv</span>(red)
+<span class="f">print</span>(hsv.h[<span class="n">0</span>, <span class="n">0</span>], hsv.s[<span class="n">0</span>, <span class="n">0</span>], hsv.v[<span class="n">0</span>, <span class="n">0</span>])   <span class="c"># 0 1 1</span>
+
+back = image.<span class="f">hsv2rgb</span>(hsv)
+<span class="f">print</span>(back.width, back.height)   <span class="c"># 2 2</span>
+</code></pre>
+<div class="out"><span class="lbl">output</span><pre>1020 1020
+0
+true
+0 1 1
+2 2</pre></div></div><p class="fnfrom">from <a href="../docs/images.html">images</a></p>
 </main>
 </div>
 <footer><div class="wrap">

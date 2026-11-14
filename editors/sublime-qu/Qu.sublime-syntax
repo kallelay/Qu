@@ -142,7 +142,7 @@ contexts:
     # Contextual keywords: coloured only where the parser treats them as
     # keywords (statement head / `end` tail / `where` not called). Elsewhere
     # they are ordinary names (builtin functions or variables).
-    - match: '\bend\s+(bench|finetune|interface|layer|model|module|monitor|parallel|project|property|scene|scene3d|schedule|select|simd|sketch|test|timeline|train|tune|window)\b'
+    - match: '\bend\s+(bench|finetune|interface|layer|model|module|monitor|parallel|project|property|scene|scene3d|schedule|select|simd|sketch|test|timeline|train|tune)\b'
       scope: keyword.control.qu
     - match: '\b(and|as|break|by|case|cases|catch|continue|do|each|else|elseif|elsewhere|end|for|from|if|in|loop|mod|not|on|or|otherwise|repeat|return|skip|step|then|to|try|until|use|using|while|with)\b(?!\s*=(?!=))'
       scope: keyword.control.qu
@@ -158,7 +158,7 @@ contexts:
       scope: keyword.other.qu
     - match: '\b(backend|class|const|constant|function|global|import|new|sub|unsafe)\b(?!\s*=(?!=))'
       scope: keyword.other.qu
-    - match: '(?<![.\w])(assert|async|await|base|collect|compose|data|def|device|dimension|distributed|ease|elemental|enum|every|export|finetune|flag|frame|hold|implements|inherits|inline|interface|layer|let|local|method|mesh|model|module|namespace|node|optional|override|pure|render|reserve|release|restore|run|scene3d|schedule|simd|sketch|stencil|train|tune|unit|vectorize|view|watch|window|bench|test|timeline|monitor|project|property)\b(?=[ \t]+(?!(?:in|and|or|mod|to|then|do|by|step|skip|as|if|else|elseif|end|from|with|until|where)\b)[A-Za-z0-9_"''\[{@])'
+    - match: '(?<![.\w])(assert|async|await|base|collect|compose|data|def|device|dimension|distributed|ease|elemental|enum|every|export|finetune|flag|frame|hold|implements|inherits|inline|interface|layer|let|local|method|mesh|model|module|namespace|node|optional|override|pure|render|reserve|release|restore|run|scene3d|schedule|simd|sketch|stencil|train|tune|unit|vectorize|view|watch|bench|test|timeline|monitor|project|property)\b(?=[ \t]+(?!(?:in|and|or|mod|to|then|do|by|step|skip|as|if|else|elseif|end|from|with|until|where)\b)[A-Za-z0-9_"''\[{@])'
       scope: keyword.other.qu
 
   functions:

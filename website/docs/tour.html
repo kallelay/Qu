@@ -697,7 +697,7 @@ s = timer.<span class="f">stop</span>()
 <span class="f">print</span>(<span class="s">"done, acc = {acc}"</span>)
 </code></pre>
 <div class="out"><span class="lbl">output</span><pre>elapsed &gt;= 0: true
-stop returns: 0.001746
+stop returns: 0.000677
 done, acc = 5000050000</pre></div></div>
 <p>Output:</p>
 <pre><code>elapsed &gt;= 0: true
@@ -1280,10 +1280,10 @@ last4 = [69, 70, 71, 72]
 <hr>
 <h2 id="s1157">21. <code>http_get(url)</code> — real HTTP GET</h2>
 <p><code>http_get(url)</code> issues a real HTTP(S) GET request and returns the response body as a string (GET-only, 30s timeout, clear errors on an unreachable host or non-2xx status — no custom headers, auth, or POST in this v1):</p>
-<div class="example"><pre class="hl"><code>body = <span class="f">http_get</span>(<span class="s">"https://example.com/"</span>)
+<div class="example hasout"><pre class="hl"><code>body = <span class="f">http_get</span>(<span class="s">"https://example.com/"</span>)
 <span class="f">print</span>(<span class="s">"len = {length(body)}"</span>)
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>len = 577</pre></div></div>
 <p>Output:</p>
 <pre><code>len = 559
 </code></pre>

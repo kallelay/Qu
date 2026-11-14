@@ -30,16 +30,17 @@
 <h1>set</h1>
 <nav class="onthispage"></nav>
 <p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/collections-strings.html">Collections & strings</a></p>
-<pre class="fnsig">result = <code>get(d, key)</code> / <code>set(d, key, value)</code></pre>
-<p class="fnnote">Input: d, key &middot; Output: result</p>
+<pre class="fnsig">result = <code>get(d, key, [default])</code> / <code>set(d, key, value)</code></pre>
+<p class="fnnote">Input: d, key, default &middot; Output: result</p>
 <h2>What it is</h2>
-<p><code>d</code> is a <code>Dict</code>; <code>key</code> is a <code>Str</code>/<code>number</code>; <code>value</code> (for <code>set</code>) is any value. <code>get</code> returns the stored value (any type) or <code>none</code> if <code>key</code> is absent. <code>set</code> returns a <strong>new</strong> <code>Dict</code> with that entry written — it does not modify <code>d</code> in place, so assign the result.</p>
+<p><code>d</code> is a <code>Dict</code>; <code>key</code> is a <code>Str</code>/<code>number</code>; <code>value</code> (for <code>set</code>) is any value. <code>get</code> returns the stored value (any type) or <code>default</code> (<code>none</code> when you give none) if <code>key</code> is absent -- the optional third argument is new in v0.4.7; before it was accepted and ignored. <code>set</code> returns a <strong>new</strong> <code>Dict</code> with that entry written — it does not modify <code>d</code> in place, so assign the result.</p>
 <h2>Overloads</h2>
 <p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
 <div class="tablewrap"><table class="iotable">
 <tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
-<tr><td class="iocode"><code>result = get(d, key) / set(d, key, value)</code></td><td><div class="ioitem"><code>d</code> <span class="iotype">Dict</span><span class="iodesc"><code>d</code> is a <code>Dict</code>.</span></div>
+<tr><td class="iocode"><code>result = get(d, key, [default]) / set(d, key, value)</code></td><td><div class="ioitem"><code>d</code> <span class="iotype">Dict</span><span class="iodesc"><code>d</code> is a <code>Dict</code>.</span></div>
 <div class="ioitem"><code>key</code> <span class="iotype">Str or number</span><span class="iodesc"><code>key</code> is a <code>Str</code>/<code>number</code>.</span></div>
+<div class="ioitem"><code>default</code> <span class="iotype">optional</span><span class="iodesc"><code>get</code> returns the stored value (any type) or <code>default</code> (<code>none</code> when you give none) if <code>key</code> is absent -- the optional third argument is new in v0.4.7.</span></div>
 </td><td><div class="ioitem"><code>result</code> <span class="iotype">Dict</span></div>
 </td><td>Returns the stored value (any type) or <code>none</code> from <code>get</code>, and a new <code>Dict</code> from <code>set</code>.</td></tr>
 </table></div>

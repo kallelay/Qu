@@ -30,10 +30,10 @@
 <h1>filter_init</h1>
 <nav class="onthispage"></nav>
 <p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/signal-processing.html">Signal processing</a></p>
-<pre class="fnsig">result = <code>filter_init(filt)</code></pre>
-<p class="fnnote">Input: filt &middot; Output: result</p>
+<pre class="fnsig">result = <code>filter_init(filt, [x])</code></pre>
+<p class="fnnote">Input: filt, x &middot; Output: result</p>
 <h2>What it is</h2>
-<p><code>filt</code>: a <code>Model</code> (kind <code>"filter"</code>).</p>
+<p><code>filt</code>: a <code>Model</code> (kind <code>"filter"</code>); <code>x</code> (optional): the <code>Signal</code>, or the sample rate in Hz, the state is about to be stepped over — it does not change the state, it only makes a sample-rate mismatch with the filter an error here.</p>
 <h2>Overloads</h2>
 <p class="fnnote">2 forms. Each carries its own inputs, outputs and worked example &mdash; pick the tab for the one you are calling.</p>
 <div class="typetabs">
@@ -47,7 +47,8 @@
 <div class="panel">
 <div class="tablewrap"><table class="iotable">
 <tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
-<tr><td class="iocode"><code>result = filter_init(filt)</code></td><td><div class="ioitem"><code>filt</code> <span class="iotype">Model</span><span class="iogap">not documented yet</span></div>
+<tr><td class="iocode"><code>result = filter_init(filt, [x])</code></td><td><div class="ioitem"><code>filt</code> <span class="iotype">Model</span><span class="iodesc"><code>filt</code> a <code>Model</code> with a <code>sos</code> field.</span></div>
+<div class="ioitem"><code>x</code> <span class="iotype">Model, optional</span><span class="iodesc"><code>x</code> (optional): the <code>Signal</code>, or the sample rate in Hz, the state is about to be stepped over — it does not change the state, it only makes a sample-rate mismatch with the filter an error here.</span></div>
 </td><td><div class="ioitem"><code>result</code> <span class="iotype">Model, matrix, or number</span></div>
 </td><td>Returns a <code>filter_state</code> <code>Model</code> whose <code>z</code> is an <code>(n_sections, 2)</code> all-zero biquad-state matrix — 2 numbers of memory per section.</td></tr>
 </table></div>
@@ -64,7 +65,8 @@ si = <span class="f">filter_init</span>(iir)
 <div class="panel">
 <div class="tablewrap"><table class="iotable">
 <tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
-<tr><td class="iocode"><code>result = filter_init(filt)</code></td><td><div class="ioitem"><code>filt</code> <span class="iotype">Model</span><span class="iogap">not documented yet</span></div>
+<tr><td class="iocode"><code>result = filter_init(filt, [x])</code></td><td><div class="ioitem"><code>filt</code> <span class="iotype">Model</span><span class="iodesc"><code>filt</code> a <code>Model</code> with a <code>b</code> field.</span></div>
+<div class="ioitem"><code>x</code> <span class="iotype">Model, optional</span><span class="iodesc"><code>x</code> (optional): the <code>Signal</code>, or the sample rate in Hz, the state is about to be stepped over — it does not change the state, it only makes a sample-rate mismatch with the filter an error here.</span></div>
 </td><td><div class="ioitem"><code>result</code> <span class="iotype">Model or vector</span></div>
 </td><td>Returns a <code>filter_state</code> <code>Model</code> whose <code>z</code> is a plain length-<code>(len(b)-1)</code> all-zero delay vector — just the last few inputs, no feedback to track.</td></tr>
 </table></div>

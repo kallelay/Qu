@@ -50,7 +50,18 @@
 </td><td>Returns a new <code>Image</code>, same dimensions as <code>img</code>.</td></tr>
 </table></div>
 <h3>Examples</h3>
-<p class="fnnote">No documentation example calls this form yet. The <a href="../docs/images.html">Images</a> chapter is where one belongs.</p>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example"><pre class="hl"><code>img = <span class="f">image_new</span>(<span class="n">300</span>, <span class="n">200</span>, <span class="a">r</span>=<span class="n">20</span>, <span class="a">g</span>=<span class="n">20</span>, <span class="a">b</span>=<span class="n">20</span>)
+img = <span class="f">draw_line</span>(img, <span class="n">10</span>, <span class="n">10</span>, <span class="n">290</span>, <span class="n">10</span>, <span class="a">color</span>=<span class="s">"yellow"</span>, <span class="a">thickness</span>=<span class="n">2</span>)
+img = <span class="f">draw_rect</span>(img, <span class="n">20</span>, <span class="n">30</span>, <span class="n">60</span>, <span class="n">40</span>, <span class="a">color</span>=<span class="s">"cyan"</span>, <span class="a">thickness</span>=<span class="n">2</span>)
+img = <span class="f">draw_circle</span>(img, <span class="n">150</span>, <span class="n">100</span>, <span class="n">30</span>, <span class="a">color</span>=<span class="s">"magenta"</span>, <span class="a">filled</span>=<span class="k">true</span>)
+img = <span class="f">draw_arrow</span>(img, <span class="n">200</span>, <span class="n">150</span>, <span class="n">260</span>, <span class="n">180</span>, <span class="a">color</span>=<span class="s">"white"</span>, <span class="a">head_size</span>=<span class="n">12</span>)
+
+<span class="c"># A 100 px bar labeled "50 um" when pixel_size = 0.5 um/px.</span>
+img = <span class="f">draw_scale_bar</span>(img, <span class="n">50</span>, <span class="a">pixel_size</span>=<span class="n">0.5</span>, <span class="a">unit</span>=<span class="s">"um"</span>, <span class="a">position</span>=<span class="s">"bottom-right"</span>, <span class="a">color</span>=<span class="s">"white"</span>)
+<span class="f">save_image</span>(<span class="s">"/tmp/annotated.bmp"</span>, img)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/images.html">images</a></p>
 <h2>How it works</h2>
 <p><code>draw_rect(img, x, y, width, height, color=, [thickness=1], [filled=false])</code> -- axis-aligned rectangle, top-left corner <code>(x, y)</code>. <code>filled=true</code> ignores <code>thickness</code> (a fill has no stroke width — see <code>Image::draw_rect</code>'s own doc comment).</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

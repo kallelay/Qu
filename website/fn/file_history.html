@@ -42,7 +42,15 @@
 </td><td><span class="ionone">not documented yet</span></td><td>Empty when there are none. Reading history works whether or not it is on.</td></tr>
 </table></div>
 <h3>Examples</h3>
-<p class="fnnote">No documentation example calls this form yet. The <a href="../docs/file-io.html">File I/O</a> chapter is where one belongs.</p>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example norun"><pre class="hl"><code><span class="f">file_versioning</span>(<span class="k">true</span>)
+<span class="f">write_text</span>(<span class="s">"notes.txt"</span>, <span class="s">"first draft"</span>)
+<span class="f">write_text</span>(<span class="s">"notes.txt"</span>, <span class="s">"second draft"</span>)    <span class="c"># "first draft" is kept</span>
+<span class="f">print</span>(<span class="f">file_history</span>(<span class="s">"notes.txt"</span>))
+<span class="f">print</span>(<span class="f">read_version</span>(<span class="s">"notes.txt"</span>, <span class="n">1</span>))        <span class="c"># first draft</span>
+<span class="f">restore_version</span>(<span class="s">"notes.txt"</span>, <span class="n">1</span>)            <span class="c"># back to the first draft</span>
+</code></pre>
+</div><p class="fnfrom">not run by the build &mdash; this one needs something the repository cannot supply &middot; from <a href="../docs/file-io.html">file-io</a></p>
 </main>
 </div>
 <footer><div class="wrap">

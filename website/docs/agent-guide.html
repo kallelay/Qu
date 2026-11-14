@@ -234,20 +234,20 @@ dt = <span class="f">toc</span>()          <span class="c"># a number, in second
 <span class="c"># examples.</span>
 </code></pre>
 </div>
-<p><strong>There is currently no way to ask a builtin for its signature from inside Qu.</strong> <code>help(name)</code> gives the name, related names, and a pointer to <code>catalog/</code>; it does not state parameters, for any builtin. <code>apropos(name)</code> finds names. Neither answers "what are the arguments, in what order".</p>
-<p>For that, read the function's page in the book, or — usually faster — find a real call:</p>
-<div class="example hasout"><pre class="hl"><code><span class="f">print</span>(<span class="f">help</span>(<span class="s">"read_csv"</span>))
-<span class="c">#   read_csv is a Qu builtin.</span>
+<p><strong></strong><code>help(name)</code> states the signature and what the builtin does<strong> (since the builtin reference was generated from the book; before that it did not, and this section said so):</strong></p>
+<div class="example hasout"><pre class="hl"><code><span class="f">help</span>(<span class="s">"read_csv"</span>)
+<span class="c">#   read_csv(path, [headers=true], [sep=","], [decimal="."])</span>
+<span class="c">#   Reads a CSV file into a `Table`.</span>
 <span class="c">#   related: read, re</span>
-<span class="c">#   worked examples live in catalog/ -- search it for `read_csv(`.</span>
+<span class="c">#   full reference: https://kallelay.github.io/Qu/fn/read_csv.html</span>
+<span class="c">#   worked examples: https://github.com/kallelay/Qu/tree/main/catalog -- search it for `read_csv(`.</span>
 </code></pre>
 <div class="out"><span class="lbl">output</span><pre>  read_csv(path, [headers=true], [sep=","], [decimal="."])
   Reads a CSV file into a `Table`.
   related: read, re
-  full reference: website/fn/read_csv.html
-  worked examples live in catalog/ -- search it for `read_csv(`.
-none</pre></div></div>
-<p>That last line is the honest route: <code>catalog/</code> is full of working scripts, and a real call answers the question a signature would.</p>
+  full reference: https://kallelay.github.io/Qu/fn/read_csv.html
+  worked examples: https://github.com/kallelay/Qu/tree/main/catalog -- search it for `read_csv(`.</pre></div></div>
+<p>The two last lines are links, not repo paths, so they work from an installed <code>qu</code> too. A builtin the book does not document yet still prints only "<code>name</code> is a Qu builtin." -- for those, a real call in <code>catalog/</code> is the honest route.</p>
 <p>This entry is here twice over. The error message first suggested <code>available("tic")</code> — a <strong>serial port</strong> builtin, so following it produced a second, stranger error. That was fixed to <code>help(...)</code>, still promising "for what it takes" — which <code>help</code> does not do for any of the six builtins I checked. A quieter false promise, but the same one. The message now claims only what <code>help</code> returns.</p>
 <p><strong>A well-written wrong answer is harder to catch than a badly-written one.</strong> That message names the failure, the consequence and a remedy; it reads beautifully; it was reviewed and praised. Nobody ran the remedy.</p>
 <p><strong>This message's own history doubles as a way to date a binary.</strong> Three texts have existed for this exact error, in order: <code>available("tic")</code> "for what it takes" (wrong — <code>available</code> is the serial-port builtin), <code>help("tic")</code> "for what it takes" (still wrong — <code>help</code> doesn't state parameters), then <code>help("tic")</code> "for related names and worked examples" (the current, accurate one, shown above). Running <code>qu eval 'tic(1)'</code> and checking which text comes back tells you which side of each fix the binary is on — useful when several builds of the same worktree are floating around a shared machine and you need to know whether the one in hand actually has a change you're relying on.</p>

@@ -30,22 +30,35 @@
 <h1>pdf.extract_text</h1>
 <nav class="onthispage"></nav>
 <p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/file-io.html">File I/O</a></p>
-<pre class="fnsig">result = <code>pdf.extract_text(src, [pages], [page=])</code></pre>
-<p class="fnnote">Input: src, pages, page &middot; Output: result</p>
+<pre class="fnsig">result = <code>pdf.extract_text(src, [pages], [page=], [normalize=false], [lines=false])</code></pre>
+<p class="fnnote">Input: src, pages, page, normalize, lines &middot; Output: result</p>
 <h2>What it is</h2>
 <p>Text reconstructed from a PDF's content streams. <code>src</code> (string path, or <code>Vec</code> of bytes) is the document; <code>pages</code> (optional, positional or <code>page=</code>) is a page number or a <code>Vec</code>/<code>List</code> of them, defaulting to every page.</p>
 <h2>Overloads</h2>
 <p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
 <div class="tablewrap"><table class="iotable">
 <tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
-<tr><td class="iocode"><code>result = pdf.extract_text(src, [pages], [page=])</code></td><td><div class="ioitem"><code>src</code> <span class="iotype">string or Vec</span><span class="iodesc"><code>src</code> (string path, or <code>Vec</code> of bytes) is the document.</span></div>
+<tr><td class="iocode"><code>result = pdf.extract_text(src, [pages], [page=], [normalize=false], [lines=false])</code></td><td><div class="ioitem"><code>src</code> <span class="iotype">string or Vec</span><span class="iodesc"><code>src</code> (string path, or <code>Vec</code> of bytes) is the document.</span></div>
 <div class="ioitem"><code>pages</code> <span class="iotype">number, Vec, or List, optional</span><span class="iodesc"><code>pages</code> (optional, positional or <code>page=</code>) is a page number or a <code>Vec</code>/<code>List</code> of them, defaulting to every page.</span></div>
 <div class="ioitem"><code>page</code> <span class="iotype">number, Vec, or List, optional</span><span class="iodesc"><code>pages</code> (optional, positional or <code>page=</code>) is a page number or a <code>Vec</code>/<code>List</code> of them, defaulting to every page.</span></div>
-</td><td><div class="ioitem"><code>result</code> <span class="iotype">Str</span></div>
-</td><td>Returns a <code>Str</code>. <strong>Read the warning below before relying on this.</strong></td></tr>
+<div class="ioitem"><code>normalize</code> <span class="iotype">optional (default <code>false</code>)</span><span class="iodesc"><strong>Read the warning below before relying on this.</strong> With <code>normalize=true</code> (added in v0.4.7) ligatures are expanded (<code>fi</code> <code>fl</code> <code>ff</code> <code>ffi</code> <code>ffl</code> and the presentation forms U+FB00 to U+FB06), no-break spaces become spaces, runs of whitespace collapse to one space, empty lines are dropped, and a word split by a line-end hyphen is re-joined (<code>Fi-</code> then <code>nally</code> gives <code>Finally</code>, the two lines becoming one) -- only when the hyphen follows a letter and the next line starts lowercase, so <code>well-</code> / <code>Known</code> is left alone.</span></div>
+<div class="ioitem"><code>lines</code> <span class="iotype">optional (default <code>false</code>)</span><span class="iodesc"><strong>Read the warning below before relying on this.</strong> With <code>normalize=true</code> (added in v0.4.7) ligatures are expanded (<code>fi</code> <code>fl</code> <code>ff</code> <code>ffi</code> <code>ffl</code> and the presentation forms U+FB00 to U+FB06), no-break spaces become spaces, runs of whitespace collapse to one space, empty lines are dropped, and a word split by a line-end hyphen is re-joined (<code>Fi-</code> then <code>nally</code> gives <code>Finally</code>, the two lines becoming one) -- only when the hyphen follows a letter and the next line starts lowercase, so <code>well-</code> / <code>Known</code> is left alone.</span></div>
+</td><td><div class="ioitem"><code>normalize=true</code> <span class="iotype">&mdash;</span><span class="iodesc">added in v0.4.7</span></div>
+<div class="ioitem"><code>lines=true</code> <span class="iotype">&mdash;</span><span class="iodesc">added in v0.4.7</span></div>
+</td><td>Returns a <code>Str</code>. <strong>Read the warning below before relying on this.</strong> With <code>normalize=true</code> (added in v0.4.7) ligatures are expanded (<code>fi</code> <code>fl</code> <code>ff</code> <code>ffi</code> <code>ffl</code> and the presentation forms U+FB00 to U+FB06), no-break spaces become spaces, runs of whitespace collapse to one space, empty lines are dropped, and a word split by a line-end hyphen is re-joined (<code>Fi-</code> then <code>nally</code> gives <code>Finally</code>, the two lines becoming one) -- only when the hyphen follows a letter and the next line starts lowercase, so <code>well-</code> / <code>Known</code> is left alone. With <code>lines=true</code> (added in v0.4.7) the result is a <code>List</code> of <code>Str</code>, one per text line, instead of one <code>Str</code>: lines are rebuilt from where each text-showing operator starts (text matrix and <code>cm</code> are followed), grouped by baseline and ordered top to bottom, left to right within a line. There are no glyph widths, so a piece of text is placed by its start only; <code>/Rotate</code> is ignored; a multi-column page comes out interleaved row by row; and a page whose text is inside a Form XObject, or whose fonts have no usable encoding, is an <strong>error</strong> saying lines could not be recovered, never a faked answer. Both options default to <code>false</code>, which leaves the result byte-identical to earlier versions; both accept only <code>true</code> or <code>false</code>.</td></tr>
 </table></div>
 <h3>Examples</h3>
-<p class="fnnote">No documentation example calls this form yet. The <a href="../docs/file-io.html">File I/O</a> chapter is where one belongs.</p>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example norun"><pre class="hl"><code><span class="k">import</span> pdf
+
+<span class="k">try</span>
+    t = pdf.<span class="f">extract_text</span>(<span class="s">"paper.pdf"</span>, <span class="a">page</span> = <span class="n">1</span>)
+    <span class="f">print</span>(t)
+<span class="k">catch</span> err
+    <span class="f">print</span>(<span class="s">"no text layer this engine can read: {err}"</span>)
+<span class="k">end</span>
+</code></pre>
+</div><p class="fnfrom">not run by the build &mdash; this one needs something the repository cannot supply &middot; from <a href="../docs/file-io.html">file-io</a></p>
 </main>
 </div>
 <footer><div class="wrap">

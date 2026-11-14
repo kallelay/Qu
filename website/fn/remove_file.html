@@ -30,17 +30,17 @@
 <h1>remove_file</h1>
 <nav class="onthispage"></nav>
 <p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/file-io.html">File I/O</a></p>
-<pre class="fnsig"><code>remove_file(path, [recycle_bin=false])</code></pre>
-<p class="fnnote">Input: path, recycle_bin &middot; Output: no output</p>
+<pre class="fnsig"><code>remove_file(path, [permanent=false])</code></pre>
+<p class="fnnote">Input: path, permanent &middot; Output: no output</p>
 <h2>What it is</h2>
-<p>Deletes <code>path</code> (a <code>Str</code>). Errors if it does not exist or is not a regular file, rather than silently doing nothing. <code>recycle_bin=true</code> sends it to the OS Recycle Bin/Trash instead of deleting it permanently — default <code>false</code> keeps a script's existing behavior unchanged.</p>
+<p>Deletes <code>path</code> (a <code>Str</code>) <strong>to the OS Recycle Bin/Trash</strong> by default, so it can be recovered; <code>permanent=true</code> deletes it outright (*default changed in v0.4.5*; the older <code>recycle_bin=false</code> still means permanent). Errors if it does not exist or is not a regular file, rather than silently doing nothing; on a system or volume with no trash it is an error naming <code>permanent=true</code>, never a silent permanent delete. With file history on, a permanent delete keeps a version first.</p>
 <h2>Overloads</h2>
 <p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
 <div class="tablewrap"><table class="iotable">
 <tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
-<tr><td class="iocode"><code>remove_file(path, [recycle_bin=false])</code></td><td><div class="ioitem"><code>path</code> <span class="iotype">Str</span><span class="iodesc">Deletes <code>path</code> (a <code>Str</code>).</span></div>
-<div class="ioitem"><code>recycle_bin</code> <span class="iotype">optional (default <code>false</code>)</span><span class="iodesc"><code>recycle_bin=true</code> sends it to the OS Recycle Bin/Trash instead of deleting it permanently — default <code>false</code> keeps a script's existing behavior unchanged.</span></div>
-</td><td><span class="ionone">no output</span></td><td>Errors if it does not exist or is not a regular file, rather than silently doing nothing.</td></tr>
+<tr><td class="iocode"><code>remove_file(path, [permanent=false])</code></td><td><div class="ioitem"><code>path</code> <span class="iotype">Str</span><span class="iodesc">Deletes <code>path</code> (a <code>Str</code>) <strong>to the OS Recycle Bin/Trash</strong> by default, so it can be recovered.</span></div>
+<div class="ioitem"><code>permanent</code> <span class="iotype">optional (default <code>false</code>)</span><span class="iodesc"><code>permanent=true</code> deletes it outright (*default changed in v0.4.5*.</span></div>
+</td><td><span class="ionone">no output</span></td><td>&mdash;</td></tr>
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">No documentation example calls this form yet. The <a href="../docs/file-io.html">File I/O</a> chapter is where one belongs.</p>

@@ -56,6 +56,14 @@ bytes = <span class="f">write_text</span>(out_path, <span class="s">"hello from 
 <span class="f">print</span>(<span class="f">read_all_text</span>(path))   <span class="c"># "first line\nsecond line\n"</span>
 </code></pre>
 </div><p class="fnfrom">from <a href="../docs/collections-strings.html">collections-strings</a></p>
+<div class="example norun"><pre class="hl"><code><span class="f">file_versioning</span>(<span class="k">true</span>)
+<span class="f">write_text</span>(<span class="s">"notes.txt"</span>, <span class="s">"first draft"</span>)
+<span class="f">write_text</span>(<span class="s">"notes.txt"</span>, <span class="s">"second draft"</span>)    <span class="c"># "first draft" is kept</span>
+<span class="f">print</span>(<span class="f">file_history</span>(<span class="s">"notes.txt"</span>))
+<span class="f">print</span>(<span class="f">read_version</span>(<span class="s">"notes.txt"</span>, <span class="n">1</span>))        <span class="c"># first draft</span>
+<span class="f">restore_version</span>(<span class="s">"notes.txt"</span>, <span class="n">1</span>)            <span class="c"># back to the first draft</span>
+</code></pre>
+</div><p class="fnfrom">not run by the build &mdash; this one needs something the repository cannot supply &middot; from <a href="../docs/file-io.html">file-io</a></p>
 <div class="example hasout"><pre class="hl"><code><span class="f">mkdir</span>(<span class="s">"list_demo"</span>)
 <span class="f">write_text</span>(<span class="s">"list_demo/report.qu"</span>, <span class="s">"print(1)"</span>)
 <span class="f">write_text</span>(<span class="s">"list_demo/plot.qu"</span>, <span class="s">"print(2)"</span>)

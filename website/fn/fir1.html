@@ -33,7 +33,7 @@
 <pre class="fnsig">result = <code>fir1(n, cutoff, [kind="low"], [window="hamming"], [fs=2], [beta=])</code></pre>
 <p class="fnnote">Input: n, cutoff, kind, window, fs, beta &middot; Output: result</p>
 <h2>What it is</h2>
-<p><code>n</code>: number (order, taps = <code>n+1</code>); <code>cutoff</code>: number or length-2 vector; <code>kind</code> (optional string); <code>window</code> (optional string: <code>"hamming"</code>, <code>"hann"</code>/<code>"hanning"</code>, <code>"blackman"</code>, or <code>"kaiser"</code> — the last needs <code>beta=</code>, a required number when chosen); <code>fs</code> (optional number, default <code>2.0</code>, MATLAB's normalized convention where <code>1</code> = Nyquist) — pass an explicit <code>fs=</code> for <code>butter</code>-style Hz cutoffs.</p>
+<p><code>n</code>: number (order, taps = <code>n+1</code>); <code>cutoff</code>: number or length-2 vector; <code>kind</code> (optional string); <code>window</code> (optional string: <code>"hamming"</code>, <code>"hann"</code>/<code>"hanning"</code>, <code>"blackman"</code>, <code>"kaiser"</code> — which needs <code>beta=</code>, a required number when chosen — or any other name <code>window()</code> accepts, such as <code>"blackmanharris"</code> or <code>"tukey"</code> with <code>alpha=</code>); <code>fs</code> (optional number, default <code>2.0</code>, MATLAB's normalized convention where <code>1</code> = Nyquist) — pass an explicit <code>fs=</code> for <code>butter</code>-style Hz cutoffs.</p>
 <h2>Overloads</h2>
 <p class="ioacross"><code>cutoff</code> can be number or vector.</p>
 <p class="fnnote">2 forms. Each carries its own inputs, outputs and worked example &mdash; pick the tab for the one you are calling.</p>

@@ -68,13 +68,13 @@ W_hann = 20*log10(abs(fft(hann, 1024)))
 W_hamming = 20*log10(abs(fft(hamming, 1024)))
 W_blackman = 20*log10(abs(fft(blackman, 1024)))
 
-f = 0 to 511
-plot(f, W_rect[1:512], label='Rectangular')
-plot(f, W_hann[1:512], label='Hann')
-plot(f, W_hamming[1:512], label='Hamming')
-plot(f, W_blackman[1:512], label='Blackman')
+f = (0 to 511) / 1024
+plot(f, W_rect[0:511], label='Rectangular')
+plot(f, W_hann[0:511], label='Hann')
+plot(f, W_hamming[0:511], label='Hamming')
+plot(f, W_blackman[0:511], label='Blackman')
 title('Frequency Response')
-xlabel('Normalized Frequency')
+xlabel('Normalized frequency (cycles/sample)')
 ylabel('Magnitude (dB)')
 legend
 grid on`,
@@ -97,7 +97,7 @@ f = (0:N-1) * Fs / N
 
 # N can be odd (T=5, Fs=1000 gives 5001 samples), so N/2 isn't always an
 # integer index — floor it. Qu is 0-indexed throughout, so the DC bin is
-# index 0 and half[0:halfN] is the [0, halfN) index range (half-open slice).
+# index 0 and x[0:halfN] runs from index 0 THROUGH halfN (slices are inclusive).
 halfN = floor(N/2)
 
 # Plot PSD

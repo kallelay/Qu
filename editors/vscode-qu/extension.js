@@ -62,6 +62,10 @@ let lspProviders = [];
 const lspOpen = new Set();
 /** Bumped by every (re)start, so a start that lost a race can tell. */
 let lspGeneration = 0;
+/** Times of the automatic restarts of the last minute: a crash loop gives up. */
+let lspRestartTimes = [];
+const LSP_MAX_RESTARTS = 3;
+const LSP_RESTART_WINDOW_MS = 60000;
 
 function activate(context) {
     extensionPath = context.extensionPath;
@@ -140,10 +144,23 @@ async function startLanguageServer() {
         lsp = null;
         disposeLspProviders();
         lspOpen.clear();
-        outputChannel.appendLine(
-            `[qu lsp stopped (exit code ${code}); hover, completion and the outline are off until the window is reloaded. Diagnostics continue through qu parse --json.]`
-        );
         vscode.workspace.textDocuments.forEach(scheduleCheck);
+        const now = Date.now();
+        lspRestartTimes = lspRestartTimes.filter((t) => now - t < LSP_RESTART_WINDOW_MS);
+        if (lspRestartTimes.length >= LSP_MAX_RESTARTS) {
+            outputChannel.appendLine(
+                `[qu lsp stopped (exit code ${code}) and has already been restarted ${LSP_MAX_RESTARTS} times in the last minute; hover, completion and the outline are off until the window is reloaded. Diagnostics continue through qu parse --json.]`
+            );
+            return;
+        }
+        const delay = 1000 * 2 ** lspRestartTimes.length; // 1 s, 2 s, 4 s
+        lspRestartTimes.push(now);
+        outputChannel.appendLine(`[qu lsp stopped (exit code ${code}); restarting in ${delay / 1000} s.]`);
+        const generationAtExit = lspGeneration;
+        setTimeout(() => {
+            // a settings change or manual restart in the meantime owns the session
+            if (generationAtExit === lspGeneration && lsp === null) void startLanguageServer();
+        }, delay);
     });
 
     try {

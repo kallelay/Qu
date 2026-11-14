@@ -93,11 +93,20 @@
 
 <main class="docmain">
 <h1>Standard Library</h1>
-<nav class="onthispage"><a href="#s0">Calling convention</a><a href="#s36">Chapters</a><a href="#s63">Function Memoization</a><a href="#s102">Lazy Variables</a><a href="#s136">What's out of scope here</a></nav>
+<nav class="onthispage"><a href="#s0">Calling convention</a><a href="#s36">Module block sugar: <code>with</code></a><a href="#s92">Chapters</a><a href="#s119">Function Memoization</a><a href="#s159">Lazy Variables</a><a href="#s193">What's out of scope here</a></nav>
 <p>The chapters in this section are function-by-function reference tables, organized by domain. Unlike the Getting Started books (which teach concepts in order, with prose and worked examples), these chapters aim for <strong>completeness of the function list</strong> over depth of prose per function: each table is produced by surveying the interpreter's own builtin dispatch table (the <code>fn call_builtin</code> match statement in <code>engine/crates/qu-interp/src/lib.rs</code>), so it reflects what actually runs today rather than what the specification merely describes. Worked examples are included for the most illustrative functions in each chapter, not for every single one.</p>
 <h2 id="s0">Calling convention</h2>
 <p>Every builtin is called as <code>name(positional, args, key=value, ...)</code>. Most accept a scalar, a <code>Vec</code>, or a <code>Mat</code>/<code>Signal</code> interchangeably and apply elementwise where that makes sense — this is noted per-function only when the behavior is not the obvious elementwise case. A trailing <code>style=</code> argument bag (<code>color=</code>, <code>marker=</code>, <code>label=</code>, <code>method=</code>, ...) is used extensively by the plotting and modeling builtins; where a whole family of functions shares the same named-argument convention, it is described once at the top of that chapter rather than repeated in every row.</p>
-<h2 id="s36">Chapters</h2>
+<h2 id="s36">Module block sugar: <code>with</code></h2>
+<p>*Added in v0.4.0.* A native module (<code>image</code>, <code>pdf</code>, <code>svg</code>, <code>xlsx</code>, <code>codec</code>, ...) is called as <code>module.function(...)</code>, which reads fine for one or two calls but gets noisy in a longer pipeline that stays inside one module the whole time. <code>with &lt;module&gt; ... end</code> opens a block in which a <strong>leading</strong> <code>.function(...)</code> — a dot where an expression is expected, not a dot continuing something already written — is sugar for <code>&lt;module&gt;.function(...)</code>:</p>
+<div class="example"><pre class="hl"><code><span class="k">with</span> image
+    img = .<span class="f">load</span>(<span class="s">"photo.png"</span>) |&gt; .blur |&gt; .<span class="f">sobel</span>(<span class="a">direction</span>=<span class="s">"x"</span>)
+<span class="k">end</span>
+</code></pre>
+</div>
+<p>is exactly <code>img = image.load("photo.png") |&gt; image.blur |&gt; image.sobel(direction="x")</code> — same AST, same evaluation, nothing module-specific about the rewrite itself. <code>with &lt;module&gt;</code> also imports the module if it isn't already bound (so no separate <code>import image</code> line is needed first), and blocks nest: a <code>with pdf</code> written inside a <code>with image</code> block resolves a leading <code>.</code> against <code>pdf</code> until its own <code>end</code>, then back to <code>image</code> for the rest of the outer block. A leading <code>.</code> outside any <code>with</code> block is still a plain parse error, exactly as it always was — this is purely additive.</p>
+<p>This generalizes the older, closed <code>table.</code>/<code>timer.</code>/<code>signals.</code> alias set described in <a href="file-io.html">File I/O</a> and <a href="repl-diagnostics.html">REPL, Diagnostics &amp; Units</a>: those three rewrite to a *fixed* underlying builtin name each (<code>table.load</code> is always <code>read_csv</code>, nothing else), while <code>with &lt;module&gt;</code> works for any real module and any of its functions, because it resolves against the module's own dispatch instead of a hardcoded alias table.</p>
+<h2 id="s92">Chapters</h2>
 <ul>
 <li><a href="core-math.html">Core Math &amp; Linear Algebra</a> — elementwise math, reductions, shape/construction, and matrix decompositions.</li>
 <li><a href="signal-processing.html">Signal Processing &amp; Filters</a> — transforms, filter design and application, spectral analysis, signal generation, and the private rLKK impedance-spectroscopy method.</li>
@@ -109,7 +118,7 @@
 <li><a href="concurrency.html">Concurrency &amp; Workers</a> — parallel execution, mutexes, semaphores, channels, and HTTP.</li>
 <li><a href="repl-diagnostics.html">REPL, Diagnostics &amp; Units</a> — output/diagnostics, timers, autodifferentiation, RNG control, and physical-unit literals.</li>
 </ul>
-<h2 id="s63">Function Memoization</h2>
+<h2 id="s119">Function Memoization</h2>
 <p><code>memoize function name(params) ... end function</code> is a modifier on the block <code>function</code> declaration (not a builtin, and not available on the one-line <code>name(params) := expr</code> form) that caches the function's return value, keyed by its argument values, so a repeated call with the same inputs skips recomputing the body entirely:</p>
 <div class="example hasout"><pre class="hl"><code>memoize <span class="k">function</span> <span class="f">slow_square</span>(x)
     <span class="f">print</span>(<span class="s">"computing..."</span>)
@@ -123,7 +132,7 @@ b = <span class="f">slow_square</span>(<span class="n">7</span>)   <span class="
 <p><strong>Cache key</strong>: an argument is only usable as a cache key if it's a plain number, string, or bool — the same three kinds <code>==</code> compares directly. A call where every argument is one of those is cached; a call with any other argument (a <code>Vec</code>, <code>Mat</code>, <code>Table</code>, <code>Model</code>, <code>List</code>, <code>Record</code>, or any live handle) still runs and returns the correct result, it's simply <strong>never cached</strong> for that call (a silent, documented bypass — not an error). Two numeric arguments are compared by exact bit pattern, so <code>-0.0</code> and <code>0.0</code> are different cache entries.</p>
 <p><strong>Scope and lifetime</strong>: the cache lives on the running interpreter, not a global/static — it's cleared naturally when the script ends, and each isolated <code>spawn</code>/<code>pmap</code>/<code>parallel for</code> worker gets its own independent cache, the same isolation every other per-worker state already has. Re-declaring a memoized function (a bugfix, or a REPL re-run) drops every cached entry for that name, so a stale result from the old body can never be served afterward.</p>
 <p><strong>Verifying it's working</strong>: since the whole point is that the body does NOT run again, the direct way to confirm memoization is happening is a counter the body itself increments (as in the example above, replace <code>print</code> with <code>calls = calls + 1</code>) — call the function twice with identical arguments and check the counter only advanced once.</p>
-<h2 id="s102">Lazy Variables</h2>
+<h2 id="s159">Lazy Variables</h2>
 <p><code>lazy name = expr</code> (§ lazy variables, 2026-08-31) is a variable-binding form distinct from <code>memoize</code> above (which caches a *function's* result across repeated calls) — a <strong>lazy variable</strong> defers evaluating its right-hand side entirely: the expression does not run at the <code>lazy name = expr</code> statement at all, only on the variable's first actual *read* afterward, and the computed value is then cached in place so a second read never re-runs it. An ordinary <code>name = expr</code> is unchanged and still evaluates immediately, exactly as before — <code>lazy</code> is an explicit opt-in, not a new default.</p>
 <div class="example"><pre class="hl"><code>lazy x = <span class="f">expensive_computation</span>()   <span class="c"># nothing runs yet</span>
 <span class="f">print</span>(<span class="s">"declared, nothing computed yet"</span>)
@@ -147,7 +156,7 @@ after_second = counter  <span class="c"># still 1</span>
 </code></pre>
 </div>
 <p><strong>Reassignment before the first read</strong>: <code>lazy x = expr</code> followed by a plain <code>x = other</code> *before* <code>x</code> is ever read discards the pending expression without ever evaluating it — the same behavior an ordinary eager reassignment already has (<code>x = 1</code> then <code>x = 2</code> never looks at, or forces anything from, the <code>1</code> it replaces). A lazy binding that hasn't been read yet is treated exactly like any other value about to be overwritten, not as a special case that must run first.</p>
-<h2 id="s136">What's out of scope here</h2>
+<h2 id="s193">What's out of scope here</h2>
 <p>Circuit simulation and distributed execution are specified but not yet implemented as builtins (see <a href="specialized.html">Book 3</a> and the <a href="spec.html">Language Reference</a> for the design); they have no entries in these tables because there is nothing to call yet.</p>
 </main>
 </div>

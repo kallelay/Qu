@@ -33,7 +33,7 @@
 <pre class="fnsig">result = <code>asin(x)</code></pre>
 <p class="fnnote">Input: x &middot; Output: result</p>
 <h2>What it is</h2>
-<p>Inverse trigonometric functions, single-argument only (there is no two-argument <code>atan2</code> in this table). <code>x</code> is a scalar, <code>Vec</code>, or <code>Mat</code>/<code>Signal</code>; <code>asin</code>/<code>acos</code> expect values in <code>[-1, 1]</code> and return radians in <code>[-π/2, π/2]</code>/<code>[0, π]</code> (an out-of-domain element gives <code>NaN</code>), while <code>atan</code> accepts any real value and returns radians in <code>(-π/2, π/2)</code>. Return shape always matches <code>x</code>.</p>
+<p>Inverse trigonometric functions, single-argument only (the two-argument form is <code>atan2</code>, below). <code>x</code> is a scalar, <code>Vec</code>, or <code>Mat</code>/<code>Signal</code>; <code>asin</code>/<code>acos</code> expect values in <code>[-1, 1]</code> and return radians in <code>[-π/2, π/2]</code>/<code>[0, π]</code> (an out-of-domain element gives <code>NaN</code>), while <code>atan</code> accepts any real value and returns radians in <code>(-π/2, π/2)</code>. Return shape always matches <code>x</code>.</p>
 <h2>Overloads</h2>
 <p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
 <div class="tablewrap"><table class="iotable">
@@ -59,6 +59,9 @@ sinh=0.521095  cosh=1.127626  tanh=0.462117
 ln(e^2)=2  log(e^2)=2  log2(8)=3
 arg=0.927295  phase=0.927295  re=3  imag=4  im=4  conj=3 - 4j
 3</pre></div></div><p class="fnfrom">from <a href="../docs/core-math.html">core-math</a></p>
+<h2>How it works</h2>
+<p><code>sin</code>/<code>cos</code>/<code>tan</code>/<code>asin</code>/<code>acos</code>/<code>atan</code>/<code>sinh</code>/<code>cosh</code> are complex-aware, on the same route as <code>tanh</code>/<code>exp</code>/<code>log</code>/<code>sqrt</code> (<code>map1_complex</code>): real input still takes the real function (a real value outside a real domain, e.g. <code>asin(2)</code>, stays NaN rather than silently promoting to complex -- same convention as <code>sqrt(-1)</code>), and an explicit <code>Value::Complex</code>/ <code>CVec</code>/<code>CMat</code> argument takes the complex branch. See <code>Complex64::{sin,cos,tan,asin,acos,atan,sinh,cosh}</code> in qu-core for the identities. <code>sin</code>/<code>cos</code>/<code>sinh</code>/<code>cosh</code> are entire (no poles anywhere in the plane); <code>tan</code>'s poles are exactly the real-axis ones real <code>tan</code> already has (see <code>Complex64::tan</code>'s doc comment for the proof); <code>asin</code>/<code>acos</code> have branch points at <code>z = +-1</code>. None of these error at a pole/branch point -- <code>Complex64::div</code> already yields non-finite components there, matching the float semantics the rest of the runtime uses (<code>sqrt(-1)</code> doesn't error either).</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
 <h2>See also</h2>
 <p><a href="acos.html"><code>acos</code></a>, <a href="atan.html"><code>atan</code></a> &mdash; documented in the same entry.</p>
 </main>

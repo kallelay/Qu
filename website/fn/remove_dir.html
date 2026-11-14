@@ -30,17 +30,17 @@
 <h1>remove_dir</h1>
 <nav class="onthispage"></nav>
 <p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/file-io.html">File I/O</a></p>
-<pre class="fnsig"><code>remove_dir(path, [recursive=false], [recycle_bin=false])</code></pre>
-<p class="fnnote">Input: path, recursive, recycle_bin &middot; Output: no output</p>
+<pre class="fnsig"><code>remove_dir(path, [recursive=false], [permanent=false])</code></pre>
+<p class="fnnote">Input: path, recursive, permanent &middot; Output: no output</p>
 <h2>What it is</h2>
-<p>Deletes the directory <code>path</code>. Refuses a <strong>non-empty</strong> directory unless <code>recursive=true</code> — this check applies whether or not <code>recycle_bin</code> is set, since "may I remove a whole tree" and "should this be recoverable" are different questions.</p>
+<p>Deletes the directory <code>path</code>, to the Recycle Bin/Trash by default and outright with <code>permanent=true</code>, as <code>remove_file</code>. Refuses a <strong>non-empty</strong> directory unless <code>recursive=true</code> — this check applies either way, since "may I remove a whole tree" and "should this be recoverable" are different questions.</p>
 <h2>Overloads</h2>
 <p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
 <div class="tablewrap"><table class="iotable">
 <tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
-<tr><td class="iocode"><code>remove_dir(path, [recursive=false], [recycle_bin=false])</code></td><td><div class="ioitem"><code>path</code> <span class="iotype">&mdash;</span><span class="iodesc">Deletes the directory <code>path</code>.</span></div>
-<div class="ioitem"><code>recursive</code> <span class="iotype">optional (default <code>false</code>)</span><span class="iodesc">Refuses a <strong>non-empty</strong> directory unless <code>recursive=true</code> — this check applies whether or not <code>recycle_bin</code> is set, since "may I remove a whole tree" and "should this be recoverable" are different questions.</span></div>
-<div class="ioitem"><code>recycle_bin</code> <span class="iotype">optional (default <code>false</code>)</span><span class="iodesc">Refuses a <strong>non-empty</strong> directory unless <code>recursive=true</code> — this check applies whether or not <code>recycle_bin</code> is set, since "may I remove a whole tree" and "should this be recoverable" are different questions.</span></div>
+<tr><td class="iocode"><code>remove_dir(path, [recursive=false], [permanent=false])</code></td><td><div class="ioitem"><code>path</code> <span class="iotype">&mdash;</span><span class="iodesc">Deletes the directory <code>path</code>, to the Recycle Bin/Trash by default and outright with <code>permanent=true</code>, as <code>remove_file</code>.</span></div>
+<div class="ioitem"><code>recursive</code> <span class="iotype">optional (default <code>false</code>)</span><span class="iodesc">Refuses a <strong>non-empty</strong> directory unless <code>recursive=true</code> — this check applies either way, since "may I remove a whole tree" and "should this be recoverable" are different questions.</span></div>
+<div class="ioitem"><code>permanent</code> <span class="iotype">optional (default <code>false</code>)</span><span class="iodesc">Deletes the directory <code>path</code>, to the Recycle Bin/Trash by default and outright with <code>permanent=true</code>, as <code>remove_file</code>.</span></div>
 </td><td><span class="ionone">no output</span></td><td>&mdash;</td></tr>
 </table></div>
 <h3>Examples</h3>

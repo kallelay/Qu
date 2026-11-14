@@ -48,7 +48,27 @@
 </td><td>Returns a <code>Vec</code> of bytes, the new PDF — same destination convention as <code>pdf.merge</code>.</td></tr>
 </table></div>
 <h3>Examples</h3>
-<p class="fnnote">No documentation example calls this form yet. The <a href="../docs/file-io.html">File I/O</a> chapter is where one belongs.</p>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example norun"><pre class="hl"><code><span class="k">import</span> pdf
+
+<span class="c"># Only `subject` changes; title/author/producer/... are untouched.</span>
+tagged = pdf.<span class="f">set_metadata</span>(<span class="s">"paper.pdf"</span>, <span class="a">subject</span> = <span class="s">"Impedance spectroscopy"</span>)
+pdf.<span class="f">write_merge</span>(<span class="s">"tagged.pdf"</span>, [tagged])  <span class="c"># or write it out any other way</span>
+
+hits = pdf.<span class="f">find_text</span>(<span class="s">"paper.pdf"</span>, <span class="s">"impedance"</span>, <span class="a">case_sensitive</span> = <span class="k">false</span>)
+<span class="k">for</span> h <span class="k">in</span> hits
+    <span class="f">print</span>(<span class="s">"page {h.page}, offset {h.offset}"</span>)
+<span class="k">end</span>
+
+d = pdf.<span class="f">text_diff</span>(<span class="s">"draft_v1.pdf"</span>, <span class="s">"draft_v2.pdf"</span>)
+<span class="f">print</span>(<span class="s">"{length(d.differing_pages)} of {d.pages_b} pages changed"</span>)
+
+s = pdf.<span class="f">structural_diff</span>(<span class="s">"draft_v1.pdf"</span>, <span class="s">"draft_v2.pdf"</span>)
+<span class="k">if</span> s.pages_a != s.pages_b
+    <span class="f">print</span>(<span class="s">"page count changed: {s.pages_a} -&gt; {s.pages_b}"</span>)
+<span class="k">end</span>
+</code></pre>
+</div><p class="fnfrom">not run by the build &mdash; this one needs something the repository cannot supply &middot; from <a href="../docs/file-io.html">file-io</a></p>
 <h2>How it works</h2>
 <p>§ metadata write / text search / diff (2026-09-25): appended as standalone arms rather than interleaved among the functions above -- two sibling lanes are touching this same <code>match</code> for page-geometry and bookmark/annotation work at the same time, and an addition at the end is the smallest possible diff against both of them.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

@@ -230,6 +230,26 @@ async function main() {
     await until('the providers to come back', () => Object.keys(providers).length === 5);
     await until('diagnostics after restart', () => published.has(URI));
 
+    // A crash restarts the server: kill exactly the `qu lsp` child of THIS
+    // process, then expect the restart line, the providers and diagnostics back.
+    const { execFileSync } = require('child_process');
+    const childOf = () => {
+        const out = execFileSync('powershell', ['-NoProfile', '-Command',
+            `(Get-CimInstance Win32_Process -Filter "ParentProcessId=${process.pid}" | Where-Object { $_.CommandLine -match ' lsp' } | Select-Object -First 1).ProcessId`], { encoding: 'utf8' }).trim();
+        return Number(out);
+    };
+    const serverPid = process.platform === 'win32' ? childOf() : 0;
+    if (serverPid) {
+        published.delete(URI);
+        process.kill(serverPid);
+        await until('the restart message', () => output.join('').includes('restarting in 1 s'));
+        await until('the providers to come back after the crash', () => Object.keys(providers).length === 5);
+        await until('diagnostics after the crash restart', () => published.has(URI));
+        console.log('crash restart ok (killed pid ' + serverPid + ')');
+    } else {
+        console.log('crash restart skipped: not on Windows or no child found');
+    }
+
     await ext.deactivate();
     assert.deepStrictEqual(Object.keys(providers), []);
     console.log('ALL OK');

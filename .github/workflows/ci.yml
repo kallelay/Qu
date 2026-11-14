@@ -101,6 +101,10 @@ jobs:
         working-directory: qu-studio-tauri
         run: npx tsc --noEmit
 
+      - name: Unit tests
+        working-directory: qu-studio-tauri
+        run: npm test
+
       # Load the BUILT frontend in a real browser and fail unless the app
       # mounts. 0.4.4 shipped opening to a blank window (two Reacts in the
       # bundle) because nothing between `vite build` and the installer ever

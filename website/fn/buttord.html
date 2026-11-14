@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>buttord — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>buttord</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/signal-processing.html">Signal processing</a></p>
+<pre class="fnsig">result = <code>buttord(wp, ws, rp, rs, fs)</code></pre>
+<p class="fnnote">Input: wp, ws, rp, rs, fs &middot; Output: result</p>
+<h2>What it is</h2>
+<p><code>wp</code>, <code>ws</code>: the passband and stopband edges in Hz, each one number (lowpass when <code>wp &lt; ws</code>, highpass when <code>wp &gt; ws</code>) or each a <code>[low, high]</code> vector (bandpass when the stopband edges lie outside the passband, bandstop when they lie inside); <code>rp</code>: number, the most the passband may lose (dB); <code>rs</code>: number, the least the stopband must lose (dB); <code>fs</code>: number (Hz, also accepted as <code>fs=</code>).</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = buttord(wp, ws, rp, rs, fs)</code></td><td><div class="ioitem"><code>wp</code> <span class="iotype">number or vector</span><span class="iodesc"><code>wp</code>, <code>ws</code>: the passband and stopband edges in Hz, each one number (lowpass when <code>wp &lt; ws</code>, highpass when <code>wp &gt; ws</code>) or each a <code>[low, high]</code> vector (bandpass when the stopband edges lie outside the passband, bandstop when they lie inside).</span></div>
+<div class="ioitem"><code>ws</code> <span class="iotype">number or vector</span><span class="iodesc"><code>wp</code>, <code>ws</code>: the passband and stopband edges in Hz, each one number (lowpass when <code>wp &lt; ws</code>, highpass when <code>wp &gt; ws</code>) or each a <code>[low, high]</code> vector (bandpass when the stopband edges lie outside the passband, bandstop when they lie inside).</span></div>
+<div class="ioitem"><code>rp</code> <span class="iotype">number</span><span class="iodesc"><code>rp</code>: number, the most the passband may lose (dB).</span></div>
+<div class="ioitem"><code>rs</code> <span class="iotype">number</span><span class="iodesc"><code>rs</code>: number, the least the stopband must lose (dB).</span></div>
+<div class="ioitem"><code>fs</code> <span class="iotype">number</span><span class="iodesc"><code>fs</code>: number (Hz, also accepted as <code>fs=</code>).</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">number or string</span></div>
+</td><td>Returns a record <code>{order, wn, kind}</code>: the lowest Butterworth order meeting the specification, the -3 dB frequency to design it with (Hz; a number, or <code>[low, high]</code>) and the band shape as the string <code>butter</code> takes, so the design is <code>butter(r.order, r.kind, r.wn, fs)</code>. <code>wn</code> is chosen so the passband edge loses exactly <code>rp</code> dB; the stopband then has margin. Uses the analog-prototype order formula <code>log10((10^(rs/10)-1)/(10^(rp/10)-1)) / (2 log10(k))</code> on the prewarped edges (<code>tan(pi f / fs)</code>), <code>k</code> being the stopband-to-passband edge ratio of the lowpass prototype (MATLAB/SciPy <code>buttord</code>; SciPy's choice of <code>wn</code>). For a bandstop the passband edges are first moved into the transition bands as far as lowers the order, as SciPy does. Note that a <code>"band"</code>/<code>"stop"</code> design of order <code>n</code> has <code>2n</code> poles.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">No documentation example calls this form yet. The <a href="../docs/signal-processing.html">Signal processing</a> chapter is where one belongs.</p>
+<h2>How it works</h2>
+<p><code>buttord(wp, ws, rp, rs, fs)</code> / <code>cheb1ord</code> / <code>cheb2ord</code> / <code>ellipord</code> -- the lowest order of that family meeting a passband/stopband specification, and the frequency to design it with: a record <code>{order, wn, kind}</code> for <code>butter(r.order, r.kind, r.wn, fs)</code> and its siblings. The band shape is read from the edges (one each: low/high by which is lower; two each: band/stop by which pair is inside).</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.3.0 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

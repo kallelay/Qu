@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>filter_from_tf — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>filter_from_tf</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/signal-processing.html">Signal processing</a></p>
+<pre class="fnsig">result = <code>filter_from_tf(b, a, [fs])</code></pre>
+<p class="fnnote">Input: b, a, fs &middot; Output: result</p>
+<h2>What it is</h2>
+<p><code>b</code>, <code>a</code>: coefficient vectors in ascending powers of <code>z^-1</code> (the <code>filter(b, a, x)</code> convention), <code>a[0]</code> nonzero; <code>fs</code> (optional number, Hz).</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = filter_from_tf(b, a, [fs])</code></td><td><div class="ioitem"><code>b</code> <span class="iotype">vector</span><span class="iodesc"><code>b</code>, <code>a</code>: coefficient vectors in ascending powers of <code>z^-1</code> (the <code>filter(b, a, x)</code> convention), <code>a[0]</code> nonzero.</span></div>
+<div class="ioitem"><code>a</code> <span class="iotype">vector</span><span class="iodesc"><code>b</code>, <code>a</code>: coefficient vectors in ascending powers of <code>z^-1</code> (the <code>filter(b, a, x)</code> convention), <code>a[0]</code> nonzero.</span></div>
+<div class="ioitem"><code>fs</code> <span class="iotype">number, optional</span><span class="iodesc"><code>fs</code> (optional number, Hz).</span></div>
+</td><td><div class="ioitem"><code>Model</code> <span class="iotype">&mdash;</span><span class="iodesc">kind <code>"filter"</code></span></div>
+</td><td>Returns a <code>Model</code> (kind <code>"filter"</code>). With a feedback part the two polynomials are factored and regrouped into second-order sections (field <code>sos</code>); when <code>a</code> is a single number the result is an FIR model (field <code>b</code>, the taps <code>b / a[0]</code>). A numerator starting with zeros is a delay and is kept.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">No documentation example calls this form yet. The <a href="../docs/signal-processing.html">Signal processing</a> chapter is where one belongs.</p>
+<h2>How it works</h2>
+<p><code>filter_from_tf(b, a, [fs])</code> -- a filter model from transfer- function coefficients in ascending powers of <code>z^-1</code> (the <code>filter(b, a, x)</code> convention). With a feedback part the polynomials are factored and regrouped into second-order sections; with <code>a</code> a single number the result is an FIR model holding the taps <code>b / a[0]</code> as they are.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.3.0 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

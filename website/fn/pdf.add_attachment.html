@@ -45,7 +45,20 @@
 </td><td>Returns a <code>Vec</code> of bytes.</td></tr>
 </table></div>
 <h3>Examples</h3>
-<p class="fnnote">No documentation example calls this form yet. The <a href="../docs/file-io.html">File I/O</a> chapter is where one belongs.</p>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example norun"><pre class="hl"><code><span class="k">import</span> pdf
+
+doc = pdf.<span class="f">merge</span>([<span class="s">"intro.pdf"</span>, <span class="s">"results.pdf"</span>])
+doc = pdf.<span class="f">add_bookmark</span>(doc, <span class="s">"Introduction"</span>, <span class="n">1</span>)
+doc = pdf.<span class="f">add_bookmark</span>(doc, <span class="s">"Results"</span>, <span class="n">3</span>)
+rows = pdf.<span class="f">outlines</span>(doc)
+<span class="f">print</span>(rows)  <span class="c"># index, level, parent_index, title, page_index</span>
+
+doc = pdf.<span class="f">add_annotation</span>(doc, <span class="n">1</span>, <span class="a">type</span> = <span class="s">"Text"</span>, <span class="a">rect</span> = [<span class="n">10</span>, <span class="n">10</span>, <span class="n">200</span>, <span class="n">40</span>], <span class="a">text</span> = <span class="s">"draft"</span>)
+doc = pdf.<span class="f">add_attachment</span>(doc, <span class="s">"notes.txt"</span>, <span class="s">"notes.txt"</span>)
+pdf.<span class="f">write_pages</span>(<span class="s">"with_extras.pdf"</span>, doc, <span class="n">1</span> <span class="k">to</span> pdf.<span class="f">page_count</span>(doc))
+</code></pre>
+</div><p class="fnfrom">not run by the build &mdash; this one needs something the repository cannot supply &middot; from <a href="../docs/file-io.html">file-io</a></p>
 </main>
 </div>
 <footer><div class="wrap">

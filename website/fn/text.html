@@ -30,17 +30,19 @@
 <h1>text</h1>
 <nav class="onthispage"></nav>
 <p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/plotting.html">Plotting</a></p>
-<pre class="fnsig">result = <code>text(x, y, text)</code></pre>
-<p class="fnnote">Input: x, y, text &middot; Output: result</p>
+<pre class="fnsig">result = <code>text(x, y, text, [rotate=], [align=])</code></pre>
+<p class="fnnote">Input: x, y, text, rotate, align &middot; Output: result</p>
 <h2>What it is</h2>
-<p>Plain text label <code>text</code> (string) placed at <code>(x, y)</code> (numbers, data units), no marker dot.</p>
+<p>Plain text label <code>text</code> (string) placed at <code>(x, y)</code> (numbers, data units), no marker dot -- by default just up and to the right of the point. <code>align=</code> (<code>"left"</code>, <code>"center"</code>, <code>"right"</code>) instead anchors that edge of the text exactly at <code>(x, y)</code>, what a label at a computed position needs; <code>rotate=</code> (degrees, anticlockwise) tilts it about that anchor, e.g. a gene name laid at 45 degrees over its arrow.</p>
 <h2>Overloads</h2>
 <p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
 <div class="tablewrap"><table class="iotable">
 <tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
-<tr><td class="iocode"><code>result = text(x, y, text)</code></td><td><div class="ioitem"><code>x</code> <span class="iotype">string or number</span><span class="iogap">not documented yet</span></div>
-<div class="ioitem"><code>y</code> <span class="iotype">string or number</span><span class="iogap">not documented yet</span></div>
-<div class="ioitem"><code>text</code> <span class="iotype">string or number</span><span class="iogap">not documented yet</span></div>
+<tr><td class="iocode"><code>result = text(x, y, text, [rotate=], [align=])</code></td><td><div class="ioitem"><code>x</code> <span class="iotype">string or number</span><span class="iodesc">Plain text label <code>text</code> (string) placed at <code>(x, y)</code> (numbers, data units), no marker dot -- by default just up and to the right of the point.</span></div>
+<div class="ioitem"><code>y</code> <span class="iotype">string or number</span><span class="iodesc">Plain text label <code>text</code> (string) placed at <code>(x, y)</code> (numbers, data units), no marker dot -- by default just up and to the right of the point.</span></div>
+<div class="ioitem"><code>text</code> <span class="iotype">string or number</span><span class="iodesc">Plain text label <code>text</code> (string) placed at <code>(x, y)</code> (numbers, data units), no marker dot -- by default just up and to the right of the point.</span></div>
+<div class="ioitem"><code>rotate</code> <span class="iotype">optional</span><span class="iodesc"><code>rotate=</code> (degrees, anticlockwise) tilts it about that anchor, e.g.</span></div>
+<div class="ioitem"><code>align</code> <span class="iotype">optional</span><span class="iodesc"><code>align=</code> (<code>"left"</code>, <code>"center"</code>, <code>"right"</code>) instead anchors that edge of the text exactly at <code>(x, y)</code>, what a label at a computed position needs.</span></div>
 </td><td><div class="ioitem"><code>result</code> <span class="iotype">&mdash;</span></div>
 </td><td>Returns a handle with <code>color</code>/<code>text</code>/<code>x</code>/<code>y</code>/<code>size</code>/<code>italic</code> properties.</td></tr>
 </table></div>

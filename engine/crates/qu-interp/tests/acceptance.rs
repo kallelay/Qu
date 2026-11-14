@@ -4648,12 +4648,12 @@ fn untyped_function_dispatch_is_unchanged_from_before_the_feature() {
     // exactly as every user function did before this feature existed
     // (nothing here should ever hit the zero-match/ambiguity error paths).
     let it = run(
-        "function echo(x)\n\
+        "function say_it(x)\n\
          \x20   print str(x)\n\
          end function\n\
-         echo(1)\n\
-         echo([1, 2, 3])\n\
-         echo(\"hi\")",
+         say_it(1)\n\
+         say_it([1, 2, 3])\n\
+         say_it(\"hi\")",
     );
     assert_eq!(it.out, "1\n[1, 2, 3]\nhi\n");
 }

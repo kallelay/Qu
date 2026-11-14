@@ -6,6 +6,7 @@ import { motion } from 'framer-motion';
 import { cn } from '../utils/cn';
 import { glassStyle } from '../utils/glassStyle';
 import { parseCells, getPrefixSource, QuCell } from '../utils/cells';
+import { findUnclosedBracket } from '../utils/brackets';
 import { planSnippetInsert } from '../utils/snippetInsert';
 import { columnSelectionRanges } from '../utils/columnSelect';
 import { nestOutline, scanOutline, QuSymbolNode } from '../utils/outline';
@@ -1321,14 +1322,22 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
           if (requestId !== diagnosticsRequestIdRef.current) return;
           const model = editorInstance.getModel();
           if (!model) return;
-          const markers = diagnostics.map((d) => ({
-            severity: monacoInstance.MarkerSeverity.Error,
-            message: d.message,
-            startLineNumber: d.line,
-            startColumn: d.column,
-            endLineNumber: d.line,
-            endColumn: d.column + 1,
-          }));
+          // The parser notices an unclosed bracket where the source ends (or a
+          // later line); mark the bracket itself, which is where the fix is.
+          const open = findUnclosedBracket(value);
+          const markers = diagnostics.map((d) => {
+            const wantsCloser = open !== null && /expected `[)\]}]`/.test(d.message);
+            const line = wantsCloser ? open.line : d.line;
+            const column = wantsCloser ? open.column : d.column;
+            return {
+              severity: monacoInstance.MarkerSeverity.Error,
+              message: wantsCloser ? `${d.message} (the \`${open.open}\` opened here is never closed)` : d.message,
+              startLineNumber: line,
+              startColumn: column,
+              endLineNumber: line,
+              endColumn: column + 1,
+            };
+          });
           monacoInstance.editor.setModelMarkers(model, DIAGNOSTICS_MARKER_OWNER, markers);
         })
         .catch(() => {

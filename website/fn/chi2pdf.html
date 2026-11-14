@@ -58,9 +58,6 @@ walk = <span class="f">random_walk</span>(<span class="n">20</span>, <span class
 chi2pdf(2, 3):  0.2076
 normpdf(0):     0.3989
 random walk, last value: -3.552</pre></div></div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
-<h2>How it works</h2>
-<p><code>chi2pdf(x, k)</code> — the chi-square density with <code>k</code> degrees of freedom, computed in log-space via <code>ln_gamma</code> (the naive <code>x^(k/2-1)*exp(-x/2)/(2^(k/2)*Gamma(k/2))</code> overflows/ underflows for even modest <code>k</code>) then exponentiated. Broadcasts over a vector <code>x</code> like any elemental-math builtin.</p>
-<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
 </main>
 </div>
 <footer><div class="wrap">
