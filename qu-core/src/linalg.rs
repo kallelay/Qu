@@ -177,6 +177,28 @@ pub fn svd(input: &Matrix) -> Result<SvdResult, LinalgError> {
     })
 }
 
+/// Singular values only, descending, of a finite non-empty matrix: the same
+/// backends as [`svd`] (blocked SVD from [`BLOCKED_SVD_MIN`], nalgebra's
+/// below) but nalgebra is asked for no vectors. The blocked backend has no
+/// values-only entry point, so there the vectors are computed and dropped.
+pub fn singular_values(input: &Matrix) -> Result<Vec<f64>, LinalgError> {
+    if input.is_empty() {
+        return Err(LinalgError::EmptyMatrix);
+    }
+    if input.as_slice().iter().any(|value| !value.is_finite()) {
+        return Err(LinalgError::NonFiniteInput);
+    }
+    let (m, n) = input.shape();
+    let mut s: Vec<f64> = if m.min(n) >= BLOCKED_SVD_MIN {
+        crate::dense_svd::svd(input.as_slice(), m, n).s
+    } else {
+        let source = DMatrix::from_column_slice(m, n, input.as_slice());
+        source.svd(false, false).singular_values.iter().copied().collect()
+    };
+    s.sort_by(|a, b| b.total_cmp(a));
+    Ok(s)
+}
+
 /// Fast path for [`least_squares`]: a direct LU solve for a square `A`,
 /// `O(n^3/3)` with a small constant versus the SVD pseudoinverse's
 /// `O(n^3)` with a much larger one (multiple bidiagonalization + iterative

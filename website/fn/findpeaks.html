@@ -79,7 +79,7 @@ freqs = pk.locations * (Fs / N)
 <span class="f">print</span>(<span class="s">"Peak frequencies (Hz): {freqs}"</span>)
 </code></pre>
 </div><p class="fnfrom">from <a href="../docs/tour.html">tour</a></p>
-<div class="example"><pre class="hl"><code><span class="k">function</span> <span class="f">summarize</span>(m: model&lt;<span class="s">"qr"</span>&gt;)
+<div class="example hasout"><pre class="hl"><code><span class="k">function</span> <span class="f">summarize</span>(m: model&lt;<span class="s">"qr"</span>&gt;)
     <span class="k">return</span> <span class="s">"qr: q is {rows(m.q)}x{cols(m.q)}, r is {rows(m.r)}x{cols(m.r)}"</span>
 <span class="k">end</span> <span class="k">function</span>
 
@@ -100,7 +100,9 @@ pk = <span class="f">findpeaks</span>([<span class="n">0</span>,<span class="n">
 <span class="f">print</span>(<span class="f">summarize</span>(sres))
 <span class="f">print</span>(<span class="f">summarize</span>(pk))
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/tour.html">tour</a></p>
+<div class="out"><span class="lbl">output</span><pre>qr: q is 2x2, r is 2x2
+svd: singular values = [8.335579, 0.719806]
+generic model, kind unhandled</pre></div></div><p class="fnfrom">from <a href="../docs/tour.html">tour</a></p>
 <h2>How it works</h2>
 <p><code>findpeaks(x, [min_peak_height=], [min_peak_distance=])</code> — MATLAB-style <code>[peaks, locations] = findpeaks(x, ...)</code>. Qu has no multi-return/tuple-unpacking assignment (see the <code>argmin</code>/<code>argmax</code>/<code>median</code>/... doc comment history), so this returns a <code>Value::Model</code> instead, the same named-field multi-return convention <code>qr</code>/<code>lu</code>/<code>svd</code>/<code>eig</code> already use: kind <code>"findpeaks"</code>, fields <code>peaks</code> (the values) and <code>locations</code> (their 0-indexed positions in <code>x</code> — Qu is 0-indexed everywhere, unlike MATLAB's 1-indexing, so there is deliberately no +1 offset here). Shares its actual peak- finding/non-max-suppression logic with <code>find_peaks</code> above (<code>numeric::transforms::find_peaks</code>) rather than a second implementation; <code>min_prominence</code> isn't exposed as a FILTER here since MATLAB's own <code>findpeaks</code> kwarg vocabulary this is modeled on is <code>MinPeakHeight</code>/<code>MinPeakDistance</code>, not prominence. Two more fields, <code>prominences</code> and <code>widths</code> (each one value per located peak, same order as <code>peaks</code>/ <code>locations</code>), are computed unconditionally via <code>numeric::transforms::peak_prominence</code>/<code>peak_width</code> (the real SciPy-style bounding-minima/interpolated-crossing algorithms, <code>width</code> at <code>rel_height=0.5</code>, "full width at half prominence") — this is the enriched alternative to <code>find_peaks</code> above for scripts that want the VALUES, not just filters on them.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

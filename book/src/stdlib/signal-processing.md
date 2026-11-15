@@ -883,16 +883,16 @@ fs = 48000
 d  = 0.08
 th = 30
 c  = 343
-mics = [-2, -1, 0, 1, 2] .* d          # positions, metres, origin-centred
-taus = steer_delays(mics, th, c)       # per-element delay, seconds
-chans = []
-for m in 0 to 4 {
-    t = (0 to 4799) ./ fs              # 0.1 s of record
-    tone = sin(2 * pi * 1000 .* (t .- taus[m]))
-    chans = push(chans, signal(tone .+ 0.8 .* randn(1, 4800, seed=m), fs))
-}
-beam = beamform(chans, mics, th)       # c=343, method="nearest" by default
-print("beamformed {beam.len} samples at {beam.fs} Hz")
+mics = [-2, -1, 0, 1, 2] * d            # positions, metres, origin-centred
+taus = steer_delays(mics, th, c)        # per-element delay, seconds
+t = linspace(0, 4799, 4800) / fs        # 0.1 s of record
+function channel(m)
+    tone = sin(2 * pi * 1000 * (t - taus[m]))
+    return signal(tone + 0.8 * randn(1, 4800, seed=m), fs)
+end function
+chans = [channel(0), channel(1), channel(2), channel(3), channel(4)]
+beam = beamform(chans, mics, th)        # c=343, method="nearest" by default
+print("beamformed {beam.len} samples at {fs} Hz")
 ```
 
 ## Elementwise Apply (container-preserving)

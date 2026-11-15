@@ -371,7 +371,7 @@
 </g>
 <text x="635.16" y="322.50" font-size="21.599999999999998" text-anchor="start" fill="#444444" font-weight="700">c</text>
 </svg></figure></div><p class="fnfrom">from <a href="../docs/plotting.html">plotting</a></p>
-<div class="example"><pre class="hl"><code><span class="k">function</span> <span class="f">summarize</span>(m: model&lt;<span class="s">"qr"</span>&gt;)
+<div class="example hasout"><pre class="hl"><code><span class="k">function</span> <span class="f">summarize</span>(m: model&lt;<span class="s">"qr"</span>&gt;)
     <span class="k">return</span> <span class="s">"qr: q is {rows(m.q)}x{cols(m.q)}, r is {rows(m.r)}x{cols(m.r)}"</span>
 <span class="k">end</span> <span class="k">function</span>
 
@@ -392,7 +392,9 @@ pk = <span class="f">findpeaks</span>([<span class="n">0</span>,<span class="n">
 <span class="f">print</span>(<span class="f">summarize</span>(sres))
 <span class="f">print</span>(<span class="f">summarize</span>(pk))
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/tour.html">tour</a></p>
+<div class="out"><span class="lbl">output</span><pre>qr: q is 2x2, r is 2x2
+svd: singular values = [8.335579, 0.719806]
+generic model, kind unhandled</pre></div></div><p class="fnfrom">from <a href="../docs/tour.html">tour</a></p>
 <div class="example"><pre class="hl"><code>Fs = <span class="n">2000</span>
 fc = <span class="n">60</span>
 lp = <span class="f">butter</span>(<span class="n">4</span>, <span class="s">"low"</span>, fc, Fs)

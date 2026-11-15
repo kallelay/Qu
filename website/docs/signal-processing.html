@@ -853,22 +853,22 @@ qs  = sig.<span class="f">interpolate_at</span>([<span class="n">0.0</span>, <sp
 <tr><td><code>steer_delays</code></td><td><code>steer_delays(positions, angle_degrees, [c=343])</code></td><td>The geometry half of <code>beamform</code> on its own: the per-element steering delays <code>tau_m = x_m*sin(theta)/c</code>, in seconds, for element coordinates <code>positions</code> and a direction <code>angle_degrees</code> degrees off broadside (<code>c</code> as in <code>beamform</code>: m/s, default <code>343</code>, also spellable <code>c=</code>). Returns a plain vector, so it composes directly with <code>interpolate_at(sig_m, sig_m.t + delays[m], method)</code> when you want per-channel treatment <code>beamform</code> cannot express — element weighting/shading, a different method per channel, or a subset of the array. Added in v0.3.0.</td></tr>
 </table></div>
 <p>A five-microphone linear array, 0.08 m spacing, steered at a 1 kHz tone arriving 30° off broadside in air. Each channel carries the same tone with its own geometric delay plus independent noise; summing the steered channels raises the tone coherently while the noise adds incoherently, so the SNR improves by about <code>10*log10(M)</code>.</p>
-<div class="example"><pre class="hl"><code>fs = <span class="n">48000</span>
+<div class="example hasout"><pre class="hl"><code>fs = <span class="n">48000</span>
 d  = <span class="n">0.08</span>
 th = <span class="n">30</span>
 c  = <span class="n">343</span>
-mics = [-<span class="n">2</span>, -<span class="n">1</span>, <span class="n">0</span>, <span class="n">1</span>, <span class="n">2</span>] .* d          <span class="c"># positions, metres, origin-centred</span>
-taus = <span class="f">steer_delays</span>(mics, th, c)       <span class="c"># per-element delay, seconds</span>
-chans = []
-<span class="k">for</span> m <span class="k">in</span> <span class="n">0</span> <span class="k">to</span> <span class="n">4</span> {
-    t = (<span class="n">0</span> <span class="k">to</span> <span class="n">4799</span>) ./ fs              <span class="c"># 0.1 s of record</span>
-    tone = <span class="f">sin</span>(<span class="n">2</span> * pi * <span class="n">1000</span> .* (t .- taus[m]))
-    chans = <span class="f">push</span>(chans, <span class="f">signal</span>(tone .+ <span class="n">0.8</span> .* <span class="f">randn</span>(<span class="n">1</span>, <span class="n">4800</span>, <span class="a">seed</span>=m), fs))
-}
-beam = <span class="f">beamform</span>(chans, mics, th)       <span class="c"># c=343, method="nearest" by default</span>
-<span class="f">print</span>(<span class="s">"beamformed {beam.len} samples at {beam.fs} Hz"</span>)
+mics = [-<span class="n">2</span>, -<span class="n">1</span>, <span class="n">0</span>, <span class="n">1</span>, <span class="n">2</span>] * d            <span class="c"># positions, metres, origin-centred</span>
+taus = <span class="f">steer_delays</span>(mics, th, c)        <span class="c"># per-element delay, seconds</span>
+t = <span class="f">linspace</span>(<span class="n">0</span>, <span class="n">4799</span>, <span class="n">4800</span>) / fs        <span class="c"># 0.1 s of record</span>
+<span class="k">function</span> <span class="f">channel</span>(m)
+    tone = <span class="f">sin</span>(<span class="n">2</span> * pi * <span class="n">1000</span> * (t - taus[m]))
+    <span class="k">return</span> <span class="f">signal</span>(tone + <span class="n">0.8</span> * <span class="f">randn</span>(<span class="n">1</span>, <span class="n">4800</span>, <span class="a">seed</span>=m), fs)
+<span class="k">end</span> <span class="k">function</span>
+chans = [<span class="f">channel</span>(<span class="n">0</span>), <span class="f">channel</span>(<span class="n">1</span>), <span class="f">channel</span>(<span class="n">2</span>), <span class="f">channel</span>(<span class="n">3</span>), <span class="f">channel</span>(<span class="n">4</span>)]
+beam = <span class="f">beamform</span>(chans, mics, th)        <span class="c"># c=343, method="nearest" by default</span>
+<span class="f">print</span>(<span class="s">"beamformed {beam.len} samples at {fs} Hz"</span>)
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>beamformed 4800 samples at 48000 Hz</pre></div></div>
 <h2 id="s907">Elementwise Apply (container-preserving)</h2>
 <div class="tablewrap"><table>
 <tr><td>Function</td><td>Signature</td><td>Description</td></tr>

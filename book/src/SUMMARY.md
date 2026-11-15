@@ -10,6 +10,8 @@
 - [Book 1 - Fundamentals](getting-started/book1-fundamentals.md)
 - [Book 2 - Numerics, DSP & Linear Algebra](getting-started/book2-numerics-dsp.md)
 - [Book 3 - Specialized Domains](getting-started/book3-specialized.md)
+- [Qu Studio: the Fit tab](getting-started/studio-fit-tab.md)
+- [Qu Studio: the Machine Learning lab](getting-started/ml-lab.md)
 
 # Language Reference
 
@@ -21,6 +23,7 @@
 - [Overview](stdlib/overview.md)
 - [Builtin Index](stdlib/builtin-index.md)
 - [Core Math & Linear Algebra](stdlib/core-math.md)
+- [Linear Algebra panel (Qu Studio)](stdlib/linear-algebra-panel.md)
 - [Signal Processing & Filters](stdlib/signal-processing.md)
 - [Compressed Sensing](stdlib/compressed-sensing.md)
 - [Sparse Matrices](stdlib/sparse.md)

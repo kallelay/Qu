@@ -30,17 +30,18 @@
 <h1>cond</h1>
 <nav class="onthispage"></nav>
 <p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/core-math.html">Core maths</a></p>
-<pre class="fnsig">result = <code>cond(A)</code></pre>
-<p class="fnnote">Input: A &middot; Output: result</p>
+<pre class="fnsig">result = <code>cond(A, [p])</code></pre>
+<p class="fnnote">Input: A, p &middot; Output: result</p>
 <h2>What it is</h2>
 <p>The 2-norm condition number of <code>A</code> (an <code>r×c</code> <code>Mat</code> or <code>CMat</code>) — the ratio of its largest to smallest singular value.</p>
 <h2>Overloads</h2>
 <p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
 <div class="tablewrap"><table class="iotable">
 <tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
-<tr><td class="iocode"><code>result = cond(A)</code></td><td><div class="ioitem"><code>A</code> <span class="iotype">number, Mat, or CMat</span><span class="iogap">not documented yet</span></div>
-</td><td><div class="ioitem"><code>result</code> <span class="iotype">scalar, Num, or matrix</span></div>
-</td><td>Returns a scalar <code>Num</code>, <code>+inf</code> for a singular matrix rather than an error (conditioning is routinely measured on matrices that turn out to be singular, and infinity *is* the answer there). Roughly how many digits a solve can lose, so <code>1e12</code> on a double means about four digits survive.</td></tr>
+<tr><td class="iocode"><code>result = cond(A, [p])</code></td><td><div class="ioitem"><code>A</code> <span class="iotype">number, Mat, or CMat</span><span class="iodesc">The 2-norm condition number of <code>A</code> (an <code>r×c</code> <code>Mat</code> or <code>CMat</code>) — the ratio of its largest to smallest singular value.</span></div>
+<div class="ioitem"><code>p</code> <span class="iotype">number, optional</span><span class="iodesc">Two-argument form added in v0.4.14: <code>cond(A, p)</code> for <code>p</code> = <code>1</code>, <code>2</code>, <code>inf</code> or <code>"fro"</code>, the condition number in that norm: <code>norm(A, p) * norm(inv(A), p)</code> for <code>1</code>, <code>inf</code> and <code>"fro"</code> (square <code>A</code> only.</span></div>
+</td><td><div class="ioitem"><code>2</code> <span class="iotype">&mdash;</span><span class="iodesc">any shape</span></div>
+</td><td>Returns a scalar <code>Num</code>, <code>+inf</code> for a singular matrix rather than an error (conditioning is routinely measured on matrices that turn out to be singular, and infinity *is* the answer there). Roughly how many digits a solve can lose, so <code>1e12</code> on a double means about four digits survive. Two-argument form added in v0.4.14: <code>cond(A, p)</code> for <code>p</code> = <code>1</code>, <code>2</code>, <code>inf</code> or <code>"fro"</code>, the condition number in that norm: <code>norm(A, p) * norm(inv(A), p)</code> for <code>1</code>, <code>inf</code> and <code>"fro"</code> (square <code>A</code> only; <code>+inf</code> when singular) and the singular-value ratio for <code>2</code> (any shape). <code>cond(A, 1)</code> is <code>1 / rcond(A)</code> up to the rounding of the inverse; <code>cond([1 2; 3 4], 1)</code> is <code>21</code>. The one-argument form is unchanged. Errors: another <code>p</code>, <code>NaN</code> in <code>A</code>, a non-square <code>A</code> with <code>p</code> other than <code>2</code>.</td></tr>
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>

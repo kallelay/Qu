@@ -30,7 +30,7 @@ import {
   Database, Network, AudioWaveform, Binary, Settings, Search,
   GitBranch, Terminal as TerminalIcon, FileCode, Layers, Folder,
   Sparkles, Wand2, Command as CommandIcon, SlidersHorizontal, Box, ScatterChart, Radio, LayoutGrid,
-  History, BookOpen, Repeat
+  History, BookOpen, Repeat, Grid3x3
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
@@ -74,6 +74,10 @@ import { LiveSerialPlotPanel } from './LiveSerialPlotPanel';
 import { GuiDesignerPanel } from './GuiDesignerPanel';
 import { DspWorkbenchPanel } from './DspWorkbenchPanel';
 import { LoopPanel } from './LoopPanel';
+import { CurveFitPanel } from './CurveFitPanel';
+import { Spline } from 'lucide-react';
+import { LinAlgPanel } from './LinAlgPanel';
+import { MlLabPanel } from './MlLabPanel';
 import { signalVariables } from './filterDesign';
 import { LlmProviderSettings } from './LlmProviderSettings';
 import { groupCatalog, catalogTitle, CATEGORY_ICON, type CatalogCategory } from './catalogMeta';
@@ -811,12 +815,14 @@ legend()`
  *  Interactive), then ML's template library, then the two
  *  data-in/data-out tabs (SeriPlot, Files). It was previously the order
  *  the tabs happened to be built in. */
-type ModeId = 'code' | 'dsp' | 'loop' | 'ml' | 'files' | 'interactive' | 'seriplot' | 'designer';
+type ModeId = 'code' | 'dsp' | 'loop' | 'fit' | 'linalg' | 'ml' | 'files' | 'interactive' | 'seriplot' | 'designer';
 
 const MODE_TABS: Array<{ id: ModeId; label: string; icon: LucideIcon }> = [
   { id: 'code', label: 'Code', icon: FileCode },
   { id: 'dsp', label: 'DSP', icon: AudioWaveform },
   { id: 'loop', label: 'Loop', icon: Repeat },
+  { id: 'fit', label: 'Fit', icon: Spline },
+  { id: 'linalg', label: 'Linear Algebra', icon: Grid3x3 },
   { id: 'designer', label: 'Designer', icon: LayoutGrid },
   { id: 'interactive', label: 'Interactive', icon: SlidersHorizontal },
   { id: 'ml', label: 'ML', icon: Network },
@@ -2921,11 +2927,27 @@ function App() {
           <LiveSerialPlotPanel theme={resolvedTheme as 'light' | 'dark'} invoke={invoke} />
         ) : activeTab === 'designer' ? (
           <GuiDesignerPanel theme={resolvedTheme as 'light' | 'dark'} invoke={invoke} />
+        ) : activeTab === 'fit' ? (
+          <CurveFitPanel
+            theme={resolvedTheme as 'light' | 'dark'}
+            invoke={invoke}
+            signalVars={signalVars}
+            loadSignal={loadSignal}
+            onOpenInEditor={openCodeInEditor}
+          />
         ) : activeTab === 'loop' ? (
           <LoopPanel
             theme={resolvedTheme as 'light' | 'dark'}
             invoke={invoke}
             editorFile={loopEditorFile}
+            onOpenInEditor={openCodeInEditor}
+          />
+        ) : activeTab === 'linalg' ? (
+          <LinAlgPanel
+            theme={resolvedTheme as 'light' | 'dark'}
+            invoke={invoke}
+            numericVars={numericVariables}
+            loadVar={loadSignal}
             onOpenInEditor={openCodeInEditor}
           />
         ) : activeTab === 'dsp' ? (
@@ -2934,6 +2956,14 @@ function App() {
             invoke={invoke}
             signalVars={signalVars}
             loadSignal={loadSignal}
+            onOpenInEditor={openCodeInEditor}
+          />
+        ) : activeTab === 'ml' ? (
+          <MlLabPanel
+            theme={resolvedTheme as 'light' | 'dark'}
+            invoke={invoke}
+            templates={ML_ALGORITHMS}
+            variables={numericVariables}
             onOpenInEditor={openCodeInEditor}
           />
         ) : (
@@ -3099,29 +3129,6 @@ function App() {
                     ))}
                   </>
                 )}
-              </div>
-            )}
-
-            {activeTab === 'ml' && (
-              <div className="p-3">
-                <div className="qu-side-heading">
-                  Machine Learning
-                </div>
-                {ML_ALGORITHMS.map(algo => (
-                  <button
-                    key={algo.id}
-                    onClick={() => loadTemplate(algo.id, algo.name, algo.template)}
-                    className="qu-side-card mb-2"
-                  >
-                    <div className="flex items-center gap-2 mb-1">
-                      <Network size={14} />
-                      <span className="font-medium">{algo.name}</span>
-                    </div>
-                    <div className="qu-chip" data-kind={algo.category}>
-                      {algo.category}
-                    </div>
-                  </button>
-                ))}
               </div>
             )}
 

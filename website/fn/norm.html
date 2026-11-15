@@ -30,17 +30,23 @@
 <h1>norm</h1>
 <nav class="onthispage"></nav>
 <p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/core-math.html">Core maths</a></p>
-<pre class="fnsig">result = <code>norm(x)</code></pre>
-<p class="fnnote">Input: x &middot; Output: result</p>
+<pre class="fnsig">result = <code>norm(x, [p])</code></pre>
+<p class="fnnote">Input: x, p &middot; Output: result</p>
 <h2>What it is</h2>
 <p>Euclidean (L2) norm; for a matrix this is the Frobenius norm (every element treated as one long vector), not a matrix operator norm. <code>x</code> is a scalar, <code>Vec</code>, or <code>Mat</code> (real, or <code>CVec</code>/<code>CMat</code>, which norm by magnitude).</p>
 <h2>Overloads</h2>
 <p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
 <div class="tablewrap"><table class="iotable">
 <tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
-<tr><td class="iocode"><code>result = norm(x)</code></td><td><div class="ioitem"><code>x</code> <span class="iotype">matrix, vector, scalar, Vec, Mat, CVec, or CMat</span><span class="iogap">not documented yet</span></div>
-</td><td><div class="ioitem"><code>result</code> <span class="iotype">scalar or Num</span></div>
-</td><td>Returns a scalar <code>Num</code>.</td></tr>
+<tr><td class="iocode"><code>result = norm(x, [p])</code></td><td><div class="ioitem"><code>x</code> <span class="iotype">scalar, Vec, Mat, CVec, or CMat</span><span class="iodesc"><code>x</code> is a scalar, <code>Vec</code>, or <code>Mat</code> (real, or <code>CVec</code>/<code>CMat</code>, which norm by magnitude).</span></div>
+<div class="ioitem"><code>p</code> <span class="iotype">optional</span><span class="iodesc">Two-argument form added in v0.4.14: <code>norm(x, p)</code>.</span></div>
+</td><td><div class="ioitem"><code>1</code> <span class="iotype">&mdash;</span><span class="iodesc">largest column sum</span></div>
+<div class="ioitem"><code>2</code> <span class="iotype">&mdash;</span><span class="iodesc">largest singular value, the operator norm</span></div>
+<div class="ioitem"><code>inf</code> <span class="iotype">&mdash;</span><span class="iodesc">largest row sum</span></div>
+<div class="ioitem"><code>inf</code> <span class="iotype">&mdash;</span><span class="iodesc">largest magnitude</span></div>
+<div class="ioitem"><code>0</code> <span class="iotype">number</span><span class="iodesc">the number of nonzero entries</span></div>
+<div class="ioitem"><code>p</code> <span class="iotype">matrix, vector, or string</span><span class="iodesc">a matrix <code>p</code> of <code>0</code> or <code>3</code>, a vector <code>p</code> between <code>0</code> and <code>1</code> or negative, an unknown string</span></div>
+</td><td>Returns a scalar <code>Num</code>. Two-argument form added in v0.4.14: <code>norm(x, p)</code>. For a <strong>matrix</strong> <code>p</code> is <code>1</code> (largest column sum), <code>2</code> (largest singular value, the operator norm), <code>inf</code> (largest row sum) or <code>"fro"</code> (the Frobenius norm, same as <code>norm(A)</code>); for <code>[1 2; 3 4]</code> these give <code>6</code>, <code>5.464985704219043</code>, <code>7</code> and <code>5.477225575051661</code>. For a <strong>vector</strong> (a <code>Vec</code>, a row or column <code>Mat</code>, or a number) <code>p</code> is <code>1</code>, <code>2</code>, <code>inf</code> (largest magnitude), <code>-inf</code> (smallest magnitude), <code>0</code> (the number of nonzero entries), any <code>p &gt;= 1</code>, or <code>"fro"</code> (same as <code>2</code>); the powers are scaled so they do not overflow. The one-argument form is unchanged. Real input only. Errors: another <code>p</code> (a matrix <code>p</code> of <code>0</code> or <code>3</code>, a vector <code>p</code> between <code>0</code> and <code>1</code> or negative, an unknown string), <code>NaN</code> in <code>x</code>, complex input.</td></tr>
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>

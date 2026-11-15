@@ -163,3 +163,43 @@ fn curve_errors_name_the_function_and_the_problem() {
     assert!(run_err("r = pr_curve([0, 2], [0.1, 0.2])").contains("pr_curve: labels must be 0 or 1"));
     assert!(run_err("r = roc_curve([0, 1], [0.1])").contains("2 labels but score has 1"));
 }
+
+
+#[test]
+fn accuracy_scores_multiclass_labels_as_labels_not_thresholded_scores() {
+    // five of six right: 5/6. Thresholding class 2 down to 1 used to give 0.5.
+    let it = run("a = accuracy([0, 1, 2, 2, 1, 0], [0, 1, 2, 2, 1, 1])");
+    assert!((num(&it, "a") - 5.0 / 6.0).abs() < 1e-12);
+    // a perfect 3-class prediction is 1, and classes numbered from 1 work too
+    let it = run("a = accuracy([1, 2, 3, 3, 2, 1], [1, 2, 3, 3, 2, 1])");
+    assert_eq!(num(&it, "a"), 1.0);
+    // a wrong class is a miss even when it is "closer" to the right one
+    let it = run("a = accuracy([2, 2, 2, 2], [1, 2, 3, 2])");
+    assert_eq!(num(&it, "a"), 0.5);
+}
+
+#[test]
+fn accuracy_on_binary_labels_still_thresholds_scores() {
+    // unchanged behaviour: 0/1 labels, probabilities cut at 0.5 ...
+    let it = run("a = accuracy([0, 1, 1, 0], [0.2, 0.9, 0.4, 0.1])");
+    assert_eq!(num(&it, "a"), 0.75);
+    // ... and at a threshold the caller chooses
+    let it = run("a = accuracy([0, 1, 1, 0], [0.2, 0.9, 0.4, 0.1], threshold=0.3)");
+    assert_eq!(num(&it, "a"), 1.0);
+    // a threshold makes no sense for multi-class labels: say so
+    let msg = run_err("a = accuracy([0, 1, 2], [0, 1, 2], threshold=0.5)");
+    assert!(msg.contains("more than two classes"), "{msg}");
+}
+
+#[test]
+fn cross_val_accuracy_is_right_for_three_classes() {
+    // three tight, far-apart blobs: every fold's kNN is right, so the CV
+    // accuracy must be exactly 1 (it was 0.667 when class 2 was thresholded)
+    let it = run(concat!(
+        "X = [0, 0; 0.1, 0.1; -0.1, 0.1; 0.05, -0.1; 10, 0; 10.1, 0.1; 9.9, 0.1; 10.05, -0.1; 0, 10; 0.1, 10.1; -0.1, 9.9; 0.05, 10.1]\n",
+        "y = [0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2]\n",
+        "r = cross_val(knn_model, X, y, 1, folds=4, seed=3, metric=\"accuracy\")\n",
+        "m = r.mean\n",
+    ));
+    assert!((num(&it, "m") - 1.0).abs() < 1e-12);
+}

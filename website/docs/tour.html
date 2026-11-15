@@ -697,7 +697,7 @@ s = timer.<span class="f">stop</span>()
 <span class="f">print</span>(<span class="s">"done, acc = {acc}"</span>)
 </code></pre>
 <div class="out"><span class="lbl">output</span><pre>elapsed &gt;= 0: true
-stop returns: 0.000588
+stop returns: 0.000688
 done, acc = 5000050000</pre></div></div>
 <p>Output:</p>
 <pre><code>elapsed &gt;= 0: true
@@ -890,7 +890,7 @@ unknown shape
 <p>Each <code>__type</code> genuinely picks its own overload — this isn't three overloads falling through to one lucky match; swapping <code>c</code> and <code>tr</code> above (not shown) changes which body runs. The untagged <code>plain</code> record matches none of the three refined overloads (<code>record_type_tag</code> finds no <code>__type</code> field) and falls through to the plain <code>record</code> overload, exactly like §5's "omitting <code>__type</code> falls through" note, except here the fallback is a real user overload rather than a hard error.</p>
 <h3><code>model&lt;"kind"&gt;</code> refinement — <code>qr</code> vs <code>svd</code> vs a plain <code>model</code> fallback</h3>
 <p>The same refinement mechanism applies to <code>Value::Model</code>, keyed on the model's <code>kind</code> string rather than a record field. <code>qr</code> and <code>svd</code> are both real Model-returning builtins (§7); <code>findpeaks</code> (also from §7) is used here to exercise the plain, unrefined <code>model</code> fallback:</p>
-<div class="example"><pre class="hl"><code><span class="k">function</span> <span class="f">summarize</span>(m: model&lt;<span class="s">"qr"</span>&gt;)
+<div class="example hasout"><pre class="hl"><code><span class="k">function</span> <span class="f">summarize</span>(m: model&lt;<span class="s">"qr"</span>&gt;)
     <span class="k">return</span> <span class="s">"qr: q is {rows(m.q)}x{cols(m.q)}, r is {rows(m.r)}x{cols(m.r)}"</span>
 <span class="k">end</span> <span class="k">function</span>
 
@@ -911,7 +911,9 @@ pk = <span class="f">findpeaks</span>([<span class="n">0</span>,<span class="n">
 <span class="f">print</span>(<span class="f">summarize</span>(sres))
 <span class="f">print</span>(<span class="f">summarize</span>(pk))
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>qr: q is 2x2, r is 2x2
+svd: singular values = [8.335579, 0.719806]
+generic model, kind unhandled</pre></div></div>
 <p>Output:</p>
 <pre><code>qr: q is 2x2, r is 2x2
 svd: singular values = [8.335579, 0.719806]

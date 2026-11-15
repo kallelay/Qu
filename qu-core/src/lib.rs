@@ -52,6 +52,7 @@ pub mod sinad;
 /// statement about a measurement and an SNR is. See the module's own doc
 /// comment for what each kind models and why they are not interchangeable.
 pub mod noise;
+pub mod matprops;
 pub mod matrix;
 pub mod matfun;
 pub mod matrix_builders;

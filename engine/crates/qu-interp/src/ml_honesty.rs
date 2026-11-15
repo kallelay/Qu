@@ -310,12 +310,21 @@ fn accuracy(args: &[Value], style: &[(String, Value)]) -> R<Value> {
     let y = vec_arg(args, 0, "accuracy", "the true labels")?;
     let p = vec_arg(args, 1, "accuracy", "the predictions")?;
     same_len(&y, &p, "accuracy", "the true labels", "the predictions")?;
+    // Two readings, chosen by the TRUE labels. Binary labels (only 0 and 1):
+    // a prediction that is not exactly 0 or 1 is a score, thresholded at
+    // `threshold` (0.5). Anything else is a multi-class problem, where a
+    // prediction is a class label and is compared as it is: thresholding
+    // class 2 down to 1 scored every correct "2" as a miss.
+    let multiclass = y.iter().any(|v| *v != 0.0 && *v != 1.0);
+    if multiclass && style_num(style, "threshold").is_some() {
+        return e("accuracy: `threshold=` only applies to 0/1 labels; these labels have more than two classes".to_string());
+    }
     let t = style_num(style, "threshold").unwrap_or(0.5);
     let hits = y
         .iter()
         .zip(&p)
         .filter(|(a, b)| {
-            let pred = if **b == 0.0 || **b == 1.0 { **b } else { (**b >= t) as i32 as f64 };
+            let pred = if multiclass || **b == 0.0 || **b == 1.0 { **b } else { (**b >= t) as i32 as f64 };
             (**a - pred).abs() < f64::EPSILON
         })
         .count();

@@ -187,6 +187,7 @@ pub mod native_ops;
 pub mod sparse_ops;
 pub mod lti_ops;
 mod basics_ops;
+mod linalg_ops;
 mod matfun_ops;
 mod num_ops;
 mod numerics4_ops;
@@ -24919,6 +24920,11 @@ self.eval_grad(loss, wrt)
                 Ok(Value::Record(Arc::new(fields)))
             }
             "norm" => {
+                // `norm(x, p)`: the p-norm family -- see `linalg_ops.rs`.
+                // One argument stays exactly the Frobenius/2-norm below.
+                if arg_get(&args, 1).is_some() {
+                    return linalg_ops::norm_p(&args);
+                }
                 // A complex matrix norms by magnitude, which is the
                 // Frobenius norm numpy returns for a matrix by default.
                 if let Value::CMat(m) = arg0(&args)? {
@@ -25371,6 +25377,11 @@ self.eval_grad(loss, wrt)
             // routinely *measured* on matrices that turn out to be
             // singular, and that is the answer, not a failure.
             "cond" => {
+                // `cond(A, p)`: the 1, 2, inf and "fro" condition numbers --
+                // see `linalg_ops.rs`. One argument stays as below.
+                if arg_get(&args, 1).is_some() {
+                    return linalg_ops::cond_p(&args);
+                }
                 if let Value::CMat(m) = arg0(&args)? {
                     return numeric::cmatrix::svd(m)
                         .map(|f| Value::Num(f.condition))
@@ -35479,6 +35490,7 @@ self.eval_grad(loss, wrt)
             f if lti_ops::NAMES.contains(&f) => lti_ops::call(f, &args, &style),
             f if trace_ops::NAMES.contains(&f) => trace_ops::call(f, &args, &style),
             f if num_ops::NAMES.contains(&f) => num_ops::call(f, &args),
+            f if linalg_ops::NAMES.contains(&f) => linalg_ops::call(f, &args),
             f if numerics4_ops::NAMES.contains(&f) => self.numerics4_call(f, &args, &style),
             f if solver_ops::NAMES.contains(&f) => self.solver_call(f, &args, &style),
             f if matfun_ops::NAMES.contains(&f) => matfun_ops::call(f, &args),
@@ -47333,7 +47345,7 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "apply_edits", "apply_gain", "apply_offset", "apropos", "ar_model", "arc", "area", "arg",
     "argmax", "argmean", "argmedian", "argmin", "argquantile", "argsort", "argv", "arima", "arrow",
     "arrowtext", "as_text", "asc", "asin", "asinh", "astar_mrmr", "at", "atan", "atan2", "atanh",
-    "available", "avgpool2d", "band_power", "band_zero", "bar", "base64_decode", "base64_encode",
+    "available", "avgpool2d", "band_power", "band_zero", "bandwidth", "bar", "base64_decode", "base64_encode",
     "basin_hopping", "beamform", "beeswarm", "before", "before_last", "berncdf", "bernfit",
     "berninv", "bernpdf", "bernrnd", "bernstat", "bessel", "besseli", "besselj", "besselk",
     "bessely", "beta", "betacdf", "betafit", "betainc", "betainv",
@@ -47364,7 +47376,7 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "dwt", "ecdf", "echo", "eda", "edge_detect", "edges", "eig", "elapsed", "elediv", "elemul",
     "elepow", "ellip", "ellipke", "ellipord", "ellipse", "emd", "emf", "end_time", "ends_with",
     "energy",
-    "enob", "enob_estimate", "entropy", "enum_values", "eof", "erf", "erfc", "erfcinv", "erfinv",
+    "enob", "enob_estimate", "entropy", "enum_values", "eof", "eps", "erf", "erfc", "erfcinv", "erfinv",
     "error", "errorbar",
     "estimate", "estimate_complexity", "estimate_frequency", "exec", "exit", "exp", "exp2",
     "expcdf", "expfit", "expint", "expinv", "explain", "explore", "expm", "expm1", "exponential",
@@ -47388,7 +47400,7 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "group_by_agg", "group_delay", "groupbar", "gru_cell", "gru_forward", "gru_init", "h5info",
     "h5read", "hamming", "hamming74_decode", "hamming74_encode", "hampel", "hankel", "hann",
     "has_edge", "has_key", "havriliak_negami", "head", "heatmap", "help", "hessian", "hex2dec",
-    "hex_decode", "hex_encode", "hexbin", "hexdump", "high_time", "hilbert", "hist", "histeq",
+    "hex_decode", "hex_encode", "hexbin", "hexdump", "high_time", "hilb", "hilbert", "hist", "histeq",
     "histogram", "hit_miss", "hline", "hmm", "hourly_profile", "hsl", "hstack", "hsv", "html2md",
     "http_get", "huffman_decode", "huffman_encode", "hum", "hurst_exponent", "hygecdf", "hygeinv",
     "hygepdf", "hygernd", "hygestat", "hypot", "ica", "ica_model", "idct", "identity", "idft",
@@ -47398,8 +47410,9 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "impz", "imrotate", "imscale", "imshow", "imtophat", "imtranslate", "imwarp", "inch", "indent",
     "index", "index_of", "indexof", "inductor", "input", "insert", "insert_column", "insert_row", "integral2",
     "interp1", "interp2", "interpolate_at", "interpolate_nan", "inv", "inverse_transform", "invert",
-    "iqr", "irfft", "is_clipped", "is_empty", "is_full", "is_readonly", "is_stable", "isfinite",
-    "isinf", "isnan", "isolation_forest", "isprime", "items", "jacobian", "join", "js_exec",
+    "invhilb", "iqr", "irfft", "is_clipped", "is_empty", "is_full", "is_readonly", "is_stable", "isbanded",
+    "isdiag", "isfinite", "isinf", "isnan", "isolation_forest", "isposdef", "isprime", "issymmetric",
+    "istril", "istriu", "items", "jacobian", "join", "js_exec",
     "json2csv", "json2xml", "json_delete", "json_get", "json_set", "jsonify", "k_fold", "kaiser",
     "kaiserord", "kalman_init", "kapur_threshold", "keys", "kfold", "kill", "kmeans",
     "kmeans_centers", "kmeans_model", "kmedians_model", "kmedoids_model", "knn_model", "kron",
@@ -47451,7 +47464,7 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "quantile", "quantile_normalize",
     "queue", "quick_mlp", "r2", "raincloud", "rand", "randi", "randn", "random_forest_model",
     "random_walk", "range", "range_decode", "range_encode", "rank", "rans_decode", "rans_encode",
-    "re", "read", "read_all", "read_all_text", "read_array", "read_bin", "read_bit", "read_byte",
+    "rcond", "re", "read", "read_all", "read_all_text", "read_array", "read_bin", "read_bit", "read_byte",
     "read_bytes", "read_char", "read_chars", "read_csv", "read_double", "read_float", "read_input",
     "read_int", "read_int16", "read_int32", "read_int64", "read_line", "read_mat", "read_npy",
     "read_npz", "read_struct", "read_structs", "read_uint16", "read_uint32", "read_uint64",
@@ -47484,7 +47497,7 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "standardize",
     "start", "start_time", "starts_with", "stationary", "std", "ste", "steer_delays", "stem",
     "step", "step_info", "stepz", "stft", "stop", "stop_grad", "str", "stratified_split",
-    "strip_ansi", "subplot", "substr", "subtract", "sum", "summary", "svd", "svm_model",
+    "strip_ansi", "subplot", "substr", "subtract", "sum", "summary", "svd", "svdvals", "svm_model",
     "svr_model", "swap", "swap_endian", "sweep", "sylvester", "sysid", "sysinfo", "table", "tail",
     "take", "tan",
     "tanh", "tape_reset", "tcdf", "tcp_accept", "tcp_close", "tcp_connect", "tcp_listen",

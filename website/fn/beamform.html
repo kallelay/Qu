@@ -47,22 +47,22 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example"><pre class="hl"><code>fs = <span class="n">48000</span>
+<div class="example hasout"><pre class="hl"><code>fs = <span class="n">48000</span>
 d  = <span class="n">0.08</span>
 th = <span class="n">30</span>
 c  = <span class="n">343</span>
-mics = [-<span class="n">2</span>, -<span class="n">1</span>, <span class="n">0</span>, <span class="n">1</span>, <span class="n">2</span>] .* d          <span class="c"># positions, metres, origin-centred</span>
-taus = <span class="f">steer_delays</span>(mics, th, c)       <span class="c"># per-element delay, seconds</span>
-chans = []
-<span class="k">for</span> m <span class="k">in</span> <span class="n">0</span> <span class="k">to</span> <span class="n">4</span> {
-    t = (<span class="n">0</span> <span class="k">to</span> <span class="n">4799</span>) ./ fs              <span class="c"># 0.1 s of record</span>
-    tone = <span class="f">sin</span>(<span class="n">2</span> * pi * <span class="n">1000</span> .* (t .- taus[m]))
-    chans = <span class="f">push</span>(chans, <span class="f">signal</span>(tone .+ <span class="n">0.8</span> .* <span class="f">randn</span>(<span class="n">1</span>, <span class="n">4800</span>, <span class="a">seed</span>=m), fs))
-}
-beam = <span class="f">beamform</span>(chans, mics, th)       <span class="c"># c=343, method="nearest" by default</span>
-<span class="f">print</span>(<span class="s">"beamformed {beam.len} samples at {beam.fs} Hz"</span>)
+mics = [-<span class="n">2</span>, -<span class="n">1</span>, <span class="n">0</span>, <span class="n">1</span>, <span class="n">2</span>] * d            <span class="c"># positions, metres, origin-centred</span>
+taus = <span class="f">steer_delays</span>(mics, th, c)        <span class="c"># per-element delay, seconds</span>
+t = <span class="f">linspace</span>(<span class="n">0</span>, <span class="n">4799</span>, <span class="n">4800</span>) / fs        <span class="c"># 0.1 s of record</span>
+<span class="k">function</span> <span class="f">channel</span>(m)
+    tone = <span class="f">sin</span>(<span class="n">2</span> * pi * <span class="n">1000</span> * (t - taus[m]))
+    <span class="k">return</span> <span class="f">signal</span>(tone + <span class="n">0.8</span> * <span class="f">randn</span>(<span class="n">1</span>, <span class="n">4800</span>, <span class="a">seed</span>=m), fs)
+<span class="k">end</span> <span class="k">function</span>
+chans = [<span class="f">channel</span>(<span class="n">0</span>), <span class="f">channel</span>(<span class="n">1</span>), <span class="f">channel</span>(<span class="n">2</span>), <span class="f">channel</span>(<span class="n">3</span>), <span class="f">channel</span>(<span class="n">4</span>)]
+beam = <span class="f">beamform</span>(chans, mics, th)        <span class="c"># c=343, method="nearest" by default</span>
+<span class="f">print</span>(<span class="s">"beamformed {beam.len} samples at {fs} Hz"</span>)
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
+<div class="out"><span class="lbl">output</span><pre>beamformed 4800 samples at 48000 Hz</pre></div></div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
 <h2>How it works</h2>
 <p><code>beamform(signals, positions, angle_degrees, [c=343], [method="nearest"])</code> (§ signal builtins, v0.3.0) — classic delay-and-sum: steer each channel by its own geometric delay, then average. Built ON <code>steer_delays</code> + the existing <code>interp1_eval</code> kernel <code>interpolate_at</code> uses, not on a private copy of either, so a hand-written <code>interpolate_at(sig_m, t + delays[m], method)</code> loop and this call are the same arithmetic. WHY <code>method</code> DEFAULTS TO <code>"nearest"</code> RATHER THAN <code>interpolate_at</code>'s OWN <code>"linear"</code>: Linear interpolation between two samples is a (crude) low-pass filter — it averages neighbours, which attenuates the broadband noise sitting between them. On the verified 5-element / 0.08 m 1 kHz / 30°-off-broadside audio case, that alone moves the measured array gain from 7.25 dB ("nearest", against 10*log10(5) = 6.99 dB of theory) to 8.58 dB — i.e. <code>"linear"</code> reports 1.6 dB of "array gain" that the ARRAY did not produce. A beamformer's whole purpose is to measure what the geometry buys, so the default must not quietly add denoising of its own; <code>"linear"</code>/<code>"spline"</code> remain available for a caller who wants sub-sample steering accuracy and knows to account for it. Returns a <code>Value::Signal</code> at the inputs' own <code>Fs</code> — unlike <code>interpolate_at</code>, which must NOT (its query times are arbitrary instants). Here every query is <code>t_i + tau_m</code>, the signal's own uniform axis shifted by one constant per channel, so the output is still uniformly sampled at exactly <code>Fs</code>; the sample rate it claims is real.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
