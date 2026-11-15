@@ -82,7 +82,7 @@ b = <span class="f">drain</span>(<span class="f">StreamURL</span>(<span class="s
 </code></pre>
 <div class="out"><span class="lbl">output</span><pre>line one|line two|
 true</pre></div></div><p class="fnfrom">from <a href="../docs/file-io.html">file-io</a></p>
-<div class="example hasout"><pre class="hl"><code><span class="k">function</span> <span class="f">drain</span>(s)
+<div class="example"><pre class="hl"><code><span class="k">function</span> <span class="f">drain</span>(s)
     total = <span class="s">""</span>
     <span class="k">while</span> <span class="k">not</span> <span class="f">eof</span>(s)
         total = total + <span class="f">read_line</span>(s) + <span class="s">"|"</span>
@@ -104,8 +104,7 @@ b = <span class="f">drain</span>(<span class="f">StreamURL</span>(<span class="s
 <span class="f">print</span>(<span class="s">"a = {a}"</span>)
 <span class="f">print</span>(<span class="s">"b length = {length(b)}"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>a = one|two|
-b length = 577</pre></div></div><p class="fnfrom">from <a href="../docs/tour.html">tour</a></p>
+</div><p class="fnfrom">from <a href="../docs/tour.html">tour</a></p>
 <h2>How it works</h2>
 <p>§ file/directory I/O extensions + type casts (2026-08-26, keep this already-large match's diff footprint small while another pass concurrently edits this same file. See <code>fs_ops::call</code>'s own doc comment for what each name does. <code>eof(f)</code> on a <code>Value::UrlStream</code> (from <code>StreamURL</code>) — see <code>net_ops::stream_eof</code>'s own doc comment. Pulled out of the combined <code>fs_ops</code> arm just below (which only knows about <code>Value::File</code>) so <code>eof</code> dispatches across both stream kinds, the same "same method name, same behavior" polymorphism <code>read_line</code>/<code>read_all</code>/<code>close</code> above already give.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

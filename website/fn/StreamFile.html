@@ -67,7 +67,7 @@ b = <span class="f">drain</span>(<span class="f">StreamURL</span>(<span class="s
 </code></pre>
 <div class="out"><span class="lbl">output</span><pre>line one|line two|
 true</pre></div></div><p class="fnfrom">from <a href="../docs/file-io.html">file-io</a></p>
-<div class="example hasout"><pre class="hl"><code><span class="k">function</span> <span class="f">drain</span>(s)
+<div class="example"><pre class="hl"><code><span class="k">function</span> <span class="f">drain</span>(s)
     total = <span class="s">""</span>
     <span class="k">while</span> <span class="k">not</span> <span class="f">eof</span>(s)
         total = total + <span class="f">read_line</span>(s) + <span class="s">"|"</span>
@@ -89,8 +89,7 @@ b = <span class="f">drain</span>(<span class="f">StreamURL</span>(<span class="s
 <span class="f">print</span>(<span class="s">"a = {a}"</span>)
 <span class="f">print</span>(<span class="s">"b length = {length(b)}"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>a = one|two|
-b length = 577</pre></div></div><p class="fnfrom">from <a href="../docs/tour.html">tour</a></p>
+</div><p class="fnfrom">from <a href="../docs/tour.html">tour</a></p>
 <h2>How it works</h2>
 <p><code>StreamFile(path, [mode])</code> (§ StreamFile/StreamURL polymorphic streams, 2026-08-31) — a second name for exactly <code>fopen</code>'s own machinery (<code>open_file_handle</code>, shared verbatim, not reimplemented), so a <code>StreamFile</code> handle IS a <code>Value::File</code> and already has every one of <code>fopen</code>'s real streaming <code>read_line</code>/<code>read_all</code>/<code>seek</code>/<code>eof</code>/<code>close</code> builtins for free. Exists as a distinct constructor name (rather than telling scripts to just call <code>fopen</code>) so "I asked for a stream" reads clearly at the call site and pairs visibly with <code>StreamURL</code> below — genuine polymorphism between the two comes from both producing values that respond to the same method names, not from a shared concrete type.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

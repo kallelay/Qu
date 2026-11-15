@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>gammainc — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>gammainc</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/core-math.html">Core maths</a></p>
+<pre class="fnsig"><code>gammainc(x, a, [tail])</code></pre>
+<p class="fnnote">Input: x, a, tail &middot; Output: no output</p>
+<h2>What it is</h2>
+<p>Regularized incomplete gamma function: <code>P(a, x) = γ(a, x) / Γ(a)</code> for <code>tail = "lower"</code> (the default) or <code>Q(a, x) = 1 - P(a, x)</code> for <code>tail = "upper"</code>, with <code>P(1, x) = 1 - exp(-x)</code> and <code>P(1/2, x) = erf(sqrt(x))</code>. <code>x &gt;= 0</code> and <code>a &gt;= 0</code> are real numbers or same-shape <code>Vec</code>/<code>Mat</code>s (a number pairs with every element). Power series for <code>x &lt; a + 1</code>, continued fraction beyond, with the <code>x^a e^-x / Γ(a)</code> prefactor in Loader's saddle-point form for <code>a &gt;= 10</code>; the tail asked for is computed directly, so <code>gammainc(40, 2, "upper")</code> keeps its relative accuracy. Accuracy: a 12-point table checked against mpmath at 40 digits (including <code>a = 1e5</code>) agrees to 2e-14; against 2800 random points with <code>a</code> up to <code>1e4</code> the median error is 2e-16, 99% are within 5e-13 and the worst seen is 7e-12 (<code>a</code> near 7e3). The cost grows like <code>sqrt(a)</code>. <code>P(0, x) = 1</code>, <code>x = 0</code> gives <code>0</code>/<code>1</code>, <code>x = inf</code> gives <code>1</code>/<code>0</code>; a negative <code>x</code> or <code>a</code>, or <code>NaN</code>, gives <code>NaN</code>. Errors: a tail other than <code>"lower"</code>/<code>"upper"</code>, mismatched shapes, complex input.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>gammainc(x, a, [tail])</code></td><td><div class="ioitem"><code>x</code> <span class="iotype">number, Vec, or Mat</span><span class="iodesc"><code>x &gt;= 0</code> and <code>a &gt;= 0</code> are real numbers or same-shape <code>Vec</code>/<code>Mat</code>s (a number pairs with every element).</span></div>
+<div class="ioitem"><code>a</code> <span class="iotype">&mdash;</span><span class="iodesc">a negative <code>x</code> or <code>a</code>, or <code>NaN</code>, gives <code>NaN</code>.</span></div>
+<div class="ioitem"><code>tail</code> <span class="iotype">optional</span><span class="iodesc">Regularized incomplete gamma function: <code>P(a, x) = γ(a, x) / Γ(a)</code> for <code>tail = "lower"</code> (the default) or <code>Q(a, x) = 1 - P(a, x)</code> for <code>tail = "upper"</code>, with <code>P(1, x) = 1 - exp(-x)</code> and <code>P(1/2, x) = erf(sqrt(x))</code>.</span></div>
+</td><td><span class="ionone">not documented yet</span></td><td>&mdash;</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">No documentation example calls this form yet. The <a href="../docs/core-math.html">Core maths</a> chapter is where one belongs.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.3.0 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

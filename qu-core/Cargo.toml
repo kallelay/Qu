@@ -10,6 +10,9 @@ crate-type = ["rlib", "cdylib"]
 
 [dependencies]
 nalgebra.workspace = true
+# Pure-Rust C libm (erf, erfc, tgamma, lgamma) for the special functions in
+# `special_fns`; already in both lockfiles via qu-interp and nalgebra.
+libm = "0.2"
 rayon = { workspace = true, optional = true }
 # Pure-Rust SIMD-dispatched GEMM (see the root Cargo.toml's own comment on
 # this dependency for the full "why matrixmultiply, not MKL/OpenBLAS"

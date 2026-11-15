@@ -10,6 +10,10 @@ changes are called out.
 
 ## [Unreleased]
 
+- Matrix functions: new `schur(A)` (real Schur form, returns `{T, U}` with `A = U*T*U'`), `sqrtm(A)` and `logm(A)` (principal root and logarithm through the complex Schur form; real unless `A` has a negative real eigenvalue, in which case the complex principal value is returned; a nilpotent `sqrtm` or singular `logm` is an error), and `sylvester(A, B, C)` / `lyap(A, Q)` (Bartels-Stewart; an equation with no unique solution is an error).
+
+- Special functions: new `erfinv`, `erfcinv`, `gammainc(x, a, ["lower"|"upper"])`, `betainc(x, a, b)`, `beta(a, b)`, `besselj`/`bessely`/`besseli`/`besselk(nu, x)` (real order, real argument, about 1e-12 or better against mpmath and scipy), `expint(x)` (E1), `ellipke(m)` (returns `{K, E}`), `legendre(n, x)` (associated Legendre `P_n^m` for `m = 0..n`, MATLAB's convention) and `zeta(s)` (real `s`; `zeta(1)` is an error). They work elementwise like `gamma` and `erf`; out-of-domain elements give `NaN`.
+
 - Solvers: new `fsolve(f, x0)` (nonlinear systems by damped Newton with a Levenberg-Marquardt fallback; non-square systems are least squares; failure is `converged=false`, not an error), `linprog(c, A, b, ...)` (two-phase simplex with Bland's rule against cycling; `status` is `"optimal"`, `"infeasible"` or `"unbounded"`; bounds default to `-Inf..Inf`, so pass `lb=0` for the standard form) and `quadprog(H, f, ...)` (convex QP: exact infeasible/unbounded classification, interior point, then an exact active-set polish; an indefinite or asymmetric `H` is an error). `minimize` gains `method="nelder_mead"` (derivative-free simplex); `method="bfgs"` is the unchanged default.
 
 - Sparse: new `sparse.cg`, `sparse.gmres` and `sparse.bicgstab` iterative solvers with a starting guess `x0`, `tol`, `max_iter`, `precond="jacobi"` and a result record (`x`, `iterations`, `residual`, `converged`, `status`).

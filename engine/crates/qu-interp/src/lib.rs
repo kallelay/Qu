@@ -187,8 +187,10 @@ pub mod native_ops;
 pub mod sparse_ops;
 pub mod lti_ops;
 mod basics_ops;
+mod matfun_ops;
 mod num_ops;
 mod solver_ops;
+mod special_ops;
 #[cfg(any(feature = "docx", feature = "pptx", feature = "xlsx"))]
 pub mod office_ops;
 pub mod surgery_ops;
@@ -35477,6 +35479,8 @@ self.eval_grad(loss, wrt)
             f if trace_ops::NAMES.contains(&f) => trace_ops::call(f, &args, &style),
             f if num_ops::NAMES.contains(&f) => num_ops::call(f, &args),
             f if solver_ops::NAMES.contains(&f) => self.solver_call(f, &args, &style),
+            f if matfun_ops::NAMES.contains(&f) => matfun_ops::call(f, &args),
+            f if special_ops::NAMES.contains(&f) => special_ops::call(f, &args),
             // atan2/hypot/fix/rem/maximum/minimum/isnan/isinf/isfinite/cumprod/repmat/kron/outer/
             // cross/tril/triu/nnz/lstsq/expm -- see `basics_ops.rs`.
             "atan2" | "hypot" | "fix" | "rem" | "maximum" | "minimum" | "isnan" | "isinf" | "isfinite"
@@ -47329,7 +47333,8 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "arrowtext", "as_text", "asc", "asin", "asinh", "astar_mrmr", "at", "atan", "atan2", "atanh",
     "available", "avgpool2d", "band_power", "band_zero", "bar", "base64_decode", "base64_encode",
     "basin_hopping", "beamform", "beeswarm", "before", "before_last", "berncdf", "bernfit",
-    "berninv", "bernpdf", "bernrnd", "bernstat", "bessel", "betacdf", "betafit", "betainv",
+    "berninv", "bernpdf", "bernrnd", "bernstat", "bessel", "besseli", "besselj", "besselk",
+    "bessely", "beta", "betacdf", "betafit", "betainc", "betainv",
     "betapdf", "betarnd", "betastat", "bin2dec", "binocdf", "binofit", "binoinv", "binomial",
     "binopdf", "binornd", "binostat", "bitand", "bitcmp", "bitor", "bitshift", "bitxor", "blackman",
     "blob_stats", "block_process", "blocks", "blur", "blur_backdrop", "bode", "bode_magnitude",
@@ -47355,10 +47360,13 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "dot", "double_buffer", "downsample", "draw_arrow", "draw_circle", "draw_line", "draw_rect",
     "draw_scale_bar", "drop", "drop_row", "dropout", "dropout_layer", "duration", "duty_cycle",
     "dwt", "ecdf", "echo", "eda", "edge_detect", "edges", "eig", "elapsed", "elediv", "elemul",
-    "elepow", "ellip", "ellipord", "ellipse", "emd", "emf", "end_time", "ends_with", "energy",
-    "enob", "enob_estimate", "entropy", "enum_values", "eof", "erf", "erfc", "error", "errorbar",
+    "elepow", "ellip", "ellipke", "ellipord", "ellipse", "emd", "emf", "end_time", "ends_with",
+    "energy",
+    "enob", "enob_estimate", "entropy", "enum_values", "eof", "erf", "erfc", "erfcinv", "erfinv",
+    "error", "errorbar",
     "estimate", "estimate_complexity", "estimate_frequency", "exec", "exit", "exp", "exp2",
-    "expcdf", "expfit", "expinv", "explain", "explore", "expm", "expm1", "exponential", "exppdf",
+    "expcdf", "expfit", "expint", "expinv", "explain", "explore", "expm", "expm1", "exponential",
+    "exppdf",
     "exprnd", "expstat", "extend", "eye", "f1", "factor", "factorial", "fall_time", "falling_edges",
     "fcdf", "fft", "fftc", "fftr", "fifo", "figure", "figure_background", "figure_size",
     "file_exists", "file_history", "file_info", "file_size", "file_versioning", "fill_between",
@@ -47369,7 +47377,8 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "fit_scaler", "fix", "flatten", "flip", "fliplr", "flipud", "floor", "fold", "fontfamily",
     "fontsize", "fopen", "foreground_mask", "format", "forward", "fpdf", "freqz", "frnd", "fsolve",
     "fstat",
-    "fuzzy_pid_init", "fvtool", "fzero", "gain", "gamcdf", "gamfit", "gaminv", "gamma", "gampdf",
+    "fuzzy_pid_init", "fvtool", "fzero", "gain", "gamcdf", "gamfit", "gaminv", "gamma", "gammainc",
+    "gampdf",
     "gamrnd", "gamstat", "gaussian_process", "gcd", "generate", "geocdf", "geofit", "geoinv",
     "geopdf", "geornd", "geostat", "gerischer", "get", "get_bit", "getenv", "glob", "gmm_model",
     "goertzel", "goertzel_freq", "gpu_matmul", "gpu_probe_info", "grad", "gradient",
@@ -47393,18 +47402,20 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "kaiserord", "kalman_init", "kapur_threshold", "keys", "kfold", "kill", "kmeans",
     "kmeans_centers", "kmeans_model", "kmedians_model", "kmedoids_model", "knn_model", "kron",
     "kurtosis", "lab", "label_blobs", "last", "last_index_of", "layer_norm", "lcase", "lcm",
-    "lda_model", "least_squares", "left", "legend", "len", "length", "levenshtein", "lfilter",
+    "lda_model", "least_squares", "left", "legend", "legendre", "len", "length", "levenshtein",
+    "lfilter",
     "lgamma", "like", "line", "line_at", "line_col", "line_count", "line_delete", "line_insert",
     "line_range", "line_set", "lines", "linked_list", "linprog",
     "linspace", "list_dir", "list_files",
     "listdir", "listen_pool", "llm_load", "lms_init", "ln", "load", "load_image", "load_library",
-    "load_model", "load_svg", "log", "log10", "log1p", "log2", "logistic_model", "loglog",
+    "load_model", "load_svg", "log", "log10", "log1p", "log2", "logistic_model", "loglog", "logm",
     "logncdf", "lognfit", "logninv", "lognpdf", "lognrnd", "lognstat", "logspace", "logsumexp",
     "low_time", "lower", "lr_adaptive", "lr_plateau", "lse", "lstm_cell", "lstm_forward",
     "lstm_init", "lstsq", "lti_bode", "lti_c2d", "lti_d2c", "lti_dcgain", "lti_feedback",
     "lti_freqresp", "lti_impulse", "lti_is_stable", "lti_lsim", "lti_margin", "lti_parallel",
     "lti_poles", "lti_series", "lti_ss", "lti_step", "lti_tf", "lti_to_ss", "lti_to_tf",
-    "lti_to_zpk", "lti_zeros", "lti_zpk", "ltrim", "lu", "mae", "mag2db", "magnitude", "make_file",
+    "lti_to_zpk", "lti_zeros", "lti_zpk", "ltrim", "lu", "lyap", "mae", "mag2db", "magnitude",
+    "make_file",
     "map", "markers", "markov_chain", "matlab_exec", "matmul", "max", "maximum", "maxpool2d",
     "md2html", "mean", "measure_snr", "medfilt", "medfilt2", "median", "median_filter",
     "mel_spectrogram", "mem_usage", "meshgrid", "metadata", "mid", "min", "minimize", "minimum",
@@ -47455,7 +47466,8 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "rolling_rms", "rolling_std", "roots", "rot90", "round", "row_mean", "row_sum", "rows", "rtrim",
     "run_for", "run_for_stats", "sample_to_time", "sandbox_mode", "sarsa", "sauvola_threshold",
     "save", "save_all", "save_image", "save_model", "save_svg", "savefig", "savgol", "sawtooth",
-    "scaled_dot_product_attention", "scan", "scatter", "scatterfit", "sci", "score", "sech", "seed",
+    "scaled_dot_product_attention", "scan", "scatter", "scatterfit", "schur", "sci", "score",
+    "sech", "seed",
     "seek", "select", "semaphore", "semaphore_acquire", "semaphore_available", "semaphore_release",
     "semilogx", "semilogy", "sequential", "sequential_split", "serial_open", "serial_ports",
     "series", "set", "set_bit", "set_metadata", "set_start_time", "setenv", "sfdr", "sgd", "sha256",
@@ -47466,11 +47478,13 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "sns_scatter", "softmax", "softmax_rows", "solve", "sort", "sort_by", "sosfilt", "spawn",
     "spectral_coherence", "spectral_entropy", "spectrogram", "spectrum", "spectrum_at",
     "spectrum_normalize", "spectrum_unnormalize", "spiderplot", "spl", "splice", "splineplot",
-    "split", "split_time", "sprintf", "sqrt", "square", "stackbar", "stair", "stamp", "standardize",
+    "split", "split_time", "sprintf", "sqrt", "sqrtm", "square", "stackbar", "stair", "stamp",
+    "standardize",
     "start", "start_time", "starts_with", "stationary", "std", "ste", "steer_delays", "stem",
     "step", "step_info", "stepz", "stft", "stop", "stop_grad", "str", "stratified_split",
     "strip_ansi", "subplot", "substr", "subtract", "sum", "summary", "svd", "svm_model",
-    "svr_model", "swap", "swap_endian", "sweep", "sysid", "sysinfo", "table", "tail", "take", "tan",
+    "svr_model", "swap", "swap_endian", "sweep", "sylvester", "sysid", "sysinfo", "table", "tail",
+    "take", "tan",
     "tanh", "tape_reset", "tcdf", "tcp_accept", "tcp_close", "tcp_connect", "tcp_listen",
     "tcp_port", "tcp_recv", "tcp_send", "tell", "tex", "text", "tf", "thd", "thd_n", "theme",
     "threshold", "tic", "time_to_sample", "timer", "timestamps", "tinv", "title", "tkeo",
@@ -47492,7 +47506,8 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "write_npy", "write_npz", "write_report", "write_text", "write_uint16", "write_uint32",
     "write_uint64", "writeline", "xbreak", "xcorr", "xlabel", "xlim", "xml2csv", "xml2json",
     "xmlify", "xor", "xscale", "xspan", "xticklabels", "xticks", "ybreak", "ylabel", "ylim",
-    "yscale", "yspan", "yticklabels", "yticks", "zeros", "zeros_like", "zip", "zlib_decompress",
+    "yscale", "yspan", "yticklabels", "yticks", "zeros", "zeros_like", "zeta", "zip",
+    "zlib_decompress",
     "zoom_inset", "zpk",
 ];
 

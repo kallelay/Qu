@@ -697,7 +697,7 @@ s = timer.<span class="f">stop</span>()
 <span class="f">print</span>(<span class="s">"done, acc = {acc}"</span>)
 </code></pre>
 <div class="out"><span class="lbl">output</span><pre>elapsed &gt;= 0: true
-stop returns: 0.000716
+stop returns: 0.000621
 done, acc = 5000050000</pre></div></div>
 <p>Output:</p>
 <pre><code>elapsed &gt;= 0: true
@@ -767,13 +767,13 @@ failures = 1
 <hr>
 <h2 id="s709">15. <code>parallel for</code> and the pool/queue job system</h2>
 <p><code>parallel for Name in Range ... end parallel</code> is a real data-parallel loop:</p>
-<div class="example hasout"><pre class="hl"><code>results = <span class="f">zeros</span>(<span class="n">5</span>)
+<div class="example"><pre class="hl"><code>results = <span class="f">zeros</span>(<span class="n">5</span>)
 parallel <span class="k">for</span> i <span class="k">in</span> <span class="n">0</span> <span class="k">to</span> <span class="n">4</span>
     results[i] = i * i
 <span class="k">end</span> parallel
 <span class="f">print</span>(results)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>[0, 1, 4, 9, 16]</pre></div></div>
+</div>
 <pre><code>[0, 1, 4, 9, 16]
 </code></pre>
 <p>Beyond that, there's a genuine worker-pool job scheduler — <code>pool</code> (with resource limits and a policy), <code>queue()</code> (a deferred-job list), and <code>run &lt;queue&gt; on &lt;pool&gt;</code> (dispatch every queued job across the pool):</p>
@@ -920,7 +920,7 @@ generic model, kind unhandled
 <p><code>qres</code> (kind <code>"qr"</code>) and <code>sres</code> (kind <code>"svd"</code>) each hit their own refined overload; <code>pk</code> (kind <code>"findpeaks"</code>, which no refined overload names) falls through to the plain <code>model</code> catch-all. Confirms <code>tag_match_specificity</code>'s <code>("model", Value::Model(m)) if &amp;m.kind == refine</code> arm precisely: it's a string match against the model's own <code>kind</code>, nothing structural.</p>
 <h3>Specificity: more (and more refined) typed parameters wins</h3>
 <p>The rule, read directly from <code>tag_match_specificity</code>/<code>dispatch_method</code>: each matched parameter contributes a weight to a running total — 0 for an untyped parameter, 1 for a plain tag match (<code>vec</code>, <code>num</code>, ...), and 1,000,000 (<code>REFINED_WEIGHT</code>) for a refinement match (<code>record&lt;Tag&gt;</code> / <code>model&lt;"kind"&gt;</code>). The candidate with the highest *total* wins; a refined match on even one parameter beats any number of plain-tag matches, and between two plain-tag candidates, the one with more typed parameters matching wins. A genuinely ambiguous-looking three-way overload set proves this — two single-typed overloads plus one double-typed one, called with two vectors:</p>
-<div class="example"><pre class="hl"><code><span class="k">function</span> <span class="f">combine</span>(a: vec, b)
+<div class="example hasout"><pre class="hl"><code><span class="k">function</span> <span class="f">combine</span>(a: vec, b)
     <span class="k">return</span> <span class="s">"a-typed: sum(a)={sum(a)}"</span>
 <span class="k">end</span> <span class="k">function</span>
 
@@ -936,7 +936,7 @@ v1 = [<span class="n">1</span>,<span class="n">2</span>,<span class="n">3</span>
 v2 = [<span class="n">10</span>,<span class="n">20</span>]
 <span class="f">print</span>(<span class="f">combine</span>(v1, v2))
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>both-typed: sum(a)+sum(b)=36</pre></div></div>
 <p>Output:</p>
 <pre><code>both-typed: sum(a)+sum(b)=36
 </code></pre>
@@ -1315,7 +1315,7 @@ y = 42, z = 42
 <hr>
 <h2 id="s1297">23. <code>StreamFile</code>/<code>StreamURL</code> — unified polymorphic streams</h2>
 <p><code>StreamFile(path, [mode])</code> and <code>StreamURL(url)</code> are two constructors that produce values exposing the SAME method names — <code>read_line</code>/<code>read_all</code>/ <code>eof</code>/<code>close</code> — so one function written against "a stream" works unmodified against either kind. <code>StreamFile</code> is literally <code>fopen</code>'s own machinery under a second name; <code>StreamURL</code> fetches the whole HTTP(S) body eagerly (the same request <code>http_get</code> makes) and wraps it in a read-only, in-memory cursor with the identical method names:</p>
-<div class="example hasout"><pre class="hl"><code><span class="k">function</span> <span class="f">drain</span>(s)
+<div class="example"><pre class="hl"><code><span class="k">function</span> <span class="f">drain</span>(s)
     total = <span class="s">""</span>
     <span class="k">while</span> <span class="k">not</span> <span class="f">eof</span>(s)
         total = total + <span class="f">read_line</span>(s) + <span class="s">"|"</span>
@@ -1337,8 +1337,7 @@ b = <span class="f">drain</span>(<span class="f">StreamURL</span>(<span class="s
 <span class="f">print</span>(<span class="s">"a = {a}"</span>)
 <span class="f">print</span>(<span class="s">"b length = {length(b)}"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>a = one|two|
-b length = 577</pre></div></div>
+</div>
 <p>(<code>stream_notes.txt</code> contains three lines: <code>alpha</code>, <code>beta</code>, <code>gamma</code>.)</p>
 <p>Output:</p>
 <pre><code>a = alpha|beta|gamma|
