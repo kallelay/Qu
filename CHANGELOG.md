@@ -10,6 +10,16 @@ changes are called out.
 
 ## [Unreleased]
 
+- Judging a model: `cross_val(fit, X, y, ...)` runs k-fold cross-validation of anything that fits a model (a function you wrote, or a builder such as `knn_model` passed by name with its extra arguments after `y`) and returns the per-fold scores with their mean and spread; `grid_search(fit, X, y, grid)` does it over every combination of a record of lists on the same folds and reports the best; `roc_curve` and `pr_curve` return the full curves with `auc` and average precision (checked against the textbook values 0.75 and 0.8333).
+
+- ODE events now match SciPy's `solve_ivp`. `ode45`, `ode23` and `ode_stiff` take a list of event functions (`events=("hit", "apex")`), a `direction=` filter (`-1` falling, `1` rising, `0` both) and a `terminal=` that is true/false or a count (`terminal=3` stops at the third occurrence), each as one value for all events or one per event; an entry can also be a record, `{f = "hit", direction = -1, terminal = true}`. With a list, `t_events` and `y_events` hold one entry per event function, and `event_order` and `terminal_event` say what happened in which order and which event stopped the run. A lambda now works as an event function. A step that starts exactly on an event is not an event, so a bouncing ball can be simulated by restarting from each impact; an event value of NaN is now an error instead of a silently missed crossing. One bare function with no new keywords behaves and returns exactly as before.
+
+- New `trace_diff(a, b, [rtol=1e-9], [atol=1e-12])` for back-to-back comparison of two runs: it returns `{ok, max_abs, max_rel, worst_index, first_bad_index, n, n_bad}` instead of raising, for two vectors, two matrices (one signal per column) or two records/tables of named signals (then it also names the worst and the first failing signal). A length mismatch is an error that states both lengths.
+
+- New `trace_save(path, trace)` and `trace_load(path)` record and replay a set of named signals (a record of vectors or a table) as `.csv` or `.npz`. They reuse the existing CSV and NumPy writers; new is that one call takes a record or a table, the output is the same bytes for the same signals, anything that is not a trace is refused, and either format gives back the same record of vectors. Values come back bit for bit (a NaN keeps its payload only in `.npz`).
+
+- `run_for(duration, pace=1)` runs the `every`/`after`/`at` timers against the wall clock instead of only on the virtual timeline: `pace` is the real-time factor, each firing waits for its deadline, and the new `run_for_stats()` then reports `{steps, overruns, max_lateness_ms, mean_lateness_ms, paced, pace, wall_ms, lateness_ms}`, with `tolerance=` (default 1 ms) deciding what counts as an overrun. This is soft real time: it reports lateness, it does not guarantee deadlines. Without `pace=`, `run_for` is unchanged.
+
 - Dependencies: `lopdf` 0.45 to 0.47 (PDF), `calamine` 0.36 to 0.38 and `rust_xlsxwriter` 0.99 to 0.102 (Excel), `zeromq` 0.6 to 0.7 (Jupyter kernel) and the optional `tch` 0.26 to 0.27. Only these crates and the few they newly need were updated in the lockfile; the rest stay where they were, because a newer `candle-core` does not compile on the Rust 1.93 toolchain.
 
 ## [0.4.13] - 2026-11-14

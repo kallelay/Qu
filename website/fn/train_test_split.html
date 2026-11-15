@@ -531,9 +531,6 @@ bayes: 0.917
 <path d="M747.50 242.05 L757.63 252.17 M757.63 242.05 L747.50 252.17" stroke="#0f172a" stroke-width="1.4"/>
 <text x="772.82" y="250.61" font-size="16.2" text-anchor="start" fill="#222">centroids</text>
 </svg></figure></div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
-<h2>How it works</h2>
-<p><code>train_test_split(X, y, [test_size=0.2], [seed=], [shuffle=true])</code> — scikit-learn's <code>train_test_split</code>: a random row permutation (<code>shuffle=true</code>, the default) split into a leading train fraction and a trailing test fraction, <code>X</code>/<code>y</code> permuted in lockstep so no row's features and label ever separate. An explicit <code>seed=</code> gives a fresh reproducible local RNG stream (two calls with the same <code>seed=</code> produce byte-identical splits); omitted, it advances the interpreter's persistent stream instead — the same fork <code>randn</code>'s own doc comment describes, not a new convention. <code>shuffle=false</code> keeps the original row order (see <code>sequential_split</code> for why that's also exposed under its own name). Returns a <code>"split"</code> model handle with <code>.X_train</code>/<code>.X_test</code>/<code>.y_train</code>/<code>.y_test</code> fields.</p>
-<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
 </main>
 </div>
 <footer><div class="wrap">

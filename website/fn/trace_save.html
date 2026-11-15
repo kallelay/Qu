@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>trace_save — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>trace_save</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/signal-processing.html">Signal processing</a></p>
+<pre class="fnsig"><code>trace_save(path, trace)</code></pre>
+<p class="fnnote">Input: path, trace &middot; Output: no output</p>
+<h2>What it is</h2>
+<p>Writes a trace (a record of real vectors or a table of numeric columns, all the same length) to <code>path</code>. The extension selects the format: <code>.csv</code> is plain CSV with a header row, readable by <code>read_csv</code> and any spreadsheet; <code>.npz</code> is a NumPy archive of <code>float64</code> arrays, readable by <code>read_npz</code> and <code>numpy.load</code>. Both reuse the existing writers (<code>write_csv</code>, <code>write_npz</code>); what this adds is the trace contract: one call for a record or a table, the same file for the same signals (no timestamps, signals in the order given), and an error instead of a file for signals of unequal length, a non-numeric field, a duplicate name or a name a CSV header cannot hold. Every finite value, both zeros and both infinities are read back bit for bit from either format; a NaN is read back as a NaN, and only <code>.npz</code> keeps its sign and payload.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>trace_save(path, trace)</code></td><td><div class="ioitem"><code>path</code> <span class="iotype">vector</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>trace</code> <span class="iotype">vector</span><span class="iogap">not documented yet</span></div>
+</td><td><span class="ionone">no output</span></td><td>The extension selects the format: <code>.csv</code> is plain CSV with a header row, readable by <code>read_csv</code> and any spreadsheet; <code>.npz</code> is a NumPy archive of <code>float64</code> arrays, readable by <code>read_npz</code> and <code>numpy.load</code>. Every finite value, both zeros and both infinities are read back bit for bit from either format; a NaN is read back as a NaN, and only <code>.npz</code> keeps its sign and payload.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example hasout"><pre class="hl"><code><span class="k">function</span> <span class="f">sho</span>(t, y)
+    <span class="k">return</span> [y[<span class="n">1</span>], -y[<span class="n">0</span>]]
+<span class="k">end</span> <span class="k">function</span>
+
+te = <span class="f">linspace</span>(<span class="n">0</span>, <span class="n">5</span>, <span class="n">51</span>)
+r = <span class="f">ode45</span>(<span class="s">"sho"</span>, [<span class="n">0</span>, <span class="n">5</span>], [<span class="n">1</span>, <span class="n">0</span>], <span class="a">t_eval</span>=te, <span class="a">rtol</span>=<span class="n">1e-10</span>, <span class="a">atol</span>=<span class="n">1e-12</span>)
+<span class="f">trace_save</span>(<span class="s">"reference.npz"</span>, {<span class="a">t</span> = r.t, <span class="a">y</span> = r.y[:, <span class="n">0</span>]})
+
+ref = <span class="f">trace_load</span>(<span class="s">"reference.npz"</span>)
+c = <span class="f">ode23</span>(<span class="s">"sho"</span>, [<span class="n">0</span>, <span class="n">5</span>], [<span class="n">1</span>, <span class="n">0</span>], <span class="a">t_eval</span>=te)          <span class="c"># the run under test</span>
+d = <span class="f">trace_diff</span>(ref, {<span class="a">t</span> = c.t, <span class="a">y</span> = c.y[:, <span class="n">0</span>]}, <span class="a">rtol</span>=<span class="n">1e-6</span>, <span class="a">atol</span>=<span class="n">1e-6</span>)
+<span class="f">print</span>(d.ok)                <span class="c"># false</span>
+<span class="f">print</span>(d.worst_signal)      <span class="c"># y</span>
+<span class="f">print</span>(d.max_abs)           <span class="c"># 2.652263e-6, at sample d.worst_index (32)</span>
+</code></pre>
+<div class="out"><span class="lbl">output</span><pre>false
+y
+2.652263e-6</pre></div></div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.3.0 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

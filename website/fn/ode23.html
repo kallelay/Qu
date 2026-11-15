@@ -30,15 +30,15 @@
 <h1>ode23</h1>
 <nav class="onthispage"></nav>
 <p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/signal-processing.html">Signal processing</a></p>
-<pre class="fnsig"><code>ode23(f, tspan, y0, [rtol=1e-6], [atol=1e-9], [max_step=], [t_eval=], [events=], [terminal=false], [max_steps=500000])</code></pre>
-<p class="fnnote">Input: f, tspan, y0, rtol, atol, max_step, t_eval, events, terminal, max_steps &middot; Output: no output</p>
+<pre class="fnsig"><code>ode23(f, tspan, y0, [rtol=1e-6], [atol=1e-9], [max_step=], [t_eval=], [events=], [direction=0], [terminal=false], [max_steps=500000])</code></pre>
+<p class="fnnote">Input: f, tspan, y0, rtol, atol, max_step, t_eval, events, direction, terminal, max_steps &middot; Output: no output</p>
 <h2>What it is</h2>
 <p>Bogacki-Shampine 3(2), the cheaper low-order pair: better than <code>ode45</code> at loose tolerances or when <code>f</code> is not smooth. Same arguments, result record and events as <code>ode45</code>; <code>t_eval</code> values come from a cubic Hermite interpolant.</p>
 <h2>Overloads</h2>
 <p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
 <div class="tablewrap"><table class="iotable">
 <tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
-<tr><td class="iocode"><code>ode23(f, tspan, y0, [rtol=1e-6], [atol=1e-9], [max_step=], [t_eval=], [events=], [terminal=false], [max_steps=500000])</code></td><td><div class="ioitem"><code>f</code> <span class="iotype">&mdash;</span><span class="iodesc">Bogacki-Shampine 3(2), the cheaper low-order pair: better than <code>ode45</code> at loose tolerances or when <code>f</code> is not smooth.</span></div>
+<tr><td class="iocode"><code>ode23(f, tspan, y0, [rtol=1e-6], [atol=1e-9], [max_step=], [t_eval=], [events=], [direction=0], [terminal=false], [max_steps=500000])</code></td><td><div class="ioitem"><code>f</code> <span class="iotype">&mdash;</span><span class="iodesc">Bogacki-Shampine 3(2), the cheaper low-order pair: better than <code>ode45</code> at loose tolerances or when <code>f</code> is not smooth.</span></div>
 <div class="ioitem"><code>tspan</code> <span class="iotype">&mdash;</span><span class="iogap">not documented yet</span></div>
 <div class="ioitem"><code>y0</code> <span class="iotype">&mdash;</span><span class="iogap">not documented yet</span></div>
 <div class="ioitem"><code>rtol</code> <span class="iotype">optional (default <code>1e-6</code>)</span><span class="iogap">not documented yet</span></div>
@@ -46,12 +46,31 @@
 <div class="ioitem"><code>max_step</code> <span class="iotype">optional</span><span class="iogap">not documented yet</span></div>
 <div class="ioitem"><code>t_eval</code> <span class="iotype">optional</span><span class="iodesc"><code>t_eval</code> values come from a cubic Hermite interpolant.</span></div>
 <div class="ioitem"><code>events</code> <span class="iotype">optional</span><span class="iodesc">Same arguments, result record and events as <code>ode45</code>.</span></div>
+<div class="ioitem"><code>direction</code> <span class="iotype">optional (default <code>0</code>)</span><span class="iogap">not documented yet</span></div>
 <div class="ioitem"><code>terminal</code> <span class="iotype">optional (default <code>false</code>)</span><span class="iogap">not documented yet</span></div>
 <div class="ioitem"><code>max_steps</code> <span class="iotype">optional (default <code>500000</code>)</span><span class="iogap">not documented yet</span></div>
 </td><td><span class="ionone">not documented yet</span></td><td>&mdash;</td></tr>
 </table></div>
 <h3>Examples</h3>
-<p class="fnnote">No documentation example calls this form yet. The <a href="../docs/signal-processing.html">Signal processing</a> chapter is where one belongs.</p>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example hasout"><pre class="hl"><code><span class="k">function</span> <span class="f">sho</span>(t, y)
+    <span class="k">return</span> [y[<span class="n">1</span>], -y[<span class="n">0</span>]]
+<span class="k">end</span> <span class="k">function</span>
+
+te = <span class="f">linspace</span>(<span class="n">0</span>, <span class="n">5</span>, <span class="n">51</span>)
+r = <span class="f">ode45</span>(<span class="s">"sho"</span>, [<span class="n">0</span>, <span class="n">5</span>], [<span class="n">1</span>, <span class="n">0</span>], <span class="a">t_eval</span>=te, <span class="a">rtol</span>=<span class="n">1e-10</span>, <span class="a">atol</span>=<span class="n">1e-12</span>)
+<span class="f">trace_save</span>(<span class="s">"reference.npz"</span>, {<span class="a">t</span> = r.t, <span class="a">y</span> = r.y[:, <span class="n">0</span>]})
+
+ref = <span class="f">trace_load</span>(<span class="s">"reference.npz"</span>)
+c = <span class="f">ode23</span>(<span class="s">"sho"</span>, [<span class="n">0</span>, <span class="n">5</span>], [<span class="n">1</span>, <span class="n">0</span>], <span class="a">t_eval</span>=te)          <span class="c"># the run under test</span>
+d = <span class="f">trace_diff</span>(ref, {<span class="a">t</span> = c.t, <span class="a">y</span> = c.y[:, <span class="n">0</span>]}, <span class="a">rtol</span>=<span class="n">1e-6</span>, <span class="a">atol</span>=<span class="n">1e-6</span>)
+<span class="f">print</span>(d.ok)                <span class="c"># false</span>
+<span class="f">print</span>(d.worst_signal)      <span class="c"># y</span>
+<span class="f">print</span>(d.max_abs)           <span class="c"># 2.652263e-6, at sample d.worst_index (32)</span>
+</code></pre>
+<div class="out"><span class="lbl">output</span><pre>false
+y
+2.652263e-6</pre></div></div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
 <h2>How it works</h2>
 <p>and general minimization. Only a user-defined function (by name, the same convention <code>pmap</code>/<code>spawn</code> use) can be the target of any of these — not a builtin. <code>fzero(f, a, b, [tol=1e-10], [max_iter=100])</code> — Brent's method: robust root finding (guaranteed convergence given a bracket <code>[a,b]</code> where <code>f</code> changes sign), no derivative needed. The "something better than plain bisection" choice.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

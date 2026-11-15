@@ -30,15 +30,15 @@
 <h1>ode_stiff</h1>
 <nav class="onthispage"></nav>
 <p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/signal-processing.html">Signal processing</a></p>
-<pre class="fnsig"><code>ode_stiff(f, tspan, y0, [rtol=1e-6], [atol=1e-9], [max_step=], [t_eval=], [events=], [terminal=false], [max_steps=500000])</code></pre>
-<p class="fnnote">Input: f, tspan, y0, rtol, atol, max_step, t_eval, events, terminal, max_steps &middot; Output: no output</p>
+<pre class="fnsig"><code>ode_stiff(f, tspan, y0, [rtol=1e-6], [atol=1e-9], [max_step=], [t_eval=], [events=], [direction=0], [terminal=false], [max_steps=500000])</code></pre>
+<p class="fnnote">Input: f, tspan, y0, rtol, atol, max_step, t_eval, events, direction, terminal, max_steps &middot; Output: no output</p>
 <h2>What it is</h2>
 <p>Stiff solver: the Shampine-Reichelt Rosenbrock 2(3) pair (MATLAB's <code>ode23s</code>), A-stable, with a forward-difference Jacobian recomputed after every accepted step (n + 1 extra evaluations of <code>f</code>, counted in <code>nfev</code>) -- there is no <code>jac=</code>. Use it when <code>ode45</code> needs very many tiny steps (Robertson's kinetics to <code>t = 40</code> at the default tolerances takes about 150 steps here; <code>ode45</code> needs about 35,000). It is only second order, so asking for tight tolerances is expensive, and its error estimate is conservative on forced problems (a smooth driven stiff problem still takes thousands of steps, though far fewer than <code>ode45</code>); a singular <code>I - h*d*J</code> shrinks the step. Same arguments, result record and events as <code>ode45</code>.</p>
 <h2>Overloads</h2>
 <p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
 <div class="tablewrap"><table class="iotable">
 <tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
-<tr><td class="iocode"><code>ode_stiff(f, tspan, y0, [rtol=1e-6], [atol=1e-9], [max_step=], [t_eval=], [events=], [terminal=false], [max_steps=500000])</code></td><td><div class="ioitem"><code>f</code> <span class="iotype">&mdash;</span><span class="iodesc">Stiff solver: the Shampine-Reichelt Rosenbrock 2(3) pair (MATLAB's <code>ode23s</code>), A-stable, with a forward-difference Jacobian recomputed after every accepted step (n + 1 extra evaluations of <code>f</code>, counted in <code>nfev</code>) -- there is no <code>jac=</code>.</span></div>
+<tr><td class="iocode"><code>ode_stiff(f, tspan, y0, [rtol=1e-6], [atol=1e-9], [max_step=], [t_eval=], [events=], [direction=0], [terminal=false], [max_steps=500000])</code></td><td><div class="ioitem"><code>f</code> <span class="iotype">&mdash;</span><span class="iodesc">Stiff solver: the Shampine-Reichelt Rosenbrock 2(3) pair (MATLAB's <code>ode23s</code>), A-stable, with a forward-difference Jacobian recomputed after every accepted step (n + 1 extra evaluations of <code>f</code>, counted in <code>nfev</code>) -- there is no <code>jac=</code>.</span></div>
 <div class="ioitem"><code>tspan</code> <span class="iotype">&mdash;</span><span class="iogap">not documented yet</span></div>
 <div class="ioitem"><code>y0</code> <span class="iotype">&mdash;</span><span class="iogap">not documented yet</span></div>
 <div class="ioitem"><code>rtol</code> <span class="iotype">optional (default <code>1e-6</code>)</span><span class="iogap">not documented yet</span></div>
@@ -46,6 +46,7 @@
 <div class="ioitem"><code>max_step</code> <span class="iotype">optional</span><span class="iogap">not documented yet</span></div>
 <div class="ioitem"><code>t_eval</code> <span class="iotype">optional</span><span class="iogap">not documented yet</span></div>
 <div class="ioitem"><code>events</code> <span class="iotype">optional</span><span class="iodesc">Same arguments, result record and events as <code>ode45</code>.</span></div>
+<div class="ioitem"><code>direction</code> <span class="iotype">optional (default <code>0</code>)</span><span class="iogap">not documented yet</span></div>
 <div class="ioitem"><code>terminal</code> <span class="iotype">optional (default <code>false</code>)</span><span class="iogap">not documented yet</span></div>
 <div class="ioitem"><code>max_steps</code> <span class="iotype">optional (default <code>500000</code>)</span><span class="iogap">not documented yet</span></div>
 </td><td><span class="ionone">not documented yet</span></td><td>Use it when <code>ode45</code> needs very many tiny steps (Robertson's kinetics to <code>t = 40</code> at the default tolerances takes about 150 steps here; <code>ode45</code> needs about 35,000). It is only second order, so asking for tight tolerances is expensive, and its error estimate is conservative on forced problems (a smooth driven stiff problem still takes thousands of steps, though far fewer than <code>ode45</code>); a singular <code>I - h*d*J</code> shrinks the step.</td></tr>

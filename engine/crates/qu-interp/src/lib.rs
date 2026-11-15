@@ -30,6 +30,7 @@ use std::sync::{Arc, Condvar, Mutex as StdMutex};
 /// SFNT parsing for the PDF backend's font embedding (`pdf_font::parse`).
 pub mod circuit_spec;
 pub mod dsp_info;
+pub mod ml_eval;
 pub mod pdf_font;
 /// Signatures and one-line descriptions for the builtins, joined from the
 /// stdlib chapters at build time by `tools/gen_builtin_docs.qu`. This is
@@ -380,6 +381,10 @@ pub mod dprof;
 
 /// `trapz`/`cumtrapz`/`simpson`/`quad`/`ode45`/`ode23`/`ode_stiff`/`rk4`.
 pub mod integrate;
+/// `trace_diff`/`trace_save`/`trace_load`: back-to-back trace comparison.
+pub mod trace_ops;
+/// Real-time pacing and overrun statistics for `run_for(duration, pace=)`.
+mod pace;
 mod diff_ops;
 pub mod dict_data;
 mod fxhash;
@@ -4368,6 +4373,8 @@ pub struct Interp {
     /// Persists across multiple `run_for` calls so a script can register
     /// once and drive it in stages (`run_for(500)` twice in a row, say).
     timers: Vec<TimerDef>,
+    /// Statistics of the most recent `run_for`, for `run_for_stats()`.
+    last_run_stats: Option<pace::RunStats>,
     /// User-function names currently being called, outermost-first —
     /// pushed/popped around `call_user`/`call_block_fn` in `apply_seeded`.
     /// Used only to build `try/catch`'s exception record's `stack` field
@@ -6519,6 +6526,7 @@ impl Interp {
             progress_start: None,
             progress_last_draw: None,
             timers: Vec::new(),
+            last_run_stats: None,
             watches: Vec::new(),
             call_stack: Vec::new(),
             call_depth: 0,
@@ -14239,6 +14247,80 @@ impl Interp {
     /// Resolve a call: user-defined functions shadow builtins.
     fn apply(&mut self, f: &str, argv: Vec<Value>, style: Vec<(String, Value)>) -> R<Value> {
         self.apply_seeded(f, argv, None, style)
+    }
+
+    /// Which fold each of `n` rows belongs to for k-fold cross-validation:
+    /// rows are (optionally) shuffled, then dealt into `k` folds whose sizes
+    /// differ by at most one. Computed once per call so `grid_search` compares
+    /// every setting on the SAME folds.
+    fn cv_fold_assignment(&mut self, n: usize, k: usize, seed: Option<u64>, shuffle: bool) -> Vec<usize> {
+        let order: Vec<usize> = if shuffle {
+            let mut local;
+            let rng: &mut Rng = match seed {
+                Some(s) => {
+                    local = Rng::new(s);
+                    &mut local
+                }
+                None => &mut self.rng,
+            };
+            shuffled_row_order(rng, n)
+        } else {
+            (0..n).collect()
+        };
+        let (base, rem) = (n / k, n % k);
+        let mut fold_of = vec![0usize; n];
+        let mut pos = 0;
+        for fold in 0..k {
+            let len = base + usize::from(fold < rem);
+            for &row in &order[pos..pos + len] {
+                fold_of[row] = fold;
+            }
+            pos += len;
+        }
+        fold_of
+    }
+
+    /// One score per fold: fit on the other folds with the user's function
+    /// (`fit(X, y, extra...)`, plus `param` as a last argument when searching),
+    /// then score on the held-out fold -- by the model's own `score` for
+    /// `"auto"`, else by calling the named metric on `(actual, predict(X))`.
+    fn cv_scores(
+        &mut self,
+        fit: &str,
+        extra: &[Value],
+        x: &Value,
+        y: &[f64],
+        fold_of: &[usize],
+        k: usize,
+        metric: &str,
+        param: Option<&Value>,
+    ) -> R<Vec<f64>> {
+        let n = y.len();
+        let mut scores = Vec::with_capacity(k);
+        for fold in 0..k {
+            let test_idx: Vec<usize> = (0..n).filter(|&r| fold_of[r] == fold).collect();
+            let train_idx: Vec<usize> = (0..n).filter(|&r| fold_of[r] != fold).collect();
+            let x_train = select_rows_value(x, &train_idx)?;
+            let x_test = select_rows_value(x, &test_idx)?;
+            let y_train = Value::Vec(Arc::new(train_idx.iter().map(|&r| y[r]).collect()));
+            let y_test = Value::Vec(Arc::new(test_idx.iter().map(|&r| y[r]).collect()));
+            let mut argv = vec![x_train, y_train];
+            argv.extend(extra.iter().cloned());
+            if let Some(p) = param {
+                argv.push(p.clone());
+            }
+            let model = self.apply(fit, argv, Vec::new())?;
+            let value = if metric == "auto" {
+                self.apply("score", vec![model, x_test, y_test], Vec::new())?
+            } else {
+                let predicted = self.apply("predict", vec![model, x_test], Vec::new())?;
+                self.apply(metric, vec![y_test, predicted], Vec::new())?
+            };
+            scores.push(value.as_num().map_err(|msg| EvalError {
+                msg: format!("cross-validation: the score of fold {} is not a number ({msg})", fold + 1),
+            })?);
+        }
+        Ok(scores)
     }
 
     /// True iff `name` has at least one user-defined overload (§ multiple
@@ -22492,11 +22574,41 @@ self.eval_grad(loss, wrt)
             // suites slow or flaky). Timers interleave by scheduled fire
             // time (not "run timer A to completion, then timer B"), the way
             // a real event loop would.
+            //
+            // `pace=` (v0.4.14) is the opt-in real-time mode: the same
+            // timeline, but each firing is held back to its wall-clock
+            // deadline `start + virtual_time / pace` and its lateness is
+            // recorded (see `pace.rs`). Without `pace=` nothing below waits
+            // and the output and return value are what they always were.
             "run_for" => {
                 let duration = arg0(&args)?.as_num().map_err(|msg| EvalError { msg })?;
+                let pace = match style_entry(&style, "pace") {
+                    None => None,
+                    Some((_, v)) => match v.as_num() {
+                        Ok(p) if p > 0.0 && p.is_finite() => Some(p),
+                        Ok(p) => {
+                            return e(format!(
+                                "run_for: pace must be a positive number (1 = real time, 2 = twice as fast), found {p}; leave it out for a virtual run"
+                            ))
+                        }
+                        Err(_) => return e(format!("run_for: pace must be a number, found {}", v.type_name())),
+                    },
+                };
+                let tolerance = match style_entry(&style, "tolerance") {
+                    None => 0.001,
+                    Some((_, v)) => match v.as_num() {
+                        Ok(t) if t >= 0.0 && t.is_finite() => t,
+                        _ => return e("run_for: tolerance must be a duration >= 0 (seconds, or e.g. `2 ms`)"),
+                    },
+                };
+                if pace.is_none() && style_entry(&style, "tolerance").is_some() {
+                    return e("run_for: tolerance= only applies to a paced run; add pace=1 to run against the wall clock");
+                }
                 if self.timers.is_empty() {
                     return e("run_for(...) needs at least one `every`/`after`/`at ... end` registered first");
                 }
+                let wall_start = std::time::Instant::now();
+                let mut pacer = pace.map(|p| pace::Pacer::new(p, tolerance));
                 let timers = self.timers.clone();
                 let mut next_fire: Vec<f64> = timers.iter().map(|t| t.interval_s).collect();
                 let mut done: Vec<bool> = vec![false; timers.len()];
@@ -22533,6 +22645,9 @@ self.eval_grad(loss, wrt)
                         None => false,
                     };
                     if !skip {
+                        if let Some(p) = pacer.as_mut() {
+                            p.step(t);
+                        }
                         self.exec_block(&timers[idx].body)?;
                         fired += 1;
                         if timers[idx].once {
@@ -22553,7 +22668,30 @@ self.eval_grad(loss, wrt)
                     "· run_for({duration}s): {fired} timer firing(s) across {} registered timer(s)",
                     timers.len()
                 );
+                self.last_run_stats = Some(match pacer {
+                    Some(p) => p.finish(duration),
+                    None => pace::RunStats::unpaced(fired as usize, wall_start.elapsed()),
+                });
                 Ok(Value::Num(fired as f64))
+            }
+            // `run_for_stats()`: how the most recent `run_for` went against
+            // the wall clock. A getter rather than a different return value
+            // from `run_for(..., pace=)`, so `run_for` returns the firing
+            // count whichever way it is called.
+            "run_for_stats" => {
+                let Some(s) = self.last_run_stats.clone() else {
+                    return e("run_for_stats(): no run_for(...) has run yet in this session");
+                };
+                Ok(Value::Record(Arc::new(vec![
+                    ("steps".to_string(), Value::Num(s.steps as f64)),
+                    ("overruns".to_string(), Value::Num(s.overruns as f64)),
+                    ("max_lateness_ms".to_string(), Value::Num(s.max_lateness_ms)),
+                    ("mean_lateness_ms".to_string(), Value::Num(s.mean_lateness_ms)),
+                    ("paced".to_string(), Value::Bool(s.paced)),
+                    ("pace".to_string(), Value::Num(s.pace)),
+                    ("wall_ms".to_string(), Value::Num(s.wall_ms)),
+                    ("lateness_ms".to_string(), Value::Vec(Arc::new(s.lateness_ms))),
+                ])))
             }
             // `pump_watches()` (§ watch, 2026-09-01) — checks every
             // registered `watch ... end` ONE TIME, firing the body of any
@@ -35313,6 +35451,7 @@ self.eval_grad(loss, wrt)
             // lti_ss/lti_tf/lti_zpk and the rest of the `lti_` family: linear
             // time-invariant system objects -- see `lti_ops.rs`.
             f if lti_ops::NAMES.contains(&f) => lti_ops::call(f, &args, &style),
+            f if trace_ops::NAMES.contains(&f) => trace_ops::call(f, &args, &style),
             // atan2/hypot/fix/rem/maximum/minimum/isnan/isinf/isfinite/cumprod/repmat/kron/outer/
             // cross/tril/triu/nnz/lstsq/expm -- see `basics_ops.rs`.
             "atan2" | "hypot" | "fix" | "rem" | "maximum" | "minimum" | "isnan" | "isinf" | "isfinite"
@@ -40425,6 +40564,151 @@ self.eval_grad(loss, wrt)
             // original row order (see `sequential_split` for why that's
             // also exposed under its own name). Returns a `"split"` model
             // handle with `.X_train`/`.X_test`/`.y_train`/`.y_test` fields.
+            // `cross_val(fit, X, y, [extra...], [folds=5], [shuffle=true], [seed=],
+            // [metric=])` -- k-fold cross-validation of anything that fits a model.
+            // `fit(X, y, extra...)` is a function you wrote (or a model builder such
+            // as `knn_model` passed by name, with its extra arguments after `y`);
+            // each fold fits on the other folds and scores on the held-out one.
+            "cross_val" => {
+                let all = arg_all(&args).to_vec();
+                if all.len() < 3 {
+                    return e("cross_val(fit, X, y, [extra...], [folds=5], [metric=]) needs a fit function, X and y");
+                }
+                let fit = collections::callable_arg(self, &all, 0, "cross_val", "cross-validated")?;
+                let y = to_vec(&all[2])?;
+                let n = value_row_count(&all[1])?;
+                if y.len() != n {
+                    return e(format!("cross_val: X has {n} rows but y has {} elements", y.len()));
+                }
+                let k = style_num(&style, "folds").map(|v| v as usize).unwrap_or(5);
+                if k < 2 || k > n {
+                    return e(format!("cross_val: folds={k} must be between 2 and the number of rows ({n})"));
+                }
+                let shuffle = style_num(&style, "shuffle").map(|v| v != 0.0).unwrap_or(true);
+                let metric = cv_metric_arg(&style, "cross_val")?;
+                let fold_of = self.cv_fold_assignment(n, k, seed, shuffle);
+                let scores = self.cv_scores(&fit, &all[3..], &all[1], &y, &fold_of, k, &metric, None)?;
+                Ok(cv_summary(&scores, k, &metric))
+            }
+            // `grid_search(fit, X, y, grid, [folds=5], [shuffle=true], [seed=],
+            // [metric=])` -- cross-validate `fit(X, y, params)` over every
+            // combination of a record of lists, e.g. `{k = [1, 3, 5], p = [1, 2]}`,
+            // all on the same folds, and report the best.
+            "grid_search" => {
+                let all = arg_all(&args).to_vec();
+                if all.len() < 4 {
+                    return e("grid_search(fit, X, y, grid, [folds=5], [metric=]) needs a fit function, X, y and a grid record");
+                }
+                let fit = collections::callable_arg(self, &all, 0, "grid_search", "searched")?;
+                let y = to_vec(&all[2])?;
+                let n = value_row_count(&all[1])?;
+                if y.len() != n {
+                    return e(format!("grid_search: X has {n} rows but y has {} elements", y.len()));
+                }
+                let Value::Record(fields) = &all[3] else {
+                    return e("grid_search: the grid must be a record of lists, for example {k = [1, 3, 5]}");
+                };
+                if fields.is_empty() {
+                    return e("grid_search: the grid is empty; give at least one name with values to try");
+                }
+                let mut axes: Vec<(String, Vec<Value>)> = Vec::new();
+                for (name, v) in fields.iter() {
+                    let items: Vec<Value> = match v {
+                        Value::Vec(xs) => xs.iter().map(|&x| Value::Num(x)).collect(),
+                        Value::List(l) => l.iter().cloned().collect(),
+                        other => vec![other.clone()],
+                    };
+                    if items.is_empty() {
+                        return e(format!("grid_search: `{name}` has no values to try"));
+                    }
+                    axes.push((name.clone(), items));
+                }
+                let total: usize = axes.iter().map(|a| a.1.len()).product();
+                if total > 10_000 {
+                    return e(format!("grid_search: {total} combinations is more than the 10000 allowed; narrow the grid"));
+                }
+                let k = style_num(&style, "folds").map(|v| v as usize).unwrap_or(5);
+                if k < 2 || k > n {
+                    return e(format!("grid_search: folds={k} must be between 2 and the number of rows ({n})"));
+                }
+                let shuffle = style_num(&style, "shuffle").map(|v| v != 0.0).unwrap_or(true);
+                let metric = cv_metric_arg(&style, "grid_search")?;
+                let lower = ml_eval::lower_is_better(&metric);
+                let fold_of = self.cv_fold_assignment(n, k, seed, shuffle);
+                let mut rows: Vec<Value> = Vec::with_capacity(total);
+                let mut all_params: Vec<Value> = Vec::with_capacity(total);
+                let mut means: Vec<f64> = Vec::with_capacity(total);
+                let mut best: Option<(usize, f64)> = None;
+                for combo in 0..total {
+                    // mixed radix: the LAST name in the grid varies fastest
+                    let mut rem = combo;
+                    let mut picks = vec![0usize; axes.len()];
+                    for a in (0..axes.len()).rev() {
+                        picks[a] = rem % axes[a].1.len();
+                        rem /= axes[a].1.len();
+                    }
+                    let params: Vec<(String, Value)> = axes
+                        .iter()
+                        .zip(&picks)
+                        .map(|((name, vals), &i)| (name.clone(), vals[i].clone()))
+                        .collect();
+                    let p = Value::Record(Arc::new(params));
+                    let scores = self.cv_scores(&fit, &[], &all[1], &y, &fold_of, k, &metric, Some(&p))?;
+                    let (mean, std) = ml_eval::mean_std(&scores);
+                    let better = match best {
+                        None => true,
+                        Some((_, b)) => (lower && mean < b) || (!lower && mean > b),
+                    };
+                    if better {
+                        best = Some((combo, mean));
+                    }
+                    means.push(mean);
+                    rows.push(Value::Record(Arc::new(vec![
+                        ("params".to_string(), p.clone()),
+                        ("mean".to_string(), Value::Num(mean)),
+                        ("std".to_string(), Value::Num(std)),
+                    ])));
+                    all_params.push(p);
+                }
+                let (bi, bs) = best.expect("a grid has at least one combination");
+                Ok(Value::Record(Arc::new(vec![
+                    ("best_params".to_string(), all_params[bi].clone()),
+                    ("best_score".to_string(), Value::Num(bs)),
+                    ("best_index".to_string(), Value::Num(bi as f64)),
+                    ("scores".to_string(), Value::Vec(Arc::new(means))),
+                    ("results".to_string(), Value::List(Arc::new(rows))),
+                    ("folds".to_string(), Value::Num(k as f64)),
+                    ("metric".to_string(), Value::Str(metric_label(&metric))),
+                ])))
+            }
+            // `roc_curve(actual, score)` / `pr_curve(actual, score)` -- the curves
+            // behind `roc_auc`: 0/1 labels against any real-valued score.
+            "roc_curve" | "pr_curve" => {
+                let actual = to_vec(arg0(&args)?)?;
+                let score = to_vec(arg_get(&args, 1).ok_or_else(|| EvalError {
+                    msg: format!("{f}(actual, score) needs 2 arguments"),
+                })?)?;
+                let vec_of = |v: Vec<f64>| Value::Vec(Arc::new(v));
+                if f == "roc_curve" {
+                    let (fpr, tpr, thr, auc) = ml_eval::roc_curve(&actual, &score)
+                        .map_err(|m| EvalError { msg: format!("roc_curve: {m}") })?;
+                    Ok(Value::Record(Arc::new(vec![
+                        ("fpr".to_string(), vec_of(fpr)),
+                        ("tpr".to_string(), vec_of(tpr)),
+                        ("thresholds".to_string(), vec_of(thr)),
+                        ("auc".to_string(), Value::Num(auc)),
+                    ])))
+                } else {
+                    let (precision, recall, thr, ap) = ml_eval::pr_curve(&actual, &score)
+                        .map_err(|m| EvalError { msg: format!("pr_curve: {m}") })?;
+                    Ok(Value::Record(Arc::new(vec![
+                        ("precision".to_string(), vec_of(precision)),
+                        ("recall".to_string(), vec_of(recall)),
+                        ("thresholds".to_string(), vec_of(thr)),
+                        ("ap".to_string(), Value::Num(ap)),
+                    ])))
+                }
+            }
             "train_test_split" => {
                 let x_arg = arg0(&args)?.clone();
                 let y = to_vec(arg_get(&args, 1).ok_or_else(|| EvalError {
@@ -43242,7 +43526,7 @@ fn is_file_writer(f: &str) -> bool {
         || matches!(
             f,
             "write_npy" | "write_npz" | "touch" | "remove_dir" | "restore_version" | "mkdir"
-                | "write_array" | "bytes_write"
+                | "write_array" | "bytes_write" | "trace_save"
         )
 }
 
@@ -47013,60 +47297,62 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "acf", "acos", "acosh", "adadelta", "adagrad", "adam", "adamax", "adamw", "adaptive_threshold",
     "adc", "add", "add_edge", "add_marker", "add_node", "add_noise", "add_region",
     "affine_identity", "affine_rotate", "affine_scale", "affine_shear", "affine_translate", "after",
-    "after_last", "algorigram", "all", "allpass", "and", "angle", "animate", "annotate", "any", "append",
-    "append_all", "append_text", "apply", "apply_calibration", "apply_calibration_curve",
+    "after_last", "algorigram", "all", "allpass", "and", "angle", "animate", "annotate", "any",
+    "append", "append_all", "append_text", "apply", "apply_calibration", "apply_calibration_curve",
     "apply_edits", "apply_gain", "apply_offset", "apropos", "ar_model", "arc", "area", "arg",
     "argmax", "argmean", "argmedian", "argmin", "argquantile", "argsort", "argv", "arima", "arrow",
     "arrowtext", "as_text", "asc", "asin", "asinh", "astar_mrmr", "at", "atan", "atan2", "atanh",
     "available", "avgpool2d", "band_power", "band_zero", "bar", "base64_decode", "base64_encode",
     "basin_hopping", "beamform", "beeswarm", "before", "before_last", "berncdf", "bernfit",
-    "berninv", "bernpdf", "bernrnd", "bernstat", "bessel", "betacdf", "betafit", "betainv", "betapdf",
-    "betarnd", "betastat", "bin2dec", "binocdf", "binofit", "binoinv", "binomial", "binopdf",
-    "binornd", "binostat", "bitand", "bitcmp", "bitor", "bitshift", "bitxor", "blackman",
+    "berninv", "bernpdf", "bernrnd", "bernstat", "bessel", "betacdf", "betafit", "betainv",
+    "betapdf", "betarnd", "betastat", "bin2dec", "binocdf", "binofit", "binoinv", "binomial",
+    "binopdf", "binornd", "binostat", "bitand", "bitcmp", "bitor", "bitshift", "bitxor", "blackman",
     "blob_stats", "block_process", "blocks", "blur", "blur_backdrop", "bode", "bode_magnitude",
     "bode_phase", "bootstrap_ci", "box", "boxplot", "brier", "bubble", "builtins", "butter",
-    "buttord", "bwareaopen", "bwlabel", "bytes_read", "bytes_write", "calibrate", "capacitor", "capitalize",
-    "capture", "casefold", "cast", "cat", "cbrt", "cd", "ceil", "channel", "channel_len",
-    "channel_recv", "channel_send", "channel_try_recv", "chars", "cheb1ord", "cheb2ord", "cheby1", "cheby2", "check_grads",
-    "chi2cdf", "chi2inv", "chi2pdf", "chi2rnd", "chi2stat", "chirp", "chisquare", "chol", "chr",
-    "circle", "circuit", "circuit_fit", "circuit_impedance", "clahe", "clamp", "clear_bit", "clip",
-    "close", "cm", "cmyk", "codepoints", "coherence", "colorbar", "colormap", "cols", "compare",
-    "compile", "complex", "cond", "conformal", "confusion_matrix", "conj", "contains", "contour",
-    "contourf", "conv", "conv1d", "conv2d", "convert_unit", "copy_file", "corr", "corr_heatmap",
-    "corrcoef", "corrmat", "corrplot", "cos", "cosh", "coth", "count", "cov", "coverage", "cpe",
-    "cqt", "crc", "crc32", "crc_check", "create_file", "created_at", "crest_factor", "crop",
-    "cross", "cs_guarantee", "cs_recover", "csch", "csd", "csv2json", "csv2xml", "csvify",
-    "ctranspose", "cumprod", "cumsum", "cumtrapz", "cur_dir", "curve_fit", "cut", "cv_stability",
-    "cwt", "daily_profile", "db", "db2mag", "db2pow", "db_power", "dbfs", "dbscan", "dct",
-    "dec2bin", "dec2hex", "decode_can", "decode_i2c", "decode_spi", "decode_uart", "dedent",
-    "delay", "delta_e", "dense", "dense_layer", "describe", "det", "detect_saturation", "detrend",
+    "buttord", "bwareaopen", "bwlabel", "bytes_read", "bytes_write", "calibrate", "capacitor",
+    "capitalize", "capture", "casefold", "cast", "cat", "cbrt", "cd", "ceil", "channel",
+    "channel_len", "channel_recv", "channel_send", "channel_try_recv", "chars", "cheb1ord",
+    "cheb2ord", "cheby1", "cheby2", "check_grads", "chi2cdf", "chi2inv", "chi2pdf", "chi2rnd",
+    "chi2stat", "chirp", "chisquare", "chol", "chr", "circle", "circuit", "circuit_fit",
+    "circuit_impedance", "clahe", "clamp", "clear_bit", "clip", "close", "cm", "cmyk", "codepoints",
+    "coherence", "colorbar", "colormap", "cols", "compare", "compile", "complex", "cond",
+    "conformal", "confusion_matrix", "conj", "contains", "contour", "contourf", "conv", "conv1d",
+    "conv2d", "convert_unit", "copy_file", "corr", "corr_heatmap", "corrcoef", "corrmat",
+    "corrplot", "cos", "cosh", "coth", "count", "cov", "coverage", "cpe", "cqt", "crc", "crc32",
+    "crc_check", "create_file", "created_at", "crest_factor", "crop", "cross", "cross_val",
+    "cs_guarantee", "cs_recover", "csch", "csd", "csv2json", "csv2xml", "csvify", "ctranspose",
+    "cumprod", "cumsum", "cumtrapz", "cur_dir", "curve_fit", "cut", "cv_stability", "cwt",
+    "daily_profile", "db", "db2mag", "db2pow", "db_power", "dbfs", "dbscan", "dct", "dec2bin",
+    "dec2hex", "decode_can", "decode_i2c", "decode_spi", "decode_uart", "dedent", "delay",
+    "delta_e", "dense", "dense_layer", "describe", "det", "detect_saturation", "detrend",
     "device_used", "dft", "diag", "diagram_pipeline", "dict", "diff", "diff_lines", "dir",
     "dir_exists", "disk", "disp", "distinct", "distort", "div", "dominant_frequency", "donut",
     "dot", "double_buffer", "downsample", "draw_arrow", "draw_circle", "draw_line", "draw_rect",
     "draw_scale_bar", "drop", "drop_row", "dropout", "dropout_layer", "duration", "duty_cycle",
     "dwt", "ecdf", "echo", "eda", "edge_detect", "edges", "eig", "elapsed", "elediv", "elemul",
-    "elepow", "ellip", "ellipord", "ellipse", "emd", "emf", "end_time", "ends_with", "energy", "enob",
-    "enob_estimate", "entropy", "enum_values", "eof", "erf", "erfc", "error", "errorbar",
+    "elepow", "ellip", "ellipord", "ellipse", "emd", "emf", "end_time", "ends_with", "energy",
+    "enob", "enob_estimate", "entropy", "enum_values", "eof", "erf", "erfc", "error", "errorbar",
     "estimate", "estimate_complexity", "estimate_frequency", "exec", "exit", "exp", "exp2",
     "expcdf", "expfit", "expinv", "explain", "explore", "expm", "expm1", "exponential", "exppdf",
     "exprnd", "expstat", "extend", "eye", "f1", "fall_time", "falling_edges", "fcdf", "fft", "fftc",
     "fftr", "fifo", "figure", "figure_background", "figure_size", "file_exists", "file_history",
     "file_info", "file_size", "file_versioning", "fill_between", "fill_missing", "filter",
-    "filter_ba", "filter_from_sos", "filter_from_tf", "filter_from_zpk", "filter_info", "filter_init", "filter_next", "filtfilt", "find", "find_clipping",
-    "find_edges", "find_hex", "find_missing", "find_outliers", "find_peaks", "find_pulses",
-    "find_trigger", "find_zero_crossings", "findpeaks", "finv", "fir1", "firls", "firpm", "first", "fit",
+    "filter_ba", "filter_from_sos", "filter_from_tf", "filter_from_zpk", "filter_info",
+    "filter_init", "filter_next", "filtfilt", "find", "find_clipping", "find_edges", "find_hex",
+    "find_missing", "find_outliers", "find_peaks", "find_pulses", "find_trigger",
+    "find_zero_crossings", "findpeaks", "finv", "fir1", "firls", "firpm", "first", "fit",
     "fit_scaler", "fix", "flatten", "flip", "fliplr", "flipud", "floor", "fold", "fontfamily",
     "fontsize", "fopen", "foreground_mask", "format", "forward", "fpdf", "freqz", "frnd", "fstat",
     "fuzzy_pid_init", "fvtool", "fzero", "gain", "gamcdf", "gamfit", "gaminv", "gamma", "gampdf",
     "gamrnd", "gamstat", "gaussian_process", "generate", "geocdf", "geofit", "geoinv", "geopdf",
     "geornd", "geostat", "gerischer", "get", "get_bit", "getenv", "glob", "gmm_model", "goertzel",
     "goertzel_freq", "gpu_matmul", "gpu_probe_info", "grad", "gradient_boosting_model", "graph",
-    "grayscale", "grep", "grid", "gridworld_env", "group_by_agg", "group_delay", "groupbar",
-    "gru_cell", "gru_forward", "gru_init", "h5info", "h5read", "hamming", "hamming74_decode",
-    "hamming74_encode", "hampel", "hann", "has_edge", "has_key", "havriliak_negami", "head",
-    "heatmap", "help", "hessian", "hex2dec", "hex_decode", "hex_encode", "hexbin", "hexdump",
-    "high_time", "hilbert", "hist", "histeq", "histogram", "hit_miss", "hline", "hmm",
-    "hourly_profile", "hsl", "hstack", "hsv", "html2md", "http_get", "huffman_decode",
+    "grayscale", "grep", "grid", "grid_search", "gridworld_env", "group_by_agg", "group_delay",
+    "groupbar", "gru_cell", "gru_forward", "gru_init", "h5info", "h5read", "hamming",
+    "hamming74_decode", "hamming74_encode", "hampel", "hann", "has_edge", "has_key",
+    "havriliak_negami", "head", "heatmap", "help", "hessian", "hex2dec", "hex_decode", "hex_encode",
+    "hexbin", "hexdump", "high_time", "hilbert", "hist", "histeq", "histogram", "hit_miss", "hline",
+    "hmm", "hourly_profile", "hsl", "hstack", "hsv", "html2md", "http_get", "huffman_decode",
     "huffman_encode", "hum", "hurst_exponent", "hygecdf", "hygeinv", "hygepdf", "hygernd",
     "hygestat", "hypot", "ica", "ica_model", "idct", "identity", "idft", "idwt", "ifft", "im",
     "imadjust", "imag", "image", "image_from_matrix", "image_new", "image_regions", "imagesc",
@@ -47077,106 +47363,107 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "interpolate_at", "interpolate_nan", "inv", "inverse_transform", "invert", "iqr", "irfft",
     "is_clipped", "is_empty", "is_full", "is_readonly", "is_stable", "isfinite", "isinf", "isnan",
     "isolation_forest", "items", "jacobian", "join", "js_exec", "json2csv", "json2xml",
-    "json_delete", "json_get", "json_set", "jsonify", "k_fold", "kaiser", "kaiserord", "kalman_init",
-    "kapur_threshold", "keys", "kfold", "kill", "kmeans", "kmeans_centers", "kmeans_model",
-    "kmedians_model", "kmedoids_model", "knn_model", "kron", "kurtosis", "lab", "label_blobs",
-    "last", "last_index_of", "layer_norm", "lcase", "lda_model", "least_squares", "left", "legend",
-    "len", "length", "levenshtein", "lfilter", "lgamma", "like", "line", "line_at", "line_col",
-    "line_count", "line_delete", "line_insert", "line_range", "line_set", "lines", "linked_list",
-    "linspace", "list_dir", "list_files", "listdir", "listen_pool", "llm_load", "lms_init", "ln",
-    "load", "load_image", "load_library", "load_model", "load_svg", "log", "log10", "log1p", "log2",
-    "logistic_model", "loglog", "logncdf", "lognfit", "logninv", "lognpdf", "lognrnd", "lognstat",
-    "logspace", "logsumexp", "low_time", "lower", "lr_adaptive", "lr_plateau", "lse", "lstm_cell",
-    "lstm_forward", "lstm_init", "lstsq",
-    "lti_bode", "lti_c2d", "lti_d2c", "lti_dcgain", "lti_feedback", "lti_freqresp", "lti_impulse", "lti_is_stable",
-    "lti_lsim", "lti_margin", "lti_parallel", "lti_poles", "lti_series", "lti_ss", "lti_step", "lti_tf",
-    "lti_to_ss", "lti_to_tf", "lti_to_zpk", "lti_zeros", "lti_zpk",
-    "ltrim", "lu", "mae", "mag2db", "magnitude", "make_file",
-    "map", "markers", "markov_chain", "matlab_exec", "matmul", "max", "maximum", "maxpool2d",
-    "md2html", "mean", "measure_snr", "medfilt", "medfilt2", "median", "median_filter",
-    "mel_spectrogram", "mem_usage", "meshgrid", "metadata", "mid", "min", "minimize", "minimum",
-    "minutely_profile", "mirror", "mismatch_loss", "mkdir", "mlp_classifier", "mm", "mmap_len",
-    "mmap_open", "mmap_read", "mod", "mode", "modified_at", "monte_carlo", "monthly_profile",
-    "move", "move_file", "mse", "mtimes", "mul", "multi_head_attention", "multi_otsu", "multisine",
-    "multithreshold", "mutex", "mutex_add", "mutex_get", "mutex_set", "mutex_update",
-    "mutual_info_classif", "mvnpdf", "nadam", "naive_bayes_model", "nand", "native_call", "nbincdf",
-    "nbinfit", "nbininv", "nbinpdf", "nbinrnd", "nbinstat", "nbytes", "ncol", "neighbors",
-    "nesterov_sgd", "newton", "nmf", "nnls", "nnz", "nor", "norm", "normal", "normalize", "normcdf",
-    "normfit", "norminv", "normpdf", "normrnd", "normstat", "notch", "now", "nrow", "numel", "nyquist",
-    "ode23", "ode45", "ode_stiff", "ols_model", "ones", "ones_like", "optimizer_step", "or", "ord",
-    "otsu", "otsu_threshold", "outer", "overshoot", "pack", "pad_bytes", "pad_left", "pad_right",
-    "palette", "panel", "parallel", "param", "parse_as", "parse_csv", "parse_json", "parse_xml",
-    "particle_filter", "particle_filter_init", "path_absolute", "path_extension", "path_join",
-    "path_name", "path_normalize", "path_parent", "path_relative_to", "path_stem", "pause", "pca",
-    "pca_components", "pca_explained_variance", "pca_model", "peak", "peek", "peek_byte",
-    "peek_char", "peek_line", "percentile", "periodic_profile", "periodogram",
-    "permutation_importance", "phase", "pid_init", "pie", "pinv", "pipeline", "plot", "pls_model",
-    "pmap", "point", "poisscdf", "poissfit", "poissinv", "poisson", "poisspdf", "poissrnd",
-    "poisstat", "polarplot", "poles", "polyfit", "polygon", "polyval", "pool", "pop", "pop_back",
-    "pop_front", "porous", "pos_of", "pow", "pow2db", "preciseTimer", "precision", "predict",
-    "print", "printf", "printtex", "process", "process_is_running", "process_kill", "process_pid",
-    "process_poll", "process_read", "process_read_stderr", "process_spawn", "process_wait",
-    "processor", "prod", "profile_end", "profile_start", "profile_stats", "profiling_mode",
-    "progress", "proper", "psd", "pt", "pulse_frequency", "pulse_period", "pulse_width",
-    "pump_watches", "push", "push_back", "push_front", "pwd", "pwl", "pwm", "python_exec", "pzplot",
-    "q_learning", "qam_demodulate", "qam_modulate", "qda_model", "qr", "quad", "quad_info",
-    "quantile", "quantile_normalize", "queue", "quick_mlp", "r2", "raincloud", "rand", "randi",
-    "randn", "random_forest_model", "random_walk", "range", "range_decode", "range_encode", "rank",
-    "rans_decode", "rans_encode", "re", "read", "read_all", "read_all_text", "read_array",
-    "read_bin", "read_bit", "read_byte", "read_bytes", "read_char", "read_chars", "read_csv",
-    "read_double", "read_float", "read_input", "read_int", "read_int16", "read_int32", "read_int64",
-    "read_line", "read_mat", "read_npy", "read_npz", "read_struct", "read_structs", "read_uint16",
-    "read_uint32", "read_uint64", "read_until", "read_values", "read_version", "real", "recall",
-    "rect", "rectangle", "reduce", "reflection_coefficient", "regex_count", "regex_find",
-    "regex_find_all", "regex_groups", "regex_match", "regex_replace", "regex_split", "regionprops",
-    "regions", "relu", "rem", "remez", "remove", "remove_dir", "remove_file", "remove_nan", "remove_noise",
-    "remove_outliers", "remove_small_blobs", "rename_file", "repeat_str", "replace",
-    "replace_bytes", "replace_outliers", "repmat", "resample_int", "resample_to", "reset",
-    "reshape", "residual_acf", "resistor", "resize", "restart", "restore_version", "return_loss",
-    "reverse", "reverse_bytes", "rewind", "rfe", "rfft", "rgb", "rgba", "ridge", "ridge_model",
-    "right", "rise_time", "rising_edges", "rk4", "rlkk_extrapolate", "rlkk_reconstruct",
-    "rlkk_validate", "rms", "rmse", "rmsprop", "robust_scale", "roc_auc", "rolling_max",
-    "rolling_mean", "rolling_min", "rolling_rms", "rolling_std", "rot90", "round", "row_mean",
-    "row_sum", "rows", "rtrim", "run_for", "sample_to_time", "sandbox_mode", "sarsa",
-    "sauvola_threshold", "save", "save_all", "save_image", "save_model", "save_svg", "savefig",
-    "savgol", "sawtooth", "scaled_dot_product_attention", "scan", "scatter", "scatterfit", "sci",
-    "score", "sech", "seed", "seek", "select", "semaphore", "semaphore_acquire",
-    "semaphore_available", "semaphore_release", "semilogx", "semilogy", "sequential",
-    "sequential_split", "serial_open", "serial_ports", "series", "set", "set_bit", "set_metadata",
-    "set_start_time", "setenv", "sfdr", "sgd", "sha256", "shape", "sharpen", "shell",
-    "shortest_path", "sigma_delta", "sigmoid", "sign", "signal", "signal_slice_time", "signal_unit",
-    "similar", "simple_cnn", "simple_rnn_classifier", "simpson", "simulate", "sin", "sinad",
-    "sinad_estimate", "sine", "sinh", "size", "sizeof", "skewness", "sleep", "slice_at", "smc_init",
-    "smith", "smooth", "smoothmax", "snr", "sns_bar", "sns_box", "sns_scatter", "softmax",
-    "softmax_rows", "solve", "sort", "sort_by", "sosfilt", "spawn", "spectral_coherence",
-    "spectral_entropy", "spectrogram", "spectrum", "spectrum_at", "spectrum_normalize",
-    "spectrum_unnormalize", "spiderplot", "spl", "splice", "splineplot", "split", "split_time",
-    "sprintf", "sqrt", "square", "stackbar", "stair", "stamp", "standardize", "start", "start_time",
-    "starts_with", "stationary", "std", "ste", "steer_delays", "stem", "step", "step_info", "stepz",
-    "stft", "stop", "stop_grad", "str", "stratified_split", "strip_ansi", "subplot", "substr",
-    "subtract", "sum", "summary", "svd", "svm_model", "svr_model", "swap", "swap_endian", "sweep",
-    "sysid", "sysinfo", "table", "tail", "take", "tan", "tanh", "tape_reset", "tcdf", "tcp_accept",
-    "tcp_close", "tcp_connect", "tcp_listen", "tcp_port", "tcp_recv", "tcp_send", "tell", "tex",
-    "text", "tf", "thd", "thd_n", "theme", "threshold", "tic", "time_to_sample", "timer", "timestamps",
-    "tinv", "title", "tkeo", "tmp_file", "to_bool", "to_cmyk", "to_digital", "to_float", "to_hsl",
-    "to_hsv", "to_int", "to_lab", "to_rgb", "to_unit", "to_vec", "toc", "toggle_bit", "tolower",
-    "touch", "toupper", "tpdf", "trace", "track", "train_loop", "train_test_split",
-    "train_val_test_split", "transfer_function", "transform", "transformer_block", "transpose",
-    "trapz", "tree_model", "triangle", "tril", "trim", "triu", "trnd", "tsne", "tstat",
-    "tv_denoise", "type", "ucase", "ui_button", "ui_checkbox", "ui_number", "ui_select",
-    "ui_slider", "ui_text", "undershoot", "unidcdf", "unidinv", "unidpdf", "unidrnd", "unidstat",
-    "unifcdf", "unifinv", "unifit", "uniform", "unifpdf", "unifrnd", "unifstat", "unique",
-    "unit_scale", "unpack", "unsetenv", "update", "upper", "upsample", "val", "value_and_grad",
-    "values", "vanicek", "var", "verify_signal", "violin", "viterbi", "vline", "vmap", "vmd",
-    "voronoi", "vstack", "vswr", "warburg", "warburg_open", "warburg_short", "warn", "waterfall",
-    "wblcdf", "wblfit", "wblinv", "wblpdf", "wblrnd", "wblstat", "welch", "where", "wigner_ville",
-    "window", "word_wrap", "worker_done", "wrap", "write", "write_array", "write_bin", "write_bit",
-    "write_byte", "write_char", "write_csv", "write_double", "write_float", "write_int",
-    "write_int16", "write_int32", "write_int64", "write_line", "write_npy", "write_npz",
-    "write_report", "write_text", "write_uint16", "write_uint32", "write_uint64", "writeline",
-    "xbreak", "xcorr", "xlabel", "xlim", "xml2csv", "xml2json", "xmlify", "xor", "xscale", "xspan",
-    "xticklabels", "xticks", "ybreak", "ylabel", "ylim", "yscale", "yspan", "yticklabels", "yticks",
-    "zeros", "zeros_like", "zip", "zlib_decompress", "zoom_inset", "zpk",
+    "json_delete", "json_get", "json_set", "jsonify", "k_fold", "kaiser", "kaiserord",
+    "kalman_init", "kapur_threshold", "keys", "kfold", "kill", "kmeans", "kmeans_centers",
+    "kmeans_model", "kmedians_model", "kmedoids_model", "knn_model", "kron", "kurtosis", "lab",
+    "label_blobs", "last", "last_index_of", "layer_norm", "lcase", "lda_model", "least_squares",
+    "left", "legend", "len", "length", "levenshtein", "lfilter", "lgamma", "like", "line",
+    "line_at", "line_col", "line_count", "line_delete", "line_insert", "line_range", "line_set",
+    "lines", "linked_list", "linspace", "list_dir", "list_files", "listdir", "listen_pool",
+    "llm_load", "lms_init", "ln", "load", "load_image", "load_library", "load_model", "load_svg",
+    "log", "log10", "log1p", "log2", "logistic_model", "loglog", "logncdf", "lognfit", "logninv",
+    "lognpdf", "lognrnd", "lognstat", "logspace", "logsumexp", "low_time", "lower", "lr_adaptive",
+    "lr_plateau", "lse", "lstm_cell", "lstm_forward", "lstm_init", "lstsq", "lti_bode", "lti_c2d",
+    "lti_d2c", "lti_dcgain", "lti_feedback", "lti_freqresp", "lti_impulse", "lti_is_stable",
+    "lti_lsim", "lti_margin", "lti_parallel", "lti_poles", "lti_series", "lti_ss", "lti_step",
+    "lti_tf", "lti_to_ss", "lti_to_tf", "lti_to_zpk", "lti_zeros", "lti_zpk", "ltrim", "lu", "mae",
+    "mag2db", "magnitude", "make_file", "map", "markers", "markov_chain", "matlab_exec", "matmul",
+    "max", "maximum", "maxpool2d", "md2html", "mean", "measure_snr", "medfilt", "medfilt2",
+    "median", "median_filter", "mel_spectrogram", "mem_usage", "meshgrid", "metadata", "mid", "min",
+    "minimize", "minimum", "minutely_profile", "mirror", "mismatch_loss", "mkdir", "mlp_classifier",
+    "mm", "mmap_len", "mmap_open", "mmap_read", "mod", "mode", "modified_at", "monte_carlo",
+    "monthly_profile", "move", "move_file", "mse", "mtimes", "mul", "multi_head_attention",
+    "multi_otsu", "multisine", "multithreshold", "mutex", "mutex_add", "mutex_get", "mutex_set",
+    "mutex_update", "mutual_info_classif", "mvnpdf", "nadam", "naive_bayes_model", "nand",
+    "native_call", "nbincdf", "nbinfit", "nbininv", "nbinpdf", "nbinrnd", "nbinstat", "nbytes",
+    "ncol", "neighbors", "nesterov_sgd", "newton", "nmf", "nnls", "nnz", "nor", "norm", "normal",
+    "normalize", "normcdf", "normfit", "norminv", "normpdf", "normrnd", "normstat", "notch", "now",
+    "nrow", "numel", "nyquist", "ode23", "ode45", "ode_stiff", "ols_model", "ones", "ones_like",
+    "optimizer_step", "or", "ord", "otsu", "otsu_threshold", "outer", "overshoot", "pack",
+    "pad_bytes", "pad_left", "pad_right", "palette", "panel", "parallel", "param", "parse_as",
+    "parse_csv", "parse_json", "parse_xml", "particle_filter", "particle_filter_init",
+    "path_absolute", "path_extension", "path_join", "path_name", "path_normalize", "path_parent",
+    "path_relative_to", "path_stem", "pause", "pca", "pca_components", "pca_explained_variance",
+    "pca_model", "peak", "peek", "peek_byte", "peek_char", "peek_line", "percentile",
+    "periodic_profile", "periodogram", "permutation_importance", "phase", "pid_init", "pie", "pinv",
+    "pipeline", "plot", "pls_model", "pmap", "point", "poisscdf", "poissfit", "poissinv", "poisson",
+    "poisspdf", "poissrnd", "poisstat", "polarplot", "poles", "polyfit", "polygon", "polyval",
+    "pool", "pop", "pop_back", "pop_front", "porous", "pos_of", "pow", "pow2db", "pr_curve",
+    "preciseTimer", "precision", "predict", "print", "printf", "printtex", "process",
+    "process_is_running", "process_kill", "process_pid", "process_poll", "process_read",
+    "process_read_stderr", "process_spawn", "process_wait", "processor", "prod", "profile_end",
+    "profile_start", "profile_stats", "profiling_mode", "progress", "proper", "psd", "pt",
+    "pulse_frequency", "pulse_period", "pulse_width", "pump_watches", "push", "push_back",
+    "push_front", "pwd", "pwl", "pwm", "python_exec", "pzplot", "q_learning", "qam_demodulate",
+    "qam_modulate", "qda_model", "qr", "quad", "quad_info", "quantile", "quantile_normalize",
+    "queue", "quick_mlp", "r2", "raincloud", "rand", "randi", "randn", "random_forest_model",
+    "random_walk", "range", "range_decode", "range_encode", "rank", "rans_decode", "rans_encode",
+    "re", "read", "read_all", "read_all_text", "read_array", "read_bin", "read_bit", "read_byte",
+    "read_bytes", "read_char", "read_chars", "read_csv", "read_double", "read_float", "read_input",
+    "read_int", "read_int16", "read_int32", "read_int64", "read_line", "read_mat", "read_npy",
+    "read_npz", "read_struct", "read_structs", "read_uint16", "read_uint32", "read_uint64",
+    "read_until", "read_values", "read_version", "real", "recall", "rect", "rectangle", "reduce",
+    "reflection_coefficient", "regex_count", "regex_find", "regex_find_all", "regex_groups",
+    "regex_match", "regex_replace", "regex_split", "regionprops", "regions", "relu", "rem", "remez",
+    "remove", "remove_dir", "remove_file", "remove_nan", "remove_noise", "remove_outliers",
+    "remove_small_blobs", "rename_file", "repeat_str", "replace", "replace_bytes",
+    "replace_outliers", "repmat", "resample_int", "resample_to", "reset", "reshape", "residual_acf",
+    "resistor", "resize", "restart", "restore_version", "return_loss", "reverse", "reverse_bytes",
+    "rewind", "rfe", "rfft", "rgb", "rgba", "ridge", "ridge_model", "right", "rise_time",
+    "rising_edges", "rk4", "rlkk_extrapolate", "rlkk_reconstruct", "rlkk_validate", "rms", "rmse",
+    "rmsprop", "robust_scale", "roc_auc", "roc_curve", "rolling_max", "rolling_mean", "rolling_min",
+    "rolling_rms", "rolling_std", "rot90", "round", "row_mean", "row_sum", "rows", "rtrim",
+    "run_for", "run_for_stats", "sample_to_time", "sandbox_mode", "sarsa", "sauvola_threshold",
+    "save", "save_all", "save_image", "save_model", "save_svg", "savefig", "savgol", "sawtooth",
+    "scaled_dot_product_attention", "scan", "scatter", "scatterfit", "sci", "score", "sech", "seed",
+    "seek", "select", "semaphore", "semaphore_acquire", "semaphore_available", "semaphore_release",
+    "semilogx", "semilogy", "sequential", "sequential_split", "serial_open", "serial_ports",
+    "series", "set", "set_bit", "set_metadata", "set_start_time", "setenv", "sfdr", "sgd", "sha256",
+    "shape", "sharpen", "shell", "shortest_path", "sigma_delta", "sigmoid", "sign", "signal",
+    "signal_slice_time", "signal_unit", "similar", "simple_cnn", "simple_rnn_classifier", "simpson",
+    "simulate", "sin", "sinad", "sinad_estimate", "sine", "sinh", "size", "sizeof", "skewness",
+    "sleep", "slice_at", "smc_init", "smith", "smooth", "smoothmax", "snr", "sns_bar", "sns_box",
+    "sns_scatter", "softmax", "softmax_rows", "solve", "sort", "sort_by", "sosfilt", "spawn",
+    "spectral_coherence", "spectral_entropy", "spectrogram", "spectrum", "spectrum_at",
+    "spectrum_normalize", "spectrum_unnormalize", "spiderplot", "spl", "splice", "splineplot",
+    "split", "split_time", "sprintf", "sqrt", "square", "stackbar", "stair", "stamp", "standardize",
+    "start", "start_time", "starts_with", "stationary", "std", "ste", "steer_delays", "stem",
+    "step", "step_info", "stepz", "stft", "stop", "stop_grad", "str", "stratified_split",
+    "strip_ansi", "subplot", "substr", "subtract", "sum", "summary", "svd", "svm_model",
+    "svr_model", "swap", "swap_endian", "sweep", "sysid", "sysinfo", "table", "tail", "take", "tan",
+    "tanh", "tape_reset", "tcdf", "tcp_accept", "tcp_close", "tcp_connect", "tcp_listen",
+    "tcp_port", "tcp_recv", "tcp_send", "tell", "tex", "text", "tf", "thd", "thd_n", "theme",
+    "threshold", "tic", "time_to_sample", "timer", "timestamps", "tinv", "title", "tkeo",
+    "tmp_file", "to_bool", "to_cmyk", "to_digital", "to_float", "to_hsl", "to_hsv", "to_int",
+    "to_lab", "to_rgb", "to_unit", "to_vec", "toc", "toggle_bit", "tolower", "touch", "toupper",
+    "tpdf", "trace", "trace_diff", "trace_load", "trace_save", "track", "train_loop",
+    "train_test_split", "train_val_test_split", "transfer_function", "transform",
+    "transformer_block", "transpose", "trapz", "tree_model", "triangle", "tril", "trim", "triu",
+    "trnd", "tsne", "tstat", "tv_denoise", "type", "ucase", "ui_button", "ui_checkbox", "ui_number",
+    "ui_select", "ui_slider", "ui_text", "undershoot", "unidcdf", "unidinv", "unidpdf", "unidrnd",
+    "unidstat", "unifcdf", "unifinv", "unifit", "uniform", "unifpdf", "unifrnd", "unifstat",
+    "unique", "unit_scale", "unpack", "unsetenv", "update", "upper", "upsample", "val",
+    "value_and_grad", "values", "vanicek", "var", "verify_signal", "violin", "viterbi", "vline",
+    "vmap", "vmd", "voronoi", "vstack", "vswr", "warburg", "warburg_open", "warburg_short", "warn",
+    "waterfall", "wblcdf", "wblfit", "wblinv", "wblpdf", "wblrnd", "wblstat", "welch", "where",
+    "wigner_ville", "window", "word_wrap", "worker_done", "wrap", "write", "write_array",
+    "write_bin", "write_bit", "write_byte", "write_char", "write_csv", "write_double",
+    "write_float", "write_int", "write_int16", "write_int32", "write_int64", "write_line",
+    "write_npy", "write_npz", "write_report", "write_text", "write_uint16", "write_uint32",
+    "write_uint64", "writeline", "xbreak", "xcorr", "xlabel", "xlim", "xml2csv", "xml2json",
+    "xmlify", "xor", "xscale", "xspan", "xticklabels", "xticks", "ybreak", "ylabel", "ylim",
+    "yscale", "yspan", "yticklabels", "yticks", "zeros", "zeros_like", "zip", "zlib_decompress",
+    "zoom_inset", "zpk",
 ];
 
 fn reduce_axis(f: &str, m: &Matrix, axis: usize, extra: Option<&Value>, style: &[(String, Value)]) -> R<Value> {
@@ -48382,6 +48669,36 @@ fn value_row_count(v: &Value) -> R<usize> {
         Value::Mat(m) => Ok(m.rows()),
         other => other.to_matrix().map(|m| m.rows()).map_err(|msg| EvalError { msg }),
     }
+}
+
+/// The `metric=` of `cross_val`/`grid_search`: `"auto"` (the model's own
+/// `score`) or the name of a metric builtin taking `(actual, predicted)`.
+fn cv_metric_arg(style: &[(String, Value)], who: &str) -> R<String> {
+    let metric = style_str(style, "metric").unwrap_or_else(|| "auto".to_string());
+    if metric == "auto" || ml_eval::METRICS.contains(&metric.as_str()) {
+        Ok(metric)
+    } else {
+        e(format!(
+            "{who}: unknown metric `{metric}` -- use \"auto\" (the model's own score) or one of {}",
+            ml_eval::METRICS.join(", ")
+        ))
+    }
+}
+
+fn metric_label(metric: &str) -> String {
+    if metric == "auto" { "score".to_string() } else { metric.to_string() }
+}
+
+/// The record `cross_val` returns.
+fn cv_summary(scores: &[f64], folds: usize, metric: &str) -> Value {
+    let (mean, std) = ml_eval::mean_std(scores);
+    Value::Record(Arc::new(vec![
+        ("scores".to_string(), Value::Vec(Arc::new(scores.to_vec()))),
+        ("mean".to_string(), Value::Num(mean)),
+        ("std".to_string(), Value::Num(std)),
+        ("folds".to_string(), Value::Num(folds as f64)),
+        ("metric".to_string(), Value::Str(metric_label(metric))),
+    ]))
 }
 
 /// Gathers `indices` (in the given order) out of an `X`-shaped value,

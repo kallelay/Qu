@@ -17,8 +17,13 @@
 //!   (MATLAB's `ntrp45`), `ode23` is Bogacki-Shampine 3(2) with cubic Hermite
 //!   output, `ode_stiff` is the Shampine-Reichelt Rosenbrock 2(3) pair
 //!   (MATLAB's `ode23s`) with a forward-difference Jacobian.
-//! * Events are located on the dense output by Illinois' method; at most one
-//!   sign change per step is detected.
+//! * Events: any number of event functions, each with a `direction` filter
+//!   and a `terminal` count (SciPy's `solve_ivp` model). A sign change over an
+//!   accepted step is located on that step's dense output by Illinois' method
+//!   (a bracketing root finder, so the event time always lies inside the
+//!   step). Per event function at most one sign change per step is detected:
+//!   two crossings of the same function inside one step cancel and are
+//!   missed, exactly as in SciPy; `max_step=` is the remedy.
 
 use crate::{arg_get, e, ksum, style_entry, text_arg, to_vec, EvalError, Interp, Value, R};
 use qu_core::matrix::Matrix;
@@ -310,7 +315,73 @@ pub(crate) fn quad_adaptive(
 // ====================================================================
 
 type RhsFn<'a> = &'a mut dyn FnMut(f64, &[f64]) -> Result<Vec<f64>, String>;
-type EventFn<'a> = &'a mut dyn FnMut(f64, &[f64]) -> Result<f64, String>;
+/// `g(i, t, y)`: the value of event function number `i`.
+type EventFn<'a> = &'a mut dyn FnMut(usize, f64, &[f64]) -> Result<f64, String>;
+
+/// How one event function is watched.
+#[derive(Clone, Copy, PartialEq, Debug)]
+pub(crate) struct EventSpec {
+    /// `-1`: only crossings from positive to negative count, `+1`: only from
+    /// negative to positive, `0`: both. "From ... to" is in the direction of
+    /// integration (as in SciPy), so it flips for a backward run.
+    pub direction: i8,
+    /// `0`: never stops the run. `N >= 1`: the run stops at the N-th
+    /// occurrence of this event (`terminal=true` is `1`).
+    pub terminal: usize,
+}
+
+/// True if `g` going from `gp` (step start) to `gn` (step end) is a crossing
+/// that `direction` lets through. A step that STARTS exactly on a zero is not
+/// a crossing (so restarting from an event state does not re-trigger it); a
+/// step that ENDS exactly on one is.
+pub(crate) fn crosses(gp: f64, gn: f64, direction: i8) -> bool {
+    let rising = gp < 0.0 && gn >= 0.0;
+    let falling = gp > 0.0 && gn <= 0.0;
+    match direction {
+        d if d > 0 => rising,
+        d if d < 0 => falling,
+        _ => rising || falling,
+    }
+}
+
+/// Root of `g` in the bracket `[a, b]` (`ga`, `gb` of opposite sign, or
+/// `gb == 0`) by Illinois' modified regula falsi. Returns a point inside the
+/// bracket; the bracket is shrunk until it is `1e-14` relative wide.
+fn illinois(g: &mut dyn FnMut(f64) -> Result<f64, String>, a: f64, ga: f64, b: f64, gb: f64) -> Result<f64, String> {
+    let (mut a, mut ga, mut b, mut gb) = (a, ga, b, gb);
+    let mut te = b;
+    for _ in 0..200 {
+        if gb == 0.0 {
+            return Ok(b);
+        }
+        let c = b - gb * (b - a) / (gb - ga);
+        let c = if c.is_finite() && (c - a) * (c - b) < 0.0 { c } else { 0.5 * (a + b) };
+        let gc = g(c)?;
+        te = c;
+        if gc == 0.0 || (b - a).abs() <= 1e-14 * b.abs().max(1.0) {
+            break;
+        }
+        if gc * gb < 0.0 {
+            a = b;
+            ga = gb;
+        } else {
+            ga *= 0.5;
+        }
+        b = c;
+        gb = gc;
+    }
+    Ok(te)
+}
+
+/// One event function value; NaN is an error (a NaN has no sign, so every
+/// crossing through it would be missed without a word).
+fn event_value(g: &mut EventFn, i: usize, t: f64, y: &[f64]) -> Result<f64, String> {
+    let v = g(i, t, y)?;
+    if v.is_nan() {
+        return Err(format!("event function {i} returned NaN at t = {t} (an event value needs a sign)"));
+    }
+    Ok(v)
+}
 
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub(crate) enum Method {
@@ -334,8 +405,14 @@ pub(crate) struct OdeOut {
     pub nfev: usize,
     /// `"ok"`, `"event"`, `"max_steps"` or `"step_too_small"`.
     pub status: &'static str,
+    /// Every located event in the order it happened (ties: lower event
+    /// index first).
     pub t_events: Vec<f64>,
     pub y_events: Vec<Vec<f64>>,
+    /// Which event function each entry of `t_events` belongs to.
+    pub i_events: Vec<usize>,
+    /// The event function that stopped the run, when `status == "event"`.
+    pub terminal_event: Option<usize>,
 }
 
 struct Ctx<'a> {
@@ -614,7 +691,8 @@ pub(crate) fn check_outputs(who: &str, outs: &[f64], t0: f64, tf: f64) -> Result
 /// Adaptive solver driver shared by `ode45`, `ode23` and `ode_stiff`.
 ///
 /// `outputs`: times to report (strictly monotone, inside the span); `None`
-/// reports every accepted step. `event`: `(g, terminal)`.
+/// reports every accepted step. `events`: `(g, specs)` with one `EventSpec`
+/// per event function; `g(i, t, y)` evaluates function `i`.
 pub(crate) fn solve_adaptive(
     method: Method,
     rhs: RhsFn,
@@ -623,7 +701,7 @@ pub(crate) fn solve_adaptive(
     y0: &[f64],
     outputs: Option<&[f64]>,
     opts: &OdeOpts,
-    mut event: Option<(EventFn, bool)>,
+    mut events: Option<(EventFn, &[EventSpec])>,
 ) -> Result<OdeOut, String> {
     let n = y0.len();
     let dir = if tf > t0 { 1.0 } else { -1.0 };
@@ -662,6 +740,8 @@ pub(crate) fn solve_adaptive(
         status: "ok",
         t_events: vec![],
         y_events: vec![],
+        i_events: vec![],
+        terminal_event: None,
     };
     let mut oi = 0usize;
     match outputs {
@@ -677,11 +757,14 @@ pub(crate) fn solve_adaptive(
             }
         }
     }
-    let terminal_evt = event.as_ref().map_or(false, |x| x.1);
-    let mut g_prev = match event.as_mut() {
-        Some((g, _)) => Some(g(t, &y)?),
-        None => None,
-    };
+    let n_events = events.as_ref().map_or(0, |x| x.1.len());
+    let mut g_prev: Vec<f64> = Vec::with_capacity(n_events);
+    if let Some((g, _)) = events.as_mut() {
+        for i in 0..n_events {
+            g_prev.push(event_value(g, i, t, &y)?);
+        }
+    }
+    let mut occurrences = vec![0usize; n_events];
     let ythresh = (opts.atol / opts.rtol).max(1e-12);
     let mut jt: Option<JacT> = None;
     let mut prev_rejected = false;
@@ -727,40 +810,37 @@ pub(crate) fn solve_adaptive(
         let tnew = if last { tf } else { t + hs };
         // event detection on this step
         let mut hit: Option<(f64, Vec<f64>)> = None;
-        if let (Some((g, _)), Some(gp)) = (event.as_mut(), g_prev) {
-            let gn = g(tnew, &s.ynew)?;
-            if gp * gn < 0.0 || (gn == 0.0 && gp != 0.0) {
-                let (mut a, mut ga, mut b, mut gb) = (t, gp, tnew, gn);
-                let mut te = tnew;
-                for _ in 0..200 {
-                    if gb == 0.0 {
-                        te = b;
-                        break;
-                    }
-                    let c = b - gb * (b - a) / (gb - ga);
-                    let c = if c.is_finite() && (c - a) * (c - b) < 0.0 { c } else { 0.5 * (a + b) };
-                    let gc = g(c, &s.dense.eval(c))?;
-                    te = c;
-                    if gc == 0.0 || (b - a).abs() <= 1e-14 * b.abs().max(1.0) {
-                        break;
-                    }
-                    if gc * gb < 0.0 {
-                        a = b;
-                        ga = gb;
-                    } else {
-                        ga *= 0.5;
-                    }
-                    b = c;
-                    gb = gc;
-                }
-                let ye = if te == tnew { s.ynew.clone() } else { s.dense.eval(te) };
-                out.t_events.push(te);
-                out.y_events.push(ye.clone());
-                if terminal_evt {
-                    hit = Some((te, ye));
+        if let Some((g, specs)) = events.as_mut() {
+            // Locate every event that crosses on this step, then apply them
+            // in time order so a terminal one cuts off whatever came after.
+            let mut found: Vec<(f64, usize, Vec<f64>)> = Vec::new();
+            let mut g_new = Vec::with_capacity(n_events);
+            for (i, spec) in specs.iter().enumerate() {
+                let gp = g_prev[i];
+                let gn = event_value(g, i, tnew, &s.ynew)?;
+                g_new.push(gn);
+                if crosses(gp, gn, spec.direction) {
+                    let mut on_dense = |c: f64| event_value(g, i, c, &s.dense.eval(c));
+                    let te = illinois(&mut on_dense, t, gp, tnew, gn)?;
+                    let ye = if te == tnew { s.ynew.clone() } else { s.dense.eval(te) };
+                    found.push((te, i, ye));
                 }
             }
-            g_prev = Some(gn);
+            found.sort_by(|a, b| {
+                (dir * a.0).partial_cmp(&(dir * b.0)).unwrap_or(std::cmp::Ordering::Equal).then(a.1.cmp(&b.1))
+            });
+            for (te, i, ye) in found {
+                out.t_events.push(te);
+                out.y_events.push(ye.clone());
+                out.i_events.push(i);
+                occurrences[i] += 1;
+                if specs[i].terminal > 0 && occurrences[i] >= specs[i].terminal {
+                    out.terminal_event = Some(i);
+                    hit = Some((te, ye));
+                    break;
+                }
+            }
+            g_prev = g_new;
         }
         let limit = hit.as_ref().map_or(tnew, |h| h.0);
         match outputs {
@@ -817,7 +897,7 @@ pub(crate) fn rk4_fixed(rhs: RhsFn, t0: f64, tf: f64, y0: &[f64], h: f64) -> Res
     let mut ctx = Ctx { rhs, nfev: 0 };
     let n = y0.len();
     let mut y = y0.to_vec();
-    let mut out = OdeOut { t: vec![t0], y: vec![y.clone()], steps: 0, rejected: 0, nfev: 0, status: "ok", t_events: vec![], y_events: vec![] };
+    let mut out = OdeOut { t: vec![t0], y: vec![y.clone()], steps: 0, rejected: 0, nfev: 0, status: "ok", t_events: vec![], y_events: vec![], i_events: vec![], terminal_event: None };
     let mut t = t0;
     for k in 0..nsteps {
         let tn = if k + 1 == nsteps { tf } else { t0 + dir * h * (k + 1) as f64 };
@@ -1032,6 +1112,9 @@ impl Interp {
             return e(format!("{who}: y0 must be a non-empty finite number or vector"));
         }
         let n = y0.len();
+        // Events are parsed before `self` is lent to the callbacks: a lambda
+        // given by keyword has to be registered to get a callable name.
+        let event_set = if fixed { None } else { self.parse_events(who, style)? };
         let cell = std::cell::RefCell::new(&mut *self);
         let mut rhs = |t: f64, y: &[f64]| -> Result<Vec<f64>, String> {
             let yv = if scalar { Value::Num(y[0]) } else { Value::Vec(Arc::new(y.to_vec())) };
@@ -1070,33 +1153,25 @@ impl Interp {
             if let Some(o) = &outputs {
                 check_outputs(who, o, t0, tf).map_err(|msg| EvalError { msg })?;
             }
-            let terminal = match style_entry(style, "terminal") {
-                None => false,
-                Some((_, Value::Bool(b))) => *b,
-                Some((_, v)) => v.as_num().map(|x| x != 0.0).unwrap_or(false),
-            };
-            let ev_name = match style_entry(style, "events") {
-                None => None,
-                Some((_, v)) => Some(text_arg(std::slice::from_ref(v), 0)?),
-            };
-            if let Some(n) = &ev_name {
-                if !cell.borrow().has_user_fn(n) {
-                    return e(format!("{who}: events= names no user function `{n}` (it must be a function g(t, y) returning a number)"));
-                }
-            }
-            let mut g = |t: f64, y: &[f64]| -> Result<f64, String> {
+            let names: Vec<&str> = event_set.as_ref().map_or(Vec::new(), |s| s.names.iter().map(|n| n.as_str()).collect());
+            let mut g = |i: usize, t: f64, y: &[f64]| -> Result<f64, String> {
                 let yv = if scalar { Value::Num(y[0]) } else { Value::Vec(Arc::new(y.to_vec())) };
-                let nm = ev_name.as_ref().unwrap();
+                let nm = names[i];
                 let r = cell.borrow_mut().apply(nm, vec![Value::Num(t), yv], Vec::new());
-                let r = r.map_err(|er| format!("{who}: events function failed at t={t}: {}", er.msg))?;
-                r.as_num().map_err(|_| format!("{who}: the events function must return a number, found {}", r.type_name()))
+                let r = r.map_err(|er| format!("{who}: events function `{nm}` failed at t={t}: {}", er.msg))?;
+                r.as_num().map_err(|_| format!("{who}: the events function `{nm}` must return a number, found {}", r.type_name()))
             };
             let opts = OdeOpts { rtol, atol, max_step, max_steps };
-            let evt: Option<(EventFn, bool)> = if ev_name.is_some() { Some((&mut g, terminal)) } else { None };
+            let evt: Option<(EventFn, &[EventSpec])> = match &event_set {
+                Some(s) => Some((&mut g, &s.specs)),
+                None => None,
+            };
             solve_adaptive(method, &mut rhs, t0, tf, &y0, outputs.as_deref(), &opts, evt)
         };
         let o = out.map_err(|msg| EvalError { msg: if msg.starts_with(who) { msg } else { format!("{who}: {msg}") } })?;
-        let with_events = !fixed && style_entry(style, "events").is_some();
+        let with_events = event_set.is_some();
+        let as_list = event_set.as_ref().map_or(false, |s| s.as_list);
+        let n_events = event_set.as_ref().map_or(0, |s| s.names.len());
         let mut fields = vec![
             ("t".to_string(), Value::Vec(Arc::new(o.t))),
             ("y".to_string(), row_matrix(&o.y, n)),
@@ -1107,15 +1182,151 @@ impl Interp {
         if !fixed {
             fields.push(("rejected".to_string(), Value::Num(o.rejected as f64)));
         }
-        if with_events {
+        let rows = |ys: &[Vec<f64>]| if ys.is_empty() { Value::Mat(Arc::new(Matrix::zeros(0, n))) } else { row_matrix(ys, n) };
+        if with_events && !as_list {
+            // one event function, given bare: flat results (the v0.4.7 shape)
             fields.push(("t_events".to_string(), Value::Vec(Arc::new(o.t_events))));
-            fields.push((
-                "y_events".to_string(),
-                if o.y_events.is_empty() { Value::Mat(Arc::new(Matrix::zeros(0, n))) } else { row_matrix(&o.y_events, n) },
-            ));
+            fields.push(("y_events".to_string(), rows(&o.y_events)));
+        } else if with_events {
+            // a list of event functions: one entry per function, in the
+            // order they were given (SciPy's `t_events` / `y_events`)
+            let mut ts: Vec<Vec<f64>> = vec![Vec::new(); n_events];
+            let mut ys: Vec<Vec<Vec<f64>>> = vec![Vec::new(); n_events];
+            for ((t, y), i) in o.t_events.iter().zip(&o.y_events).zip(&o.i_events) {
+                ts[*i].push(*t);
+                ys[*i].push(y.clone());
+            }
+            fields.push(("t_events".to_string(), Value::List(Arc::new(ts.into_iter().map(|v| Value::Vec(Arc::new(v))).collect()))));
+            fields.push(("y_events".to_string(), Value::List(Arc::new(ys.iter().map(|v| rows(v)).collect()))));
+            fields.push(("event_order".to_string(), Value::Vec(Arc::new(o.i_events.iter().map(|&i| i as f64).collect()))));
+            fields.push(("terminal_event".to_string(), Value::Num(o.terminal_event.map_or(-1.0, |i| i as f64))));
         }
         Ok(Value::Record(Arc::new(fields)))
     }
+
+    /// Reads `events=`, `direction=` and `terminal=` into one validated set.
+    ///
+    /// `events=` is one event function (a name, a function value or a lambda)
+    /// or a LIST of them; an entry may also be a record `{f = g, direction =
+    /// -1, terminal = true}` that carries its own settings. `direction=` and
+    /// `terminal=` are one value for every event or one value per event; a
+    /// record's own field wins over them.
+    fn parse_events(&mut self, who: &str, style: &[(String, Value)]) -> R<Option<EventSet>> {
+        let direction = style_entry(style, "direction").map(|(_, v)| v.clone());
+        let terminal = style_entry(style, "terminal").map(|(_, v)| v.clone());
+        let Some((_, ev)) = style_entry(style, "events") else {
+            if direction.is_some() {
+                return e(format!("{who}: direction= was given without events= (it filters the crossings of an event function)"));
+            }
+            if terminal.is_some() {
+                return e(format!("{who}: terminal= was given without events= (it says which event stops the integration)"));
+            }
+            return Ok(None);
+        };
+        let (items, as_list): (Vec<Value>, bool) = match ev {
+            Value::List(l) => (l.to_vec(), true),
+            other => (vec![other.clone()], false),
+        };
+        if items.is_empty() {
+            return e(format!("{who}: events= is an empty list; leave it out to integrate without events"));
+        }
+        let k = items.len();
+        let per_event = |what: &str, v: &Option<Value>| -> R<Vec<Option<Value>>> {
+            let Some(v) = v else { return Ok(vec![None; k]) };
+            let each: Vec<Value> = match v {
+                Value::List(l) => l.to_vec(),
+                Value::Vec(x) => x.iter().map(|&x| Value::Num(x)).collect(),
+                Value::Mask(m) => m.iter().map(|&b| Value::Bool(b)).collect(),
+                one => return Ok(vec![Some(one.clone()); k]),
+            };
+            if each.len() != k {
+                return e(format!(
+                    "{who}: {what}= has {} value(s) but events= has {k} function(s); give one value for all of them or one per function",
+                    each.len()
+                ));
+            }
+            Ok(each.into_iter().map(Some).collect())
+        };
+        let directions = per_event("direction", &direction)?;
+        let terminals = per_event("terminal", &terminal)?;
+        let mut names = Vec::with_capacity(k);
+        let mut specs = Vec::with_capacity(k);
+        for (i, item) in items.iter().enumerate() {
+            let (func, mut dir_v, mut term_v) = (item, directions[i].clone(), terminals[i].clone());
+            let func = match item {
+                Value::Record(fields) => {
+                    let mut f = None;
+                    for (key, v) in fields.iter() {
+                        match key.as_str() {
+                            "f" => f = Some(v),
+                            "direction" => dir_v = Some(v.clone()),
+                            "terminal" => term_v = Some(v.clone()),
+                            other => {
+                                return e(format!(
+                                    "{who}: events entry {i} has a field `{other}`; an event record is {{f = g, direction = -1|0|1, terminal = true|false|N}}"
+                                ))
+                            }
+                        }
+                    }
+                    match f {
+                        Some(f) => f,
+                        None => return e(format!("{who}: events entry {i} is a record without `f` (the event function g(t, y))")),
+                    }
+                }
+                _ => func,
+            };
+            let name = match func {
+                Value::Func(f) => {
+                    let f = self.register_callable(f);
+                    f.call_name().map(|s| s.to_string()).unwrap_or_default()
+                }
+                Value::Str(s) => s.clone(),
+                other => {
+                    return e(format!(
+                        "{who}: events entry {i} must be a function g(t, y) (a name, a function or a lambda), found {}",
+                        other.type_name()
+                    ))
+                }
+            };
+            if !self.has_user_fn(&name) {
+                return e(format!("{who}: events= names no user function `{name}` (it must be a function g(t, y) returning a number)"));
+            }
+            let direction = match &dir_v {
+                None => 0i8,
+                Some(v) => match v.as_num() {
+                    Ok(d) if d == 0.0 => 0,
+                    Ok(d) if d == 1.0 => 1,
+                    Ok(d) if d == -1.0 => -1,
+                    Ok(d) => return e(format!("{who}: direction must be -1 (falling), 0 (both) or 1 (rising), found {d}")),
+                    Err(_) => return e(format!("{who}: direction must be -1, 0 or 1, found {}", v.type_name())),
+                },
+            };
+            let terminal = match &term_v {
+                None => 0usize,
+                Some(Value::Bool(b)) => *b as usize,
+                Some(v) => match v.as_num() {
+                    Ok(c) if c >= 0.0 && c.fract() == 0.0 && c <= 1e9 => c as usize,
+                    Ok(c) => {
+                        return e(format!(
+                            "{who}: terminal must be true/false or a whole number N >= 0 (stop at the N-th occurrence), found {c}"
+                        ))
+                    }
+                    Err(_) => return e(format!("{who}: terminal must be true/false or a whole number, found {}", v.type_name())),
+                },
+            };
+            names.push(name);
+            specs.push(EventSpec { direction, terminal });
+        }
+        Ok(Some(EventSet { names, specs, as_list }))
+    }
+}
+
+/// The parsed `events=` / `direction=` / `terminal=` of one solver call.
+struct EventSet {
+    names: Vec<String>,
+    specs: Vec<EventSpec>,
+    /// `events=` was a list, so results are reported per event function.
+    as_list: bool,
 }
 
 // ====================================================================
@@ -1365,8 +1576,8 @@ mod tests {
         let g = 9.81;
         let mut f = |_t: f64, y: &[f64]| Ok(vec![y[1], -g]);
         // Start slightly above 0 so the start is not a zero of the event.
-        let mut ev = |_t: f64, y: &[f64]| Ok(y[0]);
-        let o = solve_adaptive(Method::Dp45, &mut f, 0.0, 10.0, &[1e-3, 10.0], None, &opts(1e-10, 1e-12), Some((&mut ev, true))).unwrap();
+        let mut ev = |_i: usize, _t: f64, y: &[f64]| Ok(y[0]);
+        let o = solve_adaptive(Method::Dp45, &mut f, 0.0, 10.0, &[1e-3, 10.0], None, &opts(1e-10, 1e-12), Some((&mut ev, &[STOP]))).unwrap();
         assert_eq!(o.status, "event");
         let want = (10.0 + (100.0f64 + 2.0 * g * 1e-3).sqrt()) / g;
         assert!((o.t_events[0] - want).abs() < 1e-9, "{} vs {want}", o.t_events[0]);
@@ -1376,13 +1587,198 @@ mod tests {
     #[test]
     fn non_terminal_events_count_every_crossing() {
         let mut f = |_t: f64, y: &[f64]| Ok(vec![y[1], -y[0]]);
-        let mut ev = |_t: f64, y: &[f64]| Ok(y[0]);
-        let o = solve_adaptive(Method::Bs23, &mut f, 0.0, 10.0, &[0.5, 1.0], None, &opts(1e-9, 1e-12), Some((&mut ev, false))).unwrap();
+        let mut ev = |_i: usize, _t: f64, y: &[f64]| Ok(y[0]);
+        let o = solve_adaptive(Method::Bs23, &mut f, 0.0, 10.0, &[0.5, 1.0], None, &opts(1e-9, 1e-12), Some((&mut ev, &[WATCH]))).unwrap();
         assert_eq!(o.status, "ok");
         // y = 0.5 cos t + sin t crosses zero at t = atan(-0.5) + k pi
         let first = std::f64::consts::PI - 0.5f64.atan();
         assert_eq!(o.t_events.len(), 3, "{:?}", o.t_events);
         assert!((o.t_events[0] - first).abs() < 1e-6);
+        assert_eq!(o.terminal_event, None);
+    }
+
+    const STOP: EventSpec = EventSpec { direction: 0, terminal: 1 };
+    const WATCH: EventSpec = EventSpec { direction: 0, terminal: 0 };
+
+    #[test]
+    fn crossing_rule_and_direction_filter() {
+        // (g at step start, g at step end, direction) -> counted?
+        for (gp, gn, d, want) in [
+            (-1.0, 1.0, 0, true),
+            (-1.0, 1.0, 1, true),
+            (-1.0, 1.0, -1, false),
+            (1.0, -1.0, 0, true),
+            (1.0, -1.0, -1, true),
+            (1.0, -1.0, 1, false),
+            (1.0, 2.0, 0, false),
+            // ending exactly on the zero counts, starting on it does not
+            (-1.0, 0.0, 1, true),
+            (1.0, 0.0, -1, true),
+            (0.0, 1.0, 0, false),
+            (0.0, -1.0, 0, false),
+            (0.0, 0.0, 0, false),
+        ] {
+            assert_eq!(crosses(gp, gn, d), want, "gp={gp} gn={gn} d={d}");
+        }
+    }
+
+    #[test]
+    fn illinois_stays_inside_the_bracket_and_converges() {
+        let mut g = |x: f64| Ok(x * x * x - 2.0);
+        let r = illinois(&mut g, 0.0, -2.0, 3.0, 25.0).unwrap();
+        assert!((r - 2.0f64.cbrt()).abs() < 1e-13, "{r}");
+        // an exact zero at the right end is returned as is
+        let mut g = |x: f64| Ok(x - 1.0);
+        assert_eq!(illinois(&mut g, 0.0, -1.0, 1.0, 0.0).unwrap(), 1.0);
+    }
+
+    #[test]
+    fn a_dropped_object_lands_at_sqrt_2h_over_g_for_every_method() {
+        // y(t) = h - g t^2 / 2: quadratic, so every dense output is exact
+        let (h, g) = (20.0f64, 9.81f64);
+        let want = (2.0 * h / g).sqrt();
+        for m in [Method::Dp45, Method::Bs23, Method::Stiff] {
+            let mut f = |_t: f64, y: &[f64]| Ok(vec![y[1], -g]);
+            let mut ev = |_i: usize, _t: f64, y: &[f64]| Ok(y[0]);
+            let o = solve_adaptive(m, &mut f, 0.0, 10.0, &[h, 0.0], None, &opts(1e-9, 1e-12), Some((&mut ev, &[STOP]))).unwrap();
+            assert_eq!(o.status, "event", "{m:?}");
+            assert_eq!(o.terminal_event, Some(0));
+            assert!((o.t_events[0] - want).abs() < 1e-8, "{m:?}: {} vs {want}", o.t_events[0]);
+            // the integration really stopped there: last point is the event
+            assert_eq!(*o.t.last().unwrap(), o.t_events[0]);
+            let ye = &o.y_events[0];
+            assert!(ye[0].abs() < 1e-8 && (ye[1] + g * want).abs() < 1e-7, "{m:?}: {ye:?}");
+            assert_eq!(o.y.last().unwrap(), ye);
+        }
+    }
+
+    #[test]
+    fn direction_keeps_only_rising_or_only_falling_crossings() {
+        // y = sin t on [0, 10]: zeros at pi (falling), 2 pi (rising), 3 pi (falling)
+        let pi = std::f64::consts::PI;
+        let run = |d: i8| {
+            let mut f = |t: f64, _y: &[f64]| Ok(vec![t.cos()]);
+            let mut ev = |_i: usize, _t: f64, y: &[f64]| Ok(y[0]);
+            // start just above zero so t = 0 is not itself a zero
+            let y0 = [1e-3f64.sin()];
+            solve_adaptive(Method::Dp45, &mut f, 1e-3, 10.0, &y0, None, &opts(1e-10, 1e-13), Some((&mut ev, &[EventSpec { direction: d, terminal: 0 }])))
+                .unwrap()
+                .t_events
+        };
+        let close = |got: &[f64], want: &[f64]| got.len() == want.len() && got.iter().zip(want).all(|(a, b)| (a - b).abs() < 1e-8);
+        assert!(close(&run(0), &[pi, 2.0 * pi, 3.0 * pi]), "{:?}", run(0));
+        assert!(close(&run(1), &[2.0 * pi]), "{:?}", run(1));
+        assert!(close(&run(-1), &[pi, 3.0 * pi]), "{:?}", run(-1));
+    }
+
+    #[test]
+    fn several_events_are_reported_per_function_in_time_order() {
+        // harmonic oscillator y = cos t, v = -sin t on [0, 7]:
+        // event 0 = position zero (pi/2, 3pi/2), event 1 = velocity zero (pi, 2pi),
+        // event 2 = position below -2 (never)
+        let pi = std::f64::consts::PI;
+        let mut f = |_t: f64, y: &[f64]| Ok(vec![y[1], -y[0]]);
+        let mut ev = |i: usize, _t: f64, y: &[f64]| Ok(match i {
+            0 => y[0],
+            1 => y[1],
+            _ => y[0] + 2.0,
+        });
+        let specs = [WATCH, WATCH, STOP];
+        let o = solve_adaptive(Method::Dp45, &mut f, 0.0, 7.0, &[1.0, 0.0], None, &opts(1e-10, 1e-13), Some((&mut ev, &specs))).unwrap();
+        assert_eq!(o.status, "ok");
+        assert_eq!(o.i_events, vec![0, 1, 0, 1], "{:?}", o.t_events);
+        for (got, want) in o.t_events.iter().zip([pi / 2.0, pi, 1.5 * pi, 2.0 * pi]) {
+            assert!((got - want).abs() < 1e-8, "{got} vs {want}");
+        }
+        // the state at an event satisfies the event's own equation
+        assert!(o.y_events[0][0].abs() < 1e-8 && o.y_events[1][1].abs() < 1e-8);
+        // strictly increasing: applied in time order
+        assert!(o.t_events.windows(2).all(|w| w[0] < w[1]));
+    }
+
+    #[test]
+    fn a_terminal_event_cuts_off_later_events_in_the_same_step() {
+        // One big step holds both crossings: y = t - 2 (event 0, terminal)
+        // and y = t - 3 (event 1). Only the first may be reported.
+        let mut f = |_t: f64, _y: &[f64]| Ok(vec![1.0]);
+        let mut ev = |i: usize, _t: f64, y: &[f64]| Ok(if i == 0 { y[0] - 2.0 } else { y[0] - 3.0 });
+        let specs = [STOP, WATCH];
+        let o = solve_adaptive(Method::Dp45, &mut f, 0.0, 4.0, &[0.0], None, &opts(1e-3, 1e-3), Some((&mut ev, &specs))).unwrap();
+        assert_eq!(o.status, "event");
+        assert_eq!(o.i_events, vec![0]);
+        assert!((o.t_events[0] - 2.0).abs() < 1e-12);
+        // and the other way round both are kept, the later one stopping the run
+        let specs = [WATCH, STOP];
+        let mut f = |_t: f64, _y: &[f64]| Ok(vec![1.0]);
+        let mut ev = |i: usize, _t: f64, y: &[f64]| Ok(if i == 0 { y[0] - 2.0 } else { y[0] - 3.0 });
+        let o = solve_adaptive(Method::Dp45, &mut f, 0.0, 4.0, &[0.0], None, &opts(1e-3, 1e-3), Some((&mut ev, &specs))).unwrap();
+        assert_eq!(o.i_events, vec![0, 1]);
+        assert_eq!(o.terminal_event, Some(1));
+        assert!((o.t.last().unwrap() - 3.0).abs() < 1e-12);
+        // precondition of this test: no accepted step ended between the two
+        assert!(!o.t.iter().any(|&t| t > 2.0 && t < 3.0), "{:?}", o.t);
+    }
+
+    #[test]
+    fn terminal_count_stops_at_the_nth_occurrence() {
+        let pi = std::f64::consts::PI;
+        let mut f = |_t: f64, y: &[f64]| Ok(vec![y[1], -y[0]]);
+        let mut ev = |_i: usize, _t: f64, y: &[f64]| Ok(y[0]);
+        let specs = [EventSpec { direction: 0, terminal: 3 }];
+        let o = solve_adaptive(Method::Dp45, &mut f, 0.0, 100.0, &[1.0, 0.0], None, &opts(1e-10, 1e-13), Some((&mut ev, &specs))).unwrap();
+        assert_eq!(o.status, "event");
+        assert_eq!(o.t_events.len(), 3);
+        assert!((o.t.last().unwrap() - 2.5 * pi).abs() < 1e-8);
+    }
+
+    #[test]
+    fn bouncing_ball_by_restarting_from_each_terminal_event() {
+        // Dropped from h with restitution e: first impact at t1 = sqrt(2h/g),
+        // then flights of 2 v_k / g with v_k = e^k * g * t1.
+        let (h, g, e) = (5.0f64, 9.81f64, 0.8f64);
+        let t1 = (2.0 * h / g).sqrt();
+        let specs = [EventSpec { direction: -1, terminal: 1 }];
+        let (mut t, mut y) = (0.0, vec![h, 0.0]);
+        let mut bounces = Vec::new();
+        for _ in 0..6 {
+            let mut f = |_t: f64, y: &[f64]| Ok(vec![y[1], -g]);
+            let mut ev = |_i: usize, _t: f64, y: &[f64]| Ok(y[0]);
+            let o = solve_adaptive(Method::Dp45, &mut f, t, 50.0, &y, None, &opts(1e-9, 1e-12), Some((&mut ev, &specs))).unwrap();
+            assert_eq!(o.status, "event");
+            t = o.t_events[0];
+            // restart exactly on the ground, moving up: direction = -1 means
+            // leaving the ground is not itself an event
+            y = vec![0.0, -e * o.y_events[0][1]];
+            bounces.push(t);
+        }
+        let mut want = t1;
+        for (k, got) in bounces.iter().enumerate() {
+            assert!((got - want).abs() < 1e-8, "bounce {k}: {got} vs {want}");
+            want += 2.0 * e.powi(k as i32 + 1) * t1;
+        }
+    }
+
+    #[test]
+    fn events_work_backwards_and_direction_follows_the_integration() {
+        // y = t integrated from 2 down to -2: along the run y FALLS through 0
+        let run = |d: i8| {
+            let mut f = |_t: f64, _y: &[f64]| Ok(vec![1.0]);
+            let mut ev = |_i: usize, _t: f64, y: &[f64]| Ok(y[0]);
+            solve_adaptive(Method::Dp45, &mut f, 2.0, -2.0, &[2.0], None, &opts(1e-9, 1e-12), Some((&mut ev, &[EventSpec { direction: d, terminal: 0 }])))
+                .unwrap()
+                .t_events
+        };
+        assert_eq!(run(-1).len(), 1);
+        assert!(run(-1)[0].abs() < 1e-12);
+        assert!(run(1).is_empty());
+    }
+
+    #[test]
+    fn a_nan_event_value_is_an_error_not_a_silent_miss() {
+        let mut f = |_t: f64, _y: &[f64]| Ok(vec![1.0]);
+        let mut ev = |_i: usize, t: f64, _y: &[f64]| Ok(if t > 0.5 { f64::NAN } else { 1.0 });
+        let r = solve_adaptive(Method::Dp45, &mut f, 0.0, 2.0, &[0.0], None, &opts(1e-6, 1e-9), Some((&mut ev, &[WATCH])));
+        assert!(r.err().unwrap().contains("NaN"));
     }
 
     #[test]

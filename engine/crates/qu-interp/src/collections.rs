@@ -28,7 +28,7 @@ use std::sync::Arc;
 ///     and a lambda arrives already registered under its own name.
 ///
 /// Same string, different permission, decided by how it was written.
-fn callable_arg(interp: &Interp, args: &[Value], idx: usize, who: &str, verb: &str) -> R<String> {
+pub(crate) fn callable_arg(interp: &Interp, args: &[Value], idx: usize, who: &str, verb: &str) -> R<String> {
     let by_value = matches!(args.get(idx), Some(Value::Func(_)));
     let name = text_arg(args, idx)?;
     if interp.has_user_fn(&name) || (by_value && BUILTIN_NAMES.contains(&name.as_str())) {

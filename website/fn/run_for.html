@@ -30,17 +30,19 @@
 <h1>run_for</h1>
 <nav class="onthispage"></nav>
 <p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/concurrency.html">Concurrency</a></p>
-<pre class="fnsig">result = <code>run_for(duration)</code></pre>
-<p class="fnnote">Input: duration &middot; Output: result</p>
+<pre class="fnsig">result = <code>run_for(duration, [pace=], [tolerance=1 ms])</code></pre>
+<p class="fnnote">Input: duration, pace, tolerance &middot; Output: result</p>
 <h2>What it is</h2>
 <p>Drives every registered <code>every</code>/<code>after</code>/<code>at</code> timer across a <strong>simulated</strong> virtual timeline, not a real wall-clock sleep. <code>duration</code> (number — seconds, same convention as <code>every</code>/<code>after</code>/<code>at</code>'s own interval arguments) is how far along that virtual timeline to advance. Timers interleave by scheduled fire time, the way a real event loop would. Requires at least one timer to already be registered, or it errors.</p>
 <h2>Overloads</h2>
 <p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
 <div class="tablewrap"><table class="iotable">
 <tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
-<tr><td class="iocode"><code>result = run_for(duration)</code></td><td><div class="ioitem"><code>duration</code> <span class="iotype">number</span><span class="iogap">not documented yet</span></div>
-</td><td><div class="ioitem"><code>result</code> <span class="iotype">number</span></div>
-</td><td>Returns an integer: the total number of timer firings that occurred while advancing.</td></tr>
+<tr><td class="iocode"><code>result = run_for(duration, [pace=], [tolerance=1 ms])</code></td><td><div class="ioitem"><code>duration</code> <span class="iotype">number</span><span class="iodesc"><code>duration</code> (number — seconds, same convention as <code>every</code>/<code>after</code>/<code>at</code>'s own interval arguments) is how far along that virtual timeline to advance.</span></div>
+<div class="ioitem"><code>pace</code> <span class="iotype">optional</span><span class="iodesc"><code>pace</code> is the real-time factor (<code>1</code> real time, <code>2</code> twice as fast, <code>0.5</code> half speed): a firing scheduled at virtual time <code>t</code> is held back until <code>t / pace</code> seconds after the call started, and the call returns once <code>duration / pace</code> seconds have passed.</span></div>
+<div class="ioitem"><code>tolerance</code> <span class="iotype">optional (default <code>1 ms</code>)</span><span class="iodesc">A step that starts more than <code>tolerance</code> (seconds, default 1 ms) after its deadline is counted as an overrun.</span></div>
+</td><td><div class="ioitem"><code>tolerance</code> <span class="iotype">&mdash;</span><span class="iodesc">seconds, default 1 ms</span></div>
+</td><td>Returns an integer: the total number of timer firings that occurred while advancing. <strong>Paced mode</strong> (*added in v0.4.14*): with <code>pace=</code> the same timeline is run against the wall clock. <code>pace</code> is the real-time factor (<code>1</code> real time, <code>2</code> twice as fast, <code>0.5</code> half speed): a firing scheduled at virtual time <code>t</code> is held back until <code>t / pace</code> seconds after the call started, and the call returns once <code>duration / pace</code> seconds have passed. Deadlines are anchored to the start, so one late step does not delay the rest; nothing is skipped to catch up. A step that starts more than <code>tolerance</code> (seconds, default 1 ms) after its deadline is counted as an overrun; read the counts with <code>run_for_stats()</code>. This is soft real time on a desktop operating system: no deadline is guaranteed, the wait spins for the last millisecond (one busy core), and an interpreted timer body costs a few microseconds per statement, so loops up to a few kHz are realistic and tens of kHz are not. Without <code>pace=</code> nothing waits and the behaviour is exactly as before.</td></tr>
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
@@ -54,7 +56,7 @@ every <span class="n">1</span> s <span class="k">do</span>
 <div class="out"><span class="lbl">output</span><pre>· run_for(5s): 5 timer firing(s) across 1 registered timer(s)
 fired 5 times</pre></div></div><p class="fnfrom">from <a href="../docs/specialized.html">specialized</a></p>
 <h2>How it works</h2>
-<p><code>run_for(duration)</code> (seconds — same convention as <code>every</code>/ <code>after</code>/<code>at</code>, e.g. <code>run_for(500 ms)</code> or <code>run_for(0.5)</code>) drives every registered timer across a <strong>simulated</strong> virtual timeline, not a real wall-clock sleep — a batch script asking to "simulate 10s of a control loop" should not actually block for 10 real seconds (and a real-time sleep would make test suites slow or flaky). Timers interleave by scheduled fire time (not "run timer A to completion, then timer B"), the way a real event loop would.</p>
+<p><code>run_for(duration)</code> (seconds — same convention as <code>every</code>/ <code>after</code>/<code>at</code>, e.g. <code>run_for(500 ms)</code> or <code>run_for(0.5)</code>) drives every registered timer across a <strong>simulated</strong> virtual timeline, not a real wall-clock sleep — a batch script asking to "simulate 10s of a control loop" should not actually block for 10 real seconds (and a real-time sleep would make test suites slow or flaky). Timers interleave by scheduled fire time (not "run timer A to completion, then timer B"), the way a real event loop would. <code>pace=</code> (v0.4.14) is the opt-in real-time mode: the same timeline, but each firing is held back to its wall-clock deadline <code>start + virtual_time / pace</code> and its lateness is and the output and return value are what they always were.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
 </main>
 </div>

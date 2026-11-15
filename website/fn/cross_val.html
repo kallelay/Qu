@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>cross_val — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>cross_val</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/statistics-ml.html">Statistics & ML</a></p>
+<pre class="fnsig">result = <code>cross_val(fit, X, y, [extra...], [folds=5], [shuffle=true], [seed=], [metric="auto"])</code></pre>
+<p class="fnnote">Input: fit, X, y, extra..., folds, shuffle, seed, metric &middot; Output: result</p>
+<h2>What it is</h2>
+<p>k-fold cross-validation of anything that fits a model. <code>fit</code> is a function you wrote, <code>fit(X, y, extra...)</code>, returning a model; or a model builder passed by name, such as <code>knn_model</code>, with its extra arguments after <code>y</code> (<code>cross_val(knn_model, X, y, 3)</code>). Each fold fits on the other folds and scores on the held-out one: by the model's own <code>score</code> for <code>metric="auto"</code>, else by the named metric, one of <code>accuracy</code>, <code>f1</code>, <code>precision</code>, <code>recall</code>, <code>r2</code>, <code>rmse</code>, <code>mae</code>, <code>mse</code>, <code>roc_auc</code>, <code>brier</code>, on <code>(actual, predict(X))</code>.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = cross_val(fit, X, y, [extra...], [folds=5], [shuffle=true], [seed=], [metric="auto"])</code></td><td><div class="ioitem"><code>fit</code> <span class="iotype">&mdash;</span><span class="iodesc"><code>fit</code> is a function you wrote, <code>fit(X, y, extra...)</code>, returning a model.</span></div>
+<div class="ioitem"><code>X</code> <span class="iotype">&mdash;</span><span class="iodesc"><code>fit</code> is a function you wrote, <code>fit(X, y, extra...)</code>, returning a model.</span></div>
+<div class="ioitem"><code>y</code> <span class="iotype">&mdash;</span><span class="iodesc"><code>fit</code> is a function you wrote, <code>fit(X, y, extra...)</code>, returning a model.</span></div>
+<div class="ioitem"><code>extra...</code> <span class="iotype">optional, repeatable</span><span class="iodesc"><code>fit</code> is a function you wrote, <code>fit(X, y, extra...)</code>, returning a model.</span></div>
+<div class="ioitem"><code>folds</code> <span class="iotype">optional (default <code>5</code>)</span><span class="iodesc">Each fold fits on the other folds and scores on the held-out one: by the model's own <code>score</code> for <code>metric="auto"</code>, else by the named metric, one of <code>accuracy</code>, <code>f1</code>, <code>precision</code>, <code>recall</code>, <code>r2</code>, <code>rmse</code>, <code>mae</code>, <code>mse</code>, <code>roc_auc</code>, <code>brier</code>, on <code>(actual, predict(X))</code>.</span></div>
+<div class="ioitem"><code>shuffle</code> <span class="iotype">optional (default <code>true</code>)</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>seed</code> <span class="iotype">optional</span><span class="iodesc"><code>seed=</code> fixes the folds.</span></div>
+<div class="ioitem"><code>metric</code> <span class="iotype">optional (default <code>"auto"</code>)</span><span class="iodesc">Each fold fits on the other folds and scores on the held-out one: by the model's own <code>score</code> for <code>metric="auto"</code>, else by the named metric, one of <code>accuracy</code>, <code>f1</code>, <code>precision</code>, <code>recall</code>, <code>r2</code>, <code>rmse</code>, <code>mae</code>, <code>mse</code>, <code>roc_auc</code>, <code>brier</code>, on <code>(actual, predict(X))</code>.</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">&mdash;</span></div>
+</td><td>Returns <code>{scores, mean, std, folds, metric}</code>; <code>std</code> is the population standard deviation. <code>seed=</code> fixes the folds.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">No documentation example calls this form yet. The <a href="../docs/statistics-ml.html">Statistics & ML</a> chapter is where one belongs.</p>
+<h2>How it works</h2>
+<p><code>train_test_split(X, y, [test_size=0.2], [seed=], [shuffle=true])</code> — scikit-learn's <code>train_test_split</code>: a random row permutation (<code>shuffle=true</code>, the default) split into a leading train fraction and a trailing test fraction, <code>X</code>/<code>y</code> permuted in lockstep so no row's features and label ever separate. An explicit <code>seed=</code> gives a fresh reproducible local RNG stream (two calls with the same <code>seed=</code> produce byte-identical splits); omitted, it advances the interpreter's persistent stream instead — the same fork <code>randn</code>'s own doc comment describes, not a new convention. <code>shuffle=false</code> keeps the original row order (see <code>sequential_split</code> for why that's also exposed under its own name). Returns a <code>"split"</code> model handle with <code>.X_train</code>/<code>.X_test</code>/<code>.y_train</code>/<code>.y_test</code> fields. <code>cross_val(fit, X, y, [extra...], [folds=5], [shuffle=true], [seed=], [metric=])</code> -- k-fold cross-validation of anything that fits a model. <code>fit(X, y, extra...)</code> is a function you wrote (or a model builder such as <code>knn_model</code> passed by name, with its extra arguments after <code>y</code>); each fold fits on the other folds and scores on the held-out one.</p>
+<p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.3.0 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

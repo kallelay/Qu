@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>trace_diff — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>trace_diff</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/signal-processing.html">Signal processing</a></p>
+<pre class="fnsig">result = <code>trace_diff(a, b, [rtol=1e-9], [atol=1e-12])</code></pre>
+<p class="fnnote">Input: a, b, rtol, atol &middot; Output: result</p>
+<h2>What it is</h2>
+<p>Compares two traces sample by sample and returns a record instead of raising, so a test can assert on it and a report can print it. A sample passes when <code>abs(a - b) &lt;= atol + rtol * max(abs(a), abs(b))</code> (symmetric in <code>a</code> and <code>b</code>; set <code>rtol=0</code> or <code>atol=0</code> to use only the other, both <code>0</code> for exact equality). Equal values and NaN facing NaN pass; a NaN or an infinity facing anything else is an infinite error.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = trace_diff(a, b, [rtol=1e-9], [atol=1e-12])</code></td><td><div class="ioitem"><code>a</code> <span class="iotype">&mdash;</span><span class="iodesc">a NaN or an infinity facing anything else is an infinite error.</span></div>
+<div class="ioitem"><code>b</code> <span class="iotype">&mdash;</span><span class="iodesc">A sample passes when <code>abs(a - b) &lt;= atol + rtol * max(abs(a), abs(b))</code> (symmetric in <code>a</code> and <code>b</code>.</span></div>
+<div class="ioitem"><code>rtol</code> <span class="iotype">optional (default <code>1e-9</code>)</span><span class="iodesc">set <code>rtol=0</code> or <code>atol=0</code> to use only the other, both <code>0</code> for exact equality).</span></div>
+<div class="ioitem"><code>atol</code> <span class="iotype">optional (default <code>1e-12</code>)</span><span class="iodesc">set <code>rtol=0</code> or <code>atol=0</code> to use only the other, both <code>0</code> for exact equality).</span></div>
+</td><td><div class="ioitem"><code>result</code> <span class="iotype">number or vector</span></div>
+</td><td>Returns <code>{ok, max_abs, max_rel, worst_index, first_bad_index, n, n_bad}</code>: <code>ok</code> is true when every sample passes; <code>max_abs</code> the largest absolute difference and <code>worst_index</code> where it is (<code>-1</code> if the traces are identical); <code>max_rel</code> the largest <code>abs(a - b) / max(abs(a), abs(b))</code>; <code>first_bad_index</code> the first sample outside the tolerance (<code>-1</code> if none); <code>n</code> the number of samples compared and <code>n_bad</code> how many failed. <code>a</code> and <code>b</code> are two vectors, two matrices of the same shape (rows are samples, columns are signals; the result adds <code>worst_col</code> and <code>first_bad_col</code>, and the indices are row numbers), or two traces (records or tables with the same signal names in any order; the result adds <code>worst_signal</code> and <code>first_bad_signal</code>, empty text if none). A length or shape mismatch is an error that names both sizes, and so is a signal present on one side only.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example hasout"><pre class="hl"><code><span class="k">function</span> <span class="f">sho</span>(t, y)
+    <span class="k">return</span> [y[<span class="n">1</span>], -y[<span class="n">0</span>]]
+<span class="k">end</span> <span class="k">function</span>
+
+te = <span class="f">linspace</span>(<span class="n">0</span>, <span class="n">5</span>, <span class="n">51</span>)
+r = <span class="f">ode45</span>(<span class="s">"sho"</span>, [<span class="n">0</span>, <span class="n">5</span>], [<span class="n">1</span>, <span class="n">0</span>], <span class="a">t_eval</span>=te, <span class="a">rtol</span>=<span class="n">1e-10</span>, <span class="a">atol</span>=<span class="n">1e-12</span>)
+<span class="f">trace_save</span>(<span class="s">"reference.npz"</span>, {<span class="a">t</span> = r.t, <span class="a">y</span> = r.y[:, <span class="n">0</span>]})
+
+ref = <span class="f">trace_load</span>(<span class="s">"reference.npz"</span>)
+c = <span class="f">ode23</span>(<span class="s">"sho"</span>, [<span class="n">0</span>, <span class="n">5</span>], [<span class="n">1</span>, <span class="n">0</span>], <span class="a">t_eval</span>=te)          <span class="c"># the run under test</span>
+d = <span class="f">trace_diff</span>(ref, {<span class="a">t</span> = c.t, <span class="a">y</span> = c.y[:, <span class="n">0</span>]}, <span class="a">rtol</span>=<span class="n">1e-6</span>, <span class="a">atol</span>=<span class="n">1e-6</span>)
+<span class="f">print</span>(d.ok)                <span class="c"># false</span>
+<span class="f">print</span>(d.worst_signal)      <span class="c"># y</span>
+<span class="f">print</span>(d.max_abs)           <span class="c"># 2.652263e-6, at sample d.worst_index (32)</span>
+</code></pre>
+<div class="out"><span class="lbl">output</span><pre>false
+y
+2.652263e-6</pre></div></div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.3.0 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

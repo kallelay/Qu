@@ -303,14 +303,14 @@ y = <span class="n">5</span> ppm               <span class="c"># 5e-6 -- literal
 elapsed_s = <span class="f">toc</span>()
 <span class="f">print</span>(<span class="s">"took {elapsed_s:.4f}s"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>took 0.0167s</pre></div></div>
+<div class="out"><span class="lbl">output</span><pre>took 0.0071s</pre></div></div>
 <p><code>track</code> and <code>grad</code> are the entry points to Qu's reverse-mode autodiff tape: wrap the inputs you want a derivative with respect to in <code>track</code> (or its alias <code>param</code>), build an ordinary arithmetic expression from them, and then call <code>grad</code> on the result to walk the tape backwards. Here <code>x</code> is tracked, <code>y = x^2 + 2x</code> is computed from it, and <code>grad</code> returns <code>dy/dx</code> evaluated at <code>x = 3</code> (analytically <code>2x + 2 = 8</code>), which is then printed:</p>
-<div class="example"><pre class="hl"><code>x = <span class="f">track</span>(<span class="n">3.0</span>)
+<div class="example hasout"><pre class="hl"><code>x = <span class="f">track</span>(<span class="n">3.0</span>)
 y = x * x + <span class="n">2</span> * x
 dy_dx = <span class="f">grad</span>(y, <span class="a">wrt</span>=x)      <span class="c"># 2*x + 2 = 8</span>
 <span class="f">print</span>(<span class="s">"dy/dx = {dy_dx}"</span>)
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>dy/dx = 8</pre></div></div>
 <p>A numeric literal followed directly by a recognized suffix is normalized to its SI base value at the moment it is parsed — no explicit conversion call needed. <code>5 kHz</code> becomes <code>5000</code> (hertz, the base unit) and <code>50m</code> uses the bare SI-magnitude prefix form (no base unit attached) to mean <code>50 * 1e-3</code>. Both results are ordinary numbers from that point on, so they print like any other value:</p>
 <div class="example"><pre class="hl"><code>Fs = <span class="n">5</span> kHz        <span class="c"># normalizes to 5000</span>
 dt = <span class="n">50m</span>          <span class="c"># bare SI-magnitude prefix: 50 * 1e-3 = 0.05 (no base unit)</span>
