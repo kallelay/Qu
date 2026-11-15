@@ -32,7 +32,7 @@ use std::sync::Arc;
 
 pub const NAMES: &[&str] = &[
     "from_triplets", "from_dense", "eye", "diag", "random", "size", "nnz", "density", "to_dense", "get", "triplets", "transpose", "add",
-    "sub", "scale", "mul", "hadamard", "solve", "cg", "gmres", "bicgstab",
+    "sub", "scale", "mul", "hadamard", "solve", "cg", "gmres", "bicgstab", "diffmat", "laplacian",
 ];
 
 /// Largest row or column count.
@@ -1231,6 +1231,9 @@ impl Interp {
                     ("method".into(), Value::Str(method)),
                 ])))
             }
+            // `sparse.diffmat` / `sparse.laplacian`: finite-difference operators for
+            // the method of lines; see `numerics4_ops.rs`.
+            "diffmat" | "laplacian" => crate::numerics4_ops::sparse_pde(name, args, style),
             // `sparse.cg/gmres/bicgstab(S, b, [x0], [tol=1e-10], [max_iter], [precond=])`
             // -- the iterative solvers behind `sparse.solve(method=)`, with a
             // starting guess and a result record (`x`, `iterations`,

@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>fminbnd — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>fminbnd</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/signal-processing.html">Signal processing</a></p>
+<pre class="fnsig">result = <code>fminbnd(f, a, b, [tol=1e-8], [max_iter=500])</code></pre>
+<p class="fnnote">Input: f, a, b, tol, max_iter &middot; Output: result</p>
+<h2>What it is</h2>
+<p>Minimises a function of one number on a closed interval. <code>f</code>: a function (or the string naming a user-defined function) of one number returning a number; <code>a</code>, <code>b</code>: finite numbers with <code>a &lt; b</code>; <code>tol</code> (positive number): the absolute tolerance on the minimiser; <code>max_iter</code> (positive whole number): the cap on evaluations of <code>f</code>. Method: Brent's golden-section search with parabolic interpolation. It never evaluates the ends of the interval, so a minimum at an end is returned as a point within about <code>tol</code> of it. A smooth minimum can only be located to about <code>sqrt(eps) * abs(x)</code> (about 1.5e-8 relative), however small <code>tol</code> is, because <code>f</code> is flat there.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = fminbnd(f, a, b, [tol=1e-8], [max_iter=500])</code></td><td><div class="ioitem"><code>f</code> <span class="iotype">string or number</span><span class="iodesc"><code>f</code>: a function (or the string naming a user-defined function) of one number returning a number.</span></div>
+<div class="ioitem"><code>a</code> <span class="iotype">number</span><span class="iodesc"><code>a</code>, <code>b</code>: finite numbers with <code>a &lt; b</code>.</span></div>
+<div class="ioitem"><code>b</code> <span class="iotype">number</span><span class="iodesc"><code>a</code>, <code>b</code>: finite numbers with <code>a &lt; b</code>.</span></div>
+<div class="ioitem"><code>tol</code> <span class="iotype">number, optional (default <code>1e-8</code>)</span><span class="iodesc"><code>tol</code> (positive number): the absolute tolerance on the minimiser.</span></div>
+<div class="ioitem"><code>max_iter</code> <span class="iotype">number, optional (default <code>500</code>)</span><span class="iodesc"><code>max_iter</code> (positive whole number): the cap on evaluations of <code>f</code>.</span></div>
+</td><td><div class="ioitem"><code>Model</code> <span class="iotype">&mdash;</span><span class="iodesc">kind <code>"fminbnd"</code></span></div>
+<div class="ioitem"><code>params</code> <span class="iotype">number</span><span class="iodesc">the minimiser, a number</span></div>
+<div class="ioitem"><code>value</code> <span class="iotype">&mdash;</span><span class="iodesc"><code>f</code> at <code>params</code></span></div>
+<div class="ioitem"><code>converged</code> <span class="iotype">boolean</span><span class="iodesc">boolean</span></div>
+<div class="ioitem"><code>iterations</code> <span class="iotype">number</span><span class="iodesc">a number</span></div>
+<div class="ioitem"><code>f</code> <span class="iotype">&mdash;</span><span class="iodesc">passed through</span></div>
+</td><td>Returns a <code>Model</code> (kind <code>"fminbnd"</code>) with <code>params</code> (the minimiser, a number), <code>value</code> (<code>f</code> at <code>params</code>), <code>converged</code> (boolean) and <code>iterations</code> (a number), the same fields as <code>minimize</code>. Reaching <code>max_iter</code> is <strong>not</strong> an error: check <code>converged</code>. Errors: <code>a &gt;= b</code> or a non-finite end, a non-positive <code>tol</code>, an <code>f</code> that returns NaN or Inf (the error names the point), and any error raised inside <code>f</code> (passed through).</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example hasout"><pre class="hl"><code><span class="c"># y'' + y = 0, y(0) = 0, y(pi/2) = 1 (y = sin x), as the system y' = [y1, -y0]</span>
+<span class="k">function</span> <span class="f">osc</span>(x, y)
+    <span class="k">return</span> [y[<span class="n">1</span>], -y[<span class="n">0</span>]]
+<span class="k">end</span> <span class="k">function</span>
+<span class="k">function</span> <span class="f">ends</span>(ya, yb)
+    <span class="k">return</span> [ya[<span class="n">0</span>], yb[<span class="n">0</span>] - <span class="n">1</span>]
+<span class="k">end</span> <span class="k">function</span>
+b = <span class="f">bvp</span>(osc, ends, <span class="f">linspace</span>(<span class="n">0</span>, pi/<span class="n">2</span>, <span class="n">11</span>), <span class="f">zeros</span>(<span class="n">2</span>, <span class="n">11</span>))
+<span class="f">print</span>(<span class="s">"{b.status} on {b.nodes} nodes"</span>)                  <span class="c"># converged on 41 nodes</span>
+<span class="f">print</span>(<span class="f">bvp_eval</span>(b, pi/<span class="n">4</span>)[<span class="n">0</span>] - <span class="f">sin</span>(pi/<span class="n">4</span>))                 <span class="c"># -1.83e-09</span>
+
+c = <span class="f">chebdiff</span>(<span class="n">16</span>)
+<span class="f">print</span>(<span class="f">max</span>(<span class="f">abs</span>(c.D * <span class="f">exp</span>(c.x) - <span class="f">exp</span>(c.x))))              <span class="c"># 5.8e-14, spectral accuracy</span>
+<span class="f">print</span>(<span class="f">integral2</span>((x, y) := <span class="n">1</span>, -<span class="n">1</span>, <span class="n">1</span>, (x) := -<span class="f">sqrt</span>(<span class="n">1</span> - x^<span class="n">2</span>), (x) := <span class="f">sqrt</span>(<span class="n">1</span> - x^<span class="n">2</span>)))   <span class="c"># 3.141593, the unit disc</span>
+r = <span class="f">fminbnd</span>((x) := <span class="f">cos</span>(x), <span class="n">3</span>, <span class="n">4</span>)
+<span class="f">print</span>(<span class="s">"{r.params} {r.converged}"</span>)                       <span class="c"># 3.141593 true</span>
+</code></pre>
+<div class="out"><span class="lbl">output</span><pre>converged on 41 nodes
+-1.834181e-9
+5.817569e-14
+3.141593
+3.141593 true</pre></div></div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.3.0 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

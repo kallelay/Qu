@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>bvp — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>bvp</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/signal-processing.html">Signal processing</a></p>
+<pre class="fnsig">result = <code>bvp(f, bc, x, y0, [tol=1e-6], [max_nodes=10000])</code></pre>
+<p class="fnnote">Input: f, bc, x, y0, tol, max_nodes &middot; Output: result</p>
+<h2>What it is</h2>
+<p>Solves the two-point boundary value problem <code>y' = f(x, y)</code> with boundary conditions <code>bc(y(a), y(b)) = 0</code> for <code>a = x[0]</code>, <code>b = x[end]</code>. <code>f</code>: a function (or its name) of the position <code>x</code> and the state <code>y</code> returning <code>dy/dx</code>; <code>bc</code>: a function of the two end states <code>ya</code>, <code>yb</code> returning the residual, <strong>one entry per unknown</strong>; <code>x</code>: the initial mesh (a strictly increasing vector, at least 2 nodes; more nodes where the solution varies fast make a better start); <code>y0</code>: the initial guess, either a matrix with one row per unknown and one column per mesh node (<code>zeros(2, length(x))</code> is a legitimate start for a well-posed linear problem), or a function of <code>x</code> returning the guess vector, or, for a single unknown, a vector with one entry per node. With a single unknown (<code>y0</code> a vector, or a matrix with one row) <code>f</code> and <code>bc</code> receive and return plain numbers; with more, <code>y</code>, <code>ya</code>, <code>yb</code> are vectors (a second-order equation <code>y'' = g(x, y, y')</code> is written as the system <code>[y[1], g(x, y[0], y[1])]</code>). <code>tol</code>: bound on the relative residual of the solution (the true residual <code>y_S' - f(x, y_S)</code>, scaled by <code>1 + abs(f)</code>, of the piecewise-cubic interpolant <code>y_S</code>), also the tolerance on the boundary residual; <code>max_nodes</code>: the largest mesh allowed. Method: fourth-order collocation (Lobatto IIIA, the scheme of SciPy's <code>solve_bvp</code> and MATLAB's <code>bvp4c</code>): cubic Hermite collocation at the interval midpoints, damped Newton iteration with a finite-difference Jacobian and a banded direct solve, then mesh refinement driven by the residual until it is below <code>tol</code>. Cost is linear in the number of nodes.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = bvp(f, bc, x, y0, [tol=1e-6], [max_nodes=10000])</code></td><td><div class="ioitem"><code>f</code> <span class="iotype">&mdash;</span><span class="iodesc"><code>f</code>: a function (or its name) of the position <code>x</code> and the state <code>y</code> returning <code>dy/dx</code>.</span></div>
+<div class="ioitem"><code>bc</code> <span class="iotype">&mdash;</span><span class="iodesc"><code>bc</code>: a function of the two end states <code>ya</code>, <code>yb</code> returning the residual, <strong>one entry per unknown</strong>.</span></div>
+<div class="ioitem"><code>x</code> <span class="iotype">vector</span><span class="iodesc"><code>x</code>: the initial mesh (a strictly increasing vector, at least 2 nodes.</span></div>
+<div class="ioitem"><code>y0</code> <span class="iotype">matrix or vector</span><span class="iodesc"><code>y0</code>: the initial guess, either a matrix with one row per unknown and one column per mesh node (<code>zeros(2, length(x))</code> is a legitimate start for a well-posed linear problem), or a function of <code>x</code> returning the guess vector, or, for a single unknown, a vector with one entry per node.</span></div>
+<div class="ioitem"><code>tol</code> <span class="iotype">optional (default <code>1e-6</code>)</span><span class="iodesc"><code>tol</code>: bound on the relative residual of the solution (the true residual <code>y_S' - f(x, y_S)</code>, scaled by <code>1 + abs(f)</code>, of the piecewise-cubic interpolant <code>y_S</code>), also the tolerance on the boundary residual.</span></div>
+<div class="ioitem"><code>max_nodes</code> <span class="iotype">optional (default <code>10000</code>)</span><span class="iodesc"><code>max_nodes</code>: the largest mesh allowed.</span></div>
+</td><td><div class="ioitem"><code>x</code> <span class="iotype">&mdash;</span><span class="iodesc">the final mesh</span></div>
+<div class="ioitem"><code>y</code> <span class="iotype">&mdash;</span><span class="iodesc">the solution, one row per unknown, one column per node</span></div>
+<div class="ioitem"><code>yp</code> <span class="iotype">&mdash;</span><span class="iodesc"><code>y'</code> at the nodes</span></div>
+<div class="ioitem"><code>nodes</code> <span class="iotype">&mdash;</span><span class="iodesc">the mesh size</span></div>
+<div class="ioitem"><code>max_residual</code> <span class="iotype">&mdash;</span><span class="iodesc">the largest normalised residual estimate, <code>NaN</code> when none could be computed</span></div>
+<div class="ioitem"><code>x</code> <span class="iotype">&mdash;</span><span class="iodesc">the message says when it looks transposed</span></div>
+<div class="ioitem"><code>bc</code> <span class="iotype">&mdash;</span><span class="iodesc">passed through</span></div>
+</td><td>Returns a record with <code>x</code> (the final mesh), <code>y</code> (the solution, one row per unknown, one column per node), <code>yp</code> (<code>y'</code> at the nodes), <code>status</code>, <code>nodes</code> (the mesh size) and <code>max_residual</code> (the largest normalised residual estimate, <code>NaN</code> when none could be computed). <code>status</code> is <code>"converged"</code>, <code>"max_nodes"</code> (the mesh would have to exceed <code>max_nodes</code>), <code>"singular"</code> (the collocation Jacobian is singular, or so close to it that a small residual only means a huge solution: a problem with no unique solution such as <code>y' = 0</code> with <code>y(0) = y(1)</code>, or with no solution such as <code>y'' + y = 0</code>, <code>y(0) = 0</code>, <code>y(pi) = 1</code>; the test is a pivot below 1e-6 of the largest Jacobian entry once the residual is below <code>tol</code>, so a very coarse <code>tol</code> can miss it) or <code>"no_convergence"</code> (Newton or the refinement did not reach <code>tol</code> or the boundary tolerance, or the solution became non-finite). A status other than <code>"converged"</code> is <strong>not</strong> an error: the last iterate is still returned in <code>x</code>/<code>y</code>; do not trust it. Evaluate the solution anywhere with <code>bvp_eval</code>. Errors: a non-monotonic mesh, a <code>y0</code> whose columns do not match <code>x</code> (the message says when it looks transposed), a <code>bc</code> that returns the wrong number of values, a non-finite initial guess, more than 20 million calls of <code>f</code>, and any error raised inside <code>f</code> or <code>bc</code> (passed through). Unknown parameters (<code>p=</code> in SciPy) are not supported.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example hasout"><pre class="hl"><code><span class="c"># y'' + y = 0, y(0) = 0, y(pi/2) = 1 (y = sin x), as the system y' = [y1, -y0]</span>
+<span class="k">function</span> <span class="f">osc</span>(x, y)
+    <span class="k">return</span> [y[<span class="n">1</span>], -y[<span class="n">0</span>]]
+<span class="k">end</span> <span class="k">function</span>
+<span class="k">function</span> <span class="f">ends</span>(ya, yb)
+    <span class="k">return</span> [ya[<span class="n">0</span>], yb[<span class="n">0</span>] - <span class="n">1</span>]
+<span class="k">end</span> <span class="k">function</span>
+b = <span class="f">bvp</span>(osc, ends, <span class="f">linspace</span>(<span class="n">0</span>, pi/<span class="n">2</span>, <span class="n">11</span>), <span class="f">zeros</span>(<span class="n">2</span>, <span class="n">11</span>))
+<span class="f">print</span>(<span class="s">"{b.status} on {b.nodes} nodes"</span>)                  <span class="c"># converged on 41 nodes</span>
+<span class="f">print</span>(<span class="f">bvp_eval</span>(b, pi/<span class="n">4</span>)[<span class="n">0</span>] - <span class="f">sin</span>(pi/<span class="n">4</span>))                 <span class="c"># -1.83e-09</span>
+
+c = <span class="f">chebdiff</span>(<span class="n">16</span>)
+<span class="f">print</span>(<span class="f">max</span>(<span class="f">abs</span>(c.D * <span class="f">exp</span>(c.x) - <span class="f">exp</span>(c.x))))              <span class="c"># 5.8e-14, spectral accuracy</span>
+<span class="f">print</span>(<span class="f">integral2</span>((x, y) := <span class="n">1</span>, -<span class="n">1</span>, <span class="n">1</span>, (x) := -<span class="f">sqrt</span>(<span class="n">1</span> - x^<span class="n">2</span>), (x) := <span class="f">sqrt</span>(<span class="n">1</span> - x^<span class="n">2</span>)))   <span class="c"># 3.141593, the unit disc</span>
+r = <span class="f">fminbnd</span>((x) := <span class="f">cos</span>(x), <span class="n">3</span>, <span class="n">4</span>)
+<span class="f">print</span>(<span class="s">"{r.params} {r.converged}"</span>)                       <span class="c"># 3.141593 true</span>
+</code></pre>
+<div class="out"><span class="lbl">output</span><pre>converged on 41 nodes
+-1.834181e-9
+5.817569e-14
+3.141593
+3.141593 true</pre></div></div><p class="fnfrom">from <a href="../docs/signal-processing.html">signal-processing</a></p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.3.0 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

@@ -697,7 +697,7 @@ s = timer.<span class="f">stop</span>()
 <span class="f">print</span>(<span class="s">"done, acc = {acc}"</span>)
 </code></pre>
 <div class="out"><span class="lbl">output</span><pre>elapsed &gt;= 0: true
-stop returns: 0.000621
+stop returns: 0.000588
 done, acc = 5000050000</pre></div></div>
 <p>Output:</p>
 <pre><code>elapsed &gt;= 0: true
@@ -920,7 +920,7 @@ generic model, kind unhandled
 <p><code>qres</code> (kind <code>"qr"</code>) and <code>sres</code> (kind <code>"svd"</code>) each hit their own refined overload; <code>pk</code> (kind <code>"findpeaks"</code>, which no refined overload names) falls through to the plain <code>model</code> catch-all. Confirms <code>tag_match_specificity</code>'s <code>("model", Value::Model(m)) if &amp;m.kind == refine</code> arm precisely: it's a string match against the model's own <code>kind</code>, nothing structural.</p>
 <h3>Specificity: more (and more refined) typed parameters wins</h3>
 <p>The rule, read directly from <code>tag_match_specificity</code>/<code>dispatch_method</code>: each matched parameter contributes a weight to a running total — 0 for an untyped parameter, 1 for a plain tag match (<code>vec</code>, <code>num</code>, ...), and 1,000,000 (<code>REFINED_WEIGHT</code>) for a refinement match (<code>record&lt;Tag&gt;</code> / <code>model&lt;"kind"&gt;</code>). The candidate with the highest *total* wins; a refined match on even one parameter beats any number of plain-tag matches, and between two plain-tag candidates, the one with more typed parameters matching wins. A genuinely ambiguous-looking three-way overload set proves this — two single-typed overloads plus one double-typed one, called with two vectors:</p>
-<div class="example hasout"><pre class="hl"><code><span class="k">function</span> <span class="f">combine</span>(a: vec, b)
+<div class="example"><pre class="hl"><code><span class="k">function</span> <span class="f">combine</span>(a: vec, b)
     <span class="k">return</span> <span class="s">"a-typed: sum(a)={sum(a)}"</span>
 <span class="k">end</span> <span class="k">function</span>
 
@@ -936,7 +936,7 @@ v1 = [<span class="n">1</span>,<span class="n">2</span>,<span class="n">3</span>
 v2 = [<span class="n">10</span>,<span class="n">20</span>]
 <span class="f">print</span>(<span class="f">combine</span>(v1, v2))
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>both-typed: sum(a)+sum(b)=36</pre></div></div>
+</div>
 <p>Output:</p>
 <pre><code>both-typed: sum(a)+sum(b)=36
 </code></pre>

@@ -189,6 +189,7 @@ pub mod lti_ops;
 mod basics_ops;
 mod matfun_ops;
 mod num_ops;
+mod numerics4_ops;
 mod solver_ops;
 mod special_ops;
 #[cfg(any(feature = "docx", feature = "pptx", feature = "xlsx"))]
@@ -4012,7 +4013,7 @@ pub const MODULE_EXPORTS: &[(&str, &[&str])] = &[
     ("pdf", &["add_annotation", "add_attachment", "add_bookmark", "add_link", "add_page", "add_text", "annotations", "attachments", "crop_box", "crop_page", "delete_page", "duplicate_page", "extract_attachment", "extract_image", "extract_pages", "extract_text", "find_text", "images", "info", "media_box", "merge", "move_page", "outlines", "page_count", "remove_annotation", "render", "replace_text", "reverse_pages", "rotate_page", "set_metadata", "split_at", "split_every", "strip_metadata", "structural_diff", "text_diff", "to_html", "write_merge", "write_pages"]),
     ("image", &["load", "luma", "regions", "blur", "canny", "bilateral", "distance_transform", "skeleton", "fill_holes", "contours", "autocrop", "sobel", "scharr", "laplacian", "gradient_magnitude", "rgb2hsv", "hsv2rgb", "rgb2lab", "lab2rgb", "watershed"]),
     ("svg", &["rect", "circle", "line", "path", "text"]),
-    ("sparse", &["from_triplets", "from_dense", "eye", "diag", "random", "size", "nnz", "density", "to_dense", "get", "triplets", "transpose", "add", "sub", "scale", "mul", "hadamard", "solve", "cg", "gmres", "bicgstab"]),
+    ("sparse", &["from_triplets", "from_dense", "eye", "diag", "random", "size", "nnz", "density", "to_dense", "get", "triplets", "transpose", "add", "sub", "scale", "mul", "hadamard", "solve", "cg", "gmres", "bicgstab", "diffmat", "laplacian"]),
 ];
 
 const DEPRECATED: &[(&str, &str, &str)] = &[
@@ -35478,6 +35479,7 @@ self.eval_grad(loss, wrt)
             f if lti_ops::NAMES.contains(&f) => lti_ops::call(f, &args, &style),
             f if trace_ops::NAMES.contains(&f) => trace_ops::call(f, &args, &style),
             f if num_ops::NAMES.contains(&f) => num_ops::call(f, &args),
+            f if numerics4_ops::NAMES.contains(&f) => self.numerics4_call(f, &args, &style),
             f if solver_ops::NAMES.contains(&f) => self.solver_call(f, &args, &style),
             f if matfun_ops::NAMES.contains(&f) => matfun_ops::call(f, &args),
             f if special_ops::NAMES.contains(&f) => special_ops::call(f, &args),
@@ -47339,10 +47341,10 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "binopdf", "binornd", "binostat", "bitand", "bitcmp", "bitor", "bitshift", "bitxor", "blackman",
     "blob_stats", "block_process", "blocks", "blur", "blur_backdrop", "bode", "bode_magnitude",
     "bode_phase", "bootstrap_ci", "box", "boxplot", "brier", "bubble", "builtins", "butter",
-    "buttord", "bwareaopen", "bwlabel", "bytes_read", "bytes_write", "calibrate", "capacitor",
+    "buttord", "bvp", "bvp_eval", "bwareaopen", "bwlabel", "bytes_read", "bytes_write", "calibrate", "capacitor",
     "capitalize", "capture", "casefold", "cast", "cat", "cbrt", "cd", "ceil", "channel",
     "channel_len", "channel_recv", "channel_send", "channel_try_recv", "chars", "cheb1ord",
-    "cheb2ord", "cheby1", "cheby2", "check_grads", "chi2cdf", "chi2inv", "chi2pdf", "chi2rnd",
+    "cheb2ord", "chebdiff", "cheby1", "cheby2", "check_grads", "chi2cdf", "chi2inv", "chi2pdf", "chi2rnd",
     "chi2stat", "chirp", "chisquare", "chol", "chr", "circle", "circuit", "circuit_fit",
     "circuit_impedance", "clahe", "clamp", "clear_bit", "clip", "close", "cm", "cmyk", "codepoints",
     "coherence", "colorbar", "colormap", "cols", "compare", "compile", "complex", "cond",
@@ -47374,7 +47376,7 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "filter_info", "filter_init", "filter_next", "filtfilt", "find", "find_clipping", "find_edges",
     "find_hex", "find_missing", "find_outliers", "find_peaks", "find_pulses", "find_trigger",
     "find_zero_crossings", "findpeaks", "finv", "fir1", "firls", "firpm", "first", "fit",
-    "fit_scaler", "fix", "flatten", "flip", "fliplr", "flipud", "floor", "fold", "fontfamily",
+    "fit_scaler", "fix", "flatten", "flip", "fliplr", "flipud", "floor", "fminbnd", "fold", "fontfamily",
     "fontsize", "fopen", "foreground_mask", "format", "forward", "fpdf", "freqz", "frnd", "fsolve",
     "fstat",
     "fuzzy_pid_init", "fvtool", "fzero", "gain", "gamcdf", "gamfit", "gaminv", "gamma", "gammainc",
@@ -47394,7 +47396,7 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "image_regions", "imagesc", "imbothat", "imclose", "imdilate", "imequalize", "imerode",
     "imfilter", "imhist", "imnoise", "imopen", "impedance", "impedance_from_reflection", "impulse",
     "impz", "imrotate", "imscale", "imshow", "imtophat", "imtranslate", "imwarp", "inch", "indent",
-    "index", "index_of", "indexof", "inductor", "input", "insert", "insert_column", "insert_row",
+    "index", "index_of", "indexof", "inductor", "input", "insert", "insert_column", "insert_row", "integral2",
     "interp1", "interp2", "interpolate_at", "interpolate_nan", "inv", "inverse_transform", "invert",
     "iqr", "irfft", "is_clipped", "is_empty", "is_full", "is_readonly", "is_stable", "isfinite",
     "isinf", "isnan", "isolation_forest", "isprime", "items", "jacobian", "join", "js_exec",

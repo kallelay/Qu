@@ -10,6 +10,12 @@ changes are called out.
 
 ## [Unreleased]
 
+- Boundary value problems: new `bvp(f, bc, x, y0)` (two-point problems `y' = f(x, y)` by fourth-order collocation, the scheme of SciPy's `solve_bvp` and MATLAB's `bvp4c`: damped Newton, residual-driven mesh refinement; the record carries `status` of `"converged"`, `"max_nodes"`, `"singular"` or `"no_convergence"` rather than failing) and `bvp_eval(sol, xq)` to evaluate the solution anywhere with the cubic Hermite interpolant.
+
+- Method of lines: new `sparse.diffmat(n, [h], [order], [bc])` (central first/second derivative as a sparse matrix; one-sided second-order ends, periodic or Dirichlet), `sparse.laplacian(shape, [h], [bc])` (1-D and 2-D discrete negative Laplacian, Dirichlet, Neumann or periodic; 2-D node `(i, j)` is unknown `i + nx*j`) and `chebdiff(n)` (Chebyshev differentiation matrix and nodes, returns `{D, x}`), so a PDE is a one-line right-hand side for `ode_stiff` or a system for `sparse.solve`.
+
+- Integration and optimisation: new `integral2(f, xa, xb, ya, yb)` (adaptive double integral, nested `quad`; `ya`/`yb` may be functions of `x` for non-rectangular regions, limits may be infinite, `max_evals` bounds the work) and `fminbnd(f, a, b)` (Brent's bounded scalar minimisation, returns `{params, value, converged, iterations}`).
+
 - Matrix functions: new `schur(A)` (real Schur form, returns `{T, U}` with `A = U*T*U'`), `sqrtm(A)` and `logm(A)` (principal root and logarithm through the complex Schur form; real unless `A` has a negative real eigenvalue, in which case the complex principal value is returned; a nilpotent `sqrtm` or singular `logm` is an error), and `sylvester(A, B, C)` / `lyap(A, Q)` (Bartels-Stewart; an equation with no unique solution is an error).
 
 - Special functions: new `erfinv`, `erfcinv`, `gammainc(x, a, ["lower"|"upper"])`, `betainc(x, a, b)`, `beta(a, b)`, `besselj`/`bessely`/`besseli`/`besselk(nu, x)` (real order, real argument, about 1e-12 or better against mpmath and scipy), `expint(x)` (E1), `ellipke(m)` (returns `{K, E}`), `legendre(n, x)` (associated Legendre `P_n^m` for `m = 0..n`, MATLAB's convention) and `zeta(s)` (real `s`; `zeta(1)` is an error). They work elementwise like `gamma` and `erf`; out-of-domain elements give `NaN`.
