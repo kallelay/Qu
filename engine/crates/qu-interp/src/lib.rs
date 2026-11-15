@@ -22610,9 +22610,16 @@ self.eval_grad(loss, wrt)
                 let wall_start = std::time::Instant::now();
                 let mut pacer = pace.map(|p| pace::Pacer::new(p, tolerance));
                 let timers = self.timers.clone();
+                // Each tick is `k * interval`, not the previous tick plus the
+                // interval: adding 0.05 twenty times lands just above 1.0 and
+                // dropped the last firing of `run_for(1)` (19 instead of 20),
+                // and 5 s at 0.001 gave 4999 steps. A multiplication is off by
+                // at most one rounding, and the end of the run allows for that.
+                let mut tick: Vec<u64> = vec![1; timers.len()];
                 let mut next_fire: Vec<f64> = timers.iter().map(|t| t.interval_s).collect();
                 let mut done: Vec<bool> = vec![false; timers.len()];
                 let mut fired = 0i64;
+                let limit = duration + duration.abs() * 1e-12 + 1e-12;
                 loop {
                     let next = next_fire
                         .iter()
@@ -22620,7 +22627,7 @@ self.eval_grad(loss, wrt)
                         .filter(|(i, _)| !done[*i])
                         .min_by(|a, b| a.1.partial_cmp(b.1).unwrap());
                     let Some((idx, &t)) = next else { break };
-                    if t > duration {
+                    if t > limit {
                         break;
                     }
                     // `on elapsed(t)`/`on elapsedOnce(t)` carry a live
@@ -22646,7 +22653,7 @@ self.eval_grad(loss, wrt)
                     };
                     if !skip {
                         if let Some(p) = pacer.as_mut() {
-                            p.step(t);
+                            p.step(t.min(duration));
                         }
                         self.exec_block(&timers[idx].body)?;
                         fired += 1;
@@ -22660,7 +22667,8 @@ self.eval_grad(loss, wrt)
                     // whenever it's next running, rather than silently
                     // expiring unfired.
                     if !done[idx] {
-                        next_fire[idx] += timers[idx].interval_s;
+                        tick[idx] += 1;
+                        next_fire[idx] = tick[idx] as f64 * timers[idx].interval_s;
                     }
                 }
                 let _ = writeln!(
@@ -84118,6 +84126,23 @@ end for");
         // a long enough signal is fine, and a constant stays constant
         let it = run("f = butter(4, \"low\", 50, 1000)\ny = filtfilt(f, ones(40))\nfirst = y[0]\nlast = y[39]");
         assert!((num(&it, "first") - 1.0).abs() < 1e-6 && (num(&it, "last") - 1.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn run_for_fires_every_tick_up_to_the_end_without_losing_the_last_one() {
+        // 0.05 added twenty times lands just above 1.0: used to give 19
+        let it = run("count = 0\nevery 50 ms do\n    count = count + 1\nend\nfired = run_for(1)");
+        assert_eq!(num(&it, "fired"), 20.0);
+        assert_eq!(num(&it, "count"), 20.0);
+        // 5 s at 1 ms is 5000 steps, not 4999
+        let it = run("count = 0\nevery 1 ms do\n    count = count + 1\nend\nfired = run_for(5)");
+        assert_eq!(num(&it, "fired"), 5000.0);
+        // 0.1 * 3 is 0.30000000000000004: the third tick of run_for(0.3) still fires
+        let it = run("count = 0\nevery 100 ms do\n    count = count + 1\nend\nfired = run_for(0.3)");
+        assert_eq!(num(&it, "fired"), 3.0);
+        // and a run that ends strictly before a tick does not fire it
+        let it = run("count = 0\nevery 100 ms do\n    count = count + 1\nend\nfired = run_for(0.299)");
+        assert_eq!(num(&it, "fired"), 2.0);
     }
 
     #[test]

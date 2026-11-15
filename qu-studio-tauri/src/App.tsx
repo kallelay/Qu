@@ -30,7 +30,7 @@ import {
   Database, Network, AudioWaveform, Binary, Settings, Search,
   GitBranch, Terminal as TerminalIcon, FileCode, Layers, Folder,
   Sparkles, Wand2, Command as CommandIcon, SlidersHorizontal, Box, ScatterChart, Radio, LayoutGrid,
-  History, BookOpen
+  History, BookOpen, Repeat
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
@@ -73,6 +73,7 @@ import { InteractiveModePanel } from './InteractiveModePanel';
 import { LiveSerialPlotPanel } from './LiveSerialPlotPanel';
 import { GuiDesignerPanel } from './GuiDesignerPanel';
 import { DspWorkbenchPanel } from './DspWorkbenchPanel';
+import { LoopPanel } from './LoopPanel';
 import { signalVariables } from './filterDesign';
 import { LlmProviderSettings } from './LlmProviderSettings';
 import { groupCatalog, catalogTitle, CATEGORY_ICON, type CatalogCategory } from './catalogMeta';
@@ -810,11 +811,12 @@ legend()`
  *  Interactive), then ML's template library, then the two
  *  data-in/data-out tabs (SeriPlot, Files). It was previously the order
  *  the tabs happened to be built in. */
-type ModeId = 'code' | 'dsp' | 'ml' | 'files' | 'interactive' | 'seriplot' | 'designer';
+type ModeId = 'code' | 'dsp' | 'loop' | 'ml' | 'files' | 'interactive' | 'seriplot' | 'designer';
 
 const MODE_TABS: Array<{ id: ModeId; label: string; icon: LucideIcon }> = [
   { id: 'code', label: 'Code', icon: FileCode },
   { id: 'dsp', label: 'DSP', icon: AudioWaveform },
+  { id: 'loop', label: 'Loop', icon: Repeat },
   { id: 'designer', label: 'Designer', icon: LayoutGrid },
   { id: 'interactive', label: 'Interactive', icon: SlidersHorizontal },
   { id: 'ml', label: 'ML', icon: Network },
@@ -878,7 +880,12 @@ function App() {
     (source: string) => invoke<Array<{ message: string; line: number; column: number }>>('check_syntax', { code: source }),
     []
   );
-  const isQuSource = !isViewerTab && (!currentTab || !/\.[A-Za-z0-9]+$/.test(currentTab.name) || /\.qu$/i.test(currentTab.name));
+  // The Loop tab offers the active Qu buffer as a plant or controller.
+  const loopEditorFile = useMemo(
+    () => (currentTab && !isViewerTab && (!/\.[A-Za-z0-9]+$/.test(currentTab.name) || /\.qu$/i.test(currentTab.name)) ? { name: currentTab.name, code } : null),
+    [currentTab, isViewerTab, code]
+  );
+  const isQuSource =!isViewerTab && (!currentTab || !/\.[A-Za-z0-9]+$/.test(currentTab.name) || /\.qu$/i.test(currentTab.name));
 
   const [replMode, setReplMode] = useState<ReplMode>(loadReplMode);
   useEffect(() => {
@@ -2914,6 +2921,13 @@ function App() {
           <LiveSerialPlotPanel theme={resolvedTheme as 'light' | 'dark'} invoke={invoke} />
         ) : activeTab === 'designer' ? (
           <GuiDesignerPanel theme={resolvedTheme as 'light' | 'dark'} invoke={invoke} />
+        ) : activeTab === 'loop' ? (
+          <LoopPanel
+            theme={resolvedTheme as 'light' | 'dark'}
+            invoke={invoke}
+            editorFile={loopEditorFile}
+            onOpenInEditor={openCodeInEditor}
+          />
         ) : activeTab === 'dsp' ? (
           <DspWorkbenchPanel
             theme={resolvedTheme as 'light' | 'dark'}
