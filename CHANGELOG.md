@@ -10,6 +10,14 @@ changes are called out.
 
 ## [Unreleased]
 
+- `eig` no longer fails on permutation-like matrices such as the companion matrix of `x^4 + 1` ("Schur (QR iteration did not converge)"). When the plain double-shift iteration stalls, it now falls back to the windowed solver, which has exceptional shifts. Checked on the companion matrices of `x^n + c` for n = 3 to 12.
+
+- Polynomials: new `roots(p)` (companion-matrix eigenvalues, each answer verified against the polynomial and recomputed by an Aberth iteration if the eigenvalue solver fails or is inaccurate), `poly(r)` (coefficients from roots, real when the roots come in conjugate pairs), `deconv(b, a)` (long division, returns `{q, r}`), `polyder(p)` and `polyint(p, [k])`. Highest power first, like `polyfit`, `polyval` and `conv`.
+
+- Number theory: new `gcd`, `lcm`, `primes(n)`, `isprime`, `factor(n)`, `nchoosek(n, k)` and `factorial`. They take integers only and say so for anything else; results that `f64` cannot hold exactly (above 2^53) are errors rather than rounded values. `gcd`/`lcm`/`isprime`/`factorial` also work elementwise on vectors.
+
+- Matrix builders and subspaces: new `toeplitz(c, [r])`, `hankel(c, [r])`, `vander(v, [n])`, `null(A)` and `orth(A)` (orthonormal bases from the SVD, MATLAB's rank tolerance), and `gradient(v, [h])` (central differences inside, one-sided at the ends, uniform spacing or a coordinate vector).
+
 - Qu Studio has a Loop tab for software-in-the-loop and hardware-in-the-loop work: pick a plant and a controller (an example, a `.qu` file, the file in the editor, or for the controller a compiled C library), run it in SIL (as fast as possible, on the virtual clock) or HIL (paced against real time), and watch a live scope with an on-time / running-late readout (steps, overruns, worst and mean lateness). It generates one ordinary Qu script you can copy or open in the editor. A run can be recorded, replayed, and compared against a reference trace with per-signal tolerances and pass/fail; an optional I/O section binds the loop to a serial port or a TCP address (tested against a loopback stand-in, not real hardware).
 
 - `run_for` no longer drops the last tick. Each tick is now computed as `k * interval` instead of adding the interval repeatedly, which let rounding error push the final tick just past the end: `every 50 ms` with `run_for(1)` fired 19 times instead of 20, and 5 s at 1 ms gave 4999 steps instead of 5000. A run that ends strictly before a tick still does not fire it.

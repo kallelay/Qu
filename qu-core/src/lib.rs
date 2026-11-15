@@ -53,6 +53,9 @@ pub mod sinad;
 /// comment for what each kind models and why they are not interchangeable.
 pub mod noise;
 pub mod matrix;
+pub mod matrix_builders;
+pub mod number_theory;
+pub mod poly_ops;
 pub mod optimize;
 pub mod rf;
 pub mod selection;

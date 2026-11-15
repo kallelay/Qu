@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>roots — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>roots</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/statistics-ml.html">Statistics & ML</a></p>
+<pre class="fnsig">result = <code>roots(p)</code></pre>
+<p class="fnnote">Input: p &middot; Output: result</p>
+<h2>What it is</h2>
+<p>Roots of the polynomial whose coefficients <code>p</code> (a real <code>Vec</code>, highest power first, the order <code>polyfit</code>/<code>polyval</code> use) are given, as the eigenvalues of the companion matrix. Leading zeros are dropped; trailing zeros come back as exact <code>0</code> roots (last); a constant or all-zero <code>p</code> has no roots and gives an empty <code>Vec</code>.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = roots(p)</code></td><td><div class="ioitem"><code>p</code> <span class="iotype">Vec or matrix</span><span class="iogap">not documented yet</span></div>
+</td><td><div class="ioitem"><code>eps^(1/m)</code> <span class="iotype">&mdash;</span><span class="iodesc">a double root to ~1e-8</span></div>
+</td><td>Returns a <code>Vec</code> when every root is real, otherwise a <code>CVec</code>. The order of the roots is unspecified (<code>sort</code> the result if you need one). Every answer is checked against the polynomial, and if the eigenvalue solver fails or is inaccurate the roots are recomputed by an Aberth iteration polished with Newton steps, so a result is never returned unverified. A multiple root of multiplicity <code>m</code> can only be found to about <code>eps^(1/m)</code> (a double root to ~1e-8), which is a property of the problem, not of the method. Errors: empty <code>p</code>, non-finite or complex coefficients, a non-vector, wrong argument count.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">No documentation example calls this form yet. The <a href="../docs/statistics-ml.html">Statistics & ML</a> chapter is where one belongs.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.3.0 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

@@ -467,8 +467,21 @@ pub fn eig(input: &Matrix) -> Result<EigResult, LinalgError> {
         // `schur()` iterates without a bound and never terminates on some
         // permutation-like inputs (no exceptional shifts); bound the total
         // iteration count -- ordinary inputs need ~2n -- and report an error.
-        let schur = nalgebra::linalg::Schur::try_new(source, f64::EPSILON, 1000 + 100 * rows)
-            .ok_or(LinalgError::Decomposition("Schur (QR iteration did not converge)"))?;
+        let schur = match nalgebra::linalg::Schur::try_new(source, f64::EPSILON, 1000 + 100 * rows)
+        {
+            Some(s) => s,
+            None => {
+                // The plain double-shift iteration stalls on permutation-like
+                // matrices, e.g. the companion matrix of x^4 + 1. The windowed
+                // solver has LAPACK's exceptional shifts and gets through them.
+                if rows >= 3 {
+                    if let Some((re, im)) = crate::dense_eiggen::eigenvalues(data, rows) {
+                        return Ok(EigResult { values_re: re, values_im: im, vectors: None });
+                    }
+                }
+                return Err(LinalgError::Decomposition("Schur (QR iteration did not converge)"));
+            }
+        };
         let eigenvalues = schur.complex_eigenvalues();
         Ok(EigResult {
             values_re: eigenvalues.iter().map(|c| c.re).collect(),
@@ -630,6 +643,36 @@ mod tests {
         lambda.set(1, 1, result.values_re[1]).unwrap();
         let reconstructed = v.matmul(&lambda).unwrap().matmul(&v.transpose()).unwrap();
         assert_matrix_close(&reconstructed, &a, 1e-9);
+    }
+
+    #[test]
+    fn eig_of_companion_matrices_of_x_pow_n_plus_c_lies_on_the_circle() {
+        // x^n + c: a permutation-like matrix the plain Schur iteration stalls on.
+        for n in 3..=12usize {
+            for &c in &[1.0f64, 4.0, 0.01, 100.0] {
+                let mut rows = vec![vec![0.0; n]; n];
+                for i in 1..n {
+                    rows[i][i - 1] = 1.0;
+                }
+                rows[0][n - 1] = -c;
+                let a = Matrix::from_rows(&rows).unwrap();
+                let r = eig(&a).unwrap_or_else(|e| panic!("n={n} c={c}: {e:?}"));
+                let radius = c.powf(1.0 / n as f64);
+                for k in 0..n {
+                    let m = (r.values_re[k].powi(2) + r.values_im[k].powi(2)).sqrt();
+                    assert!((m - radius).abs() < 1e-8 * radius.max(1.0), "n={n} c={c}: |lambda|={m} want {radius}");
+                    // each root satisfies lambda^n = -c
+                    let (re, im) = (r.values_re[k], r.values_im[k]);
+                    let (mut pr, mut pi) = (1.0f64, 0.0f64);
+                    for _ in 0..n {
+                        let t = pr * re - pi * im;
+                        pi = pr * im + pi * re;
+                        pr = t;
+                    }
+                    assert!((pr + c).abs() < 1e-7 * c.max(1.0) && pi.abs() < 1e-7 * c.max(1.0), "n={n} c={c}: lambda^n = {pr}+{pi}j");
+                }
+            }
+        }
     }
 
     #[test]
