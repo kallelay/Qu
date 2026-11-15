@@ -10,6 +10,8 @@ changes are called out.
 
 ## [Unreleased]
 
+- Dependencies: `lopdf` 0.45 to 0.47 (PDF), `calamine` 0.36 to 0.38 and `rust_xlsxwriter` 0.99 to 0.102 (Excel), `zeromq` 0.6 to 0.7 (Jupyter kernel) and the optional `tch` 0.26 to 0.27. Only these crates and the few they newly need were updated in the lockfile; the rest stay where they were, because a newer `candle-core` does not compile on the Rust 1.93 toolchain.
+
 ## [0.4.13] - 2026-11-14
 
 - Qu Studio: the "Drop to open" overlay no longer gets stuck on screen. A drag that left the window quickly or was cancelled sent no "leave" event, so the overlay stayed up. It now clears on Esc, on any click, when the pointer moves again, or after 15 seconds, it has a ✕ button, and the drag counter behind it is reset each time.

@@ -117,7 +117,7 @@ qu-gpu = { path = "../../../qu-gpu", optional = true }
 # `LIBTORCH_USE_PYTORCH=1` env var -- see `tch`'s own README) at BUILD and
 # RUN time, same class of "needs a system library" as `gpu`'s wgpu driver
 # requirement, just more so (no software-only fallback the way wgpu has one).
-tch = { version = "0.26", optional = true }
+tch = { version = "0.27", optional = true }
 # Optional, default-off, same "keep the crate dependency-free by default"
 # policy as `tch` above: enable with `--features backend-tensorflow` for a
 # THIRD `TensorBackend` (`TensorFlowBackend`, `tensor_backend_tensorflow.rs`
@@ -309,4 +309,4 @@ llm = ["dep:qu-llm"]
 
 [dev-dependencies]
 # Interpreter tests for `import pdf` build tiny PDFs with the same library qu-pdf uses.
-lopdf = "0.45"
+lopdf = "0.47"

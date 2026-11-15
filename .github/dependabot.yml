@@ -17,6 +17,18 @@ updates:
     groups:
       studio-dependencies:
         patterns: ["*"]
+    ignore:
+      # Studio is on Tauri 1.x. Tauri 2 is a rewrite (the `tauri`, `dialog`
+      # and `fs` JS modules moved or went away, plugins replace them), so the
+      # JS API and CLI must move together in a planned migration, not through
+      # a dependency PR that fails the typecheck.
+      - dependency-name: "@tauri-apps/api"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@tauri-apps/cli"
+        update-types: ["version-update:semver-major"]
+      # MathJax 4 changes the bundle layout `scripts/vendor-mathjax.mjs` copies.
+      - dependency-name: "mathjax"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: "github-actions"
     directory: "/"

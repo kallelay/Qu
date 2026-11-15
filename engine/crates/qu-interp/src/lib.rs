@@ -63039,7 +63039,11 @@ mod tests {
             t0.elapsed().as_secs_f64()
         };
         let _ = time(2000);
-        let ratio = time(160_000) / time(40_000).max(1e-6);
+        // Best of three per size: one sample is easily doubled by another
+        // process on a loaded machine (this failed at 14x under a parallel
+        // build while passing alone); quadratic growth (16x) survives a min.
+        let best = |n: usize| (0..3).map(|_| time(n)).fold(f64::MAX, f64::min);
+        let ratio = best(160_000) / best(40_000).max(1e-6);
         assert!(ratio < 10.0, "4x the appends took {ratio:.1}x the time -- quadratic again?");
     }
 
