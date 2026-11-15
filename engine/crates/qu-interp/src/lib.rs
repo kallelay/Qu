@@ -188,6 +188,7 @@ pub mod sparse_ops;
 pub mod lti_ops;
 mod basics_ops;
 mod num_ops;
+mod solver_ops;
 #[cfg(any(feature = "docx", feature = "pptx", feature = "xlsx"))]
 pub mod office_ops;
 pub mod surgery_ops;
@@ -4009,7 +4010,7 @@ pub const MODULE_EXPORTS: &[(&str, &[&str])] = &[
     ("pdf", &["add_annotation", "add_attachment", "add_bookmark", "add_link", "add_page", "add_text", "annotations", "attachments", "crop_box", "crop_page", "delete_page", "duplicate_page", "extract_attachment", "extract_image", "extract_pages", "extract_text", "find_text", "images", "info", "media_box", "merge", "move_page", "outlines", "page_count", "remove_annotation", "render", "replace_text", "reverse_pages", "rotate_page", "set_metadata", "split_at", "split_every", "strip_metadata", "structural_diff", "text_diff", "to_html", "write_merge", "write_pages"]),
     ("image", &["load", "luma", "regions", "blur", "canny", "bilateral", "distance_transform", "skeleton", "fill_holes", "contours", "autocrop", "sobel", "scharr", "laplacian", "gradient_magnitude", "rgb2hsv", "hsv2rgb", "rgb2lab", "lab2rgb", "watershed"]),
     ("svg", &["rect", "circle", "line", "path", "text"]),
-    ("sparse", &["from_triplets", "from_dense", "eye", "diag", "random", "size", "nnz", "density", "to_dense", "get", "triplets", "transpose", "add", "sub", "scale", "mul", "hadamard", "solve"]),
+    ("sparse", &["from_triplets", "from_dense", "eye", "diag", "random", "size", "nnz", "density", "to_dense", "get", "triplets", "transpose", "add", "sub", "scale", "mul", "hadamard", "solve", "cg", "gmres", "bicgstab"]),
 ];
 
 const DEPRECATED: &[(&str, &str, &str)] = &[
@@ -32554,6 +32555,19 @@ self.eval_grad(loss, wrt)
                 let x0 = to_vec(arg_get(&args, 1).ok_or_else(|| EvalError {
                     msg: "minimize(f, x0) needs at least 2 arguments".into(),
                 })?)?;
+                // `method=` picks the algorithm: "bfgs" (default; the
+                // L-BFGS quasi-Newton minimizer below, "lbfgs" is an
+                // alias) or "nelder_mead" (derivative-free simplex, see
+                // `solver_ops.rs`).
+                match style_str(&style, "method").as_deref() {
+                    None | Some("bfgs") | Some("lbfgs") => {}
+                    Some("nelder_mead") | Some("neldermead") | Some("nelder-mead") => {
+                        return self.minimize_nelder_mead(&fn_name, &x0, &style);
+                    }
+                    Some(other) => {
+                        return e(format!("minimize: unknown method \"{other}\" -- use \"bfgs\" (the default) or \"nelder_mead\""));
+                    }
+                }
                 let max_iter = style_num(&style, "max_iter").unwrap_or(200.0) as usize;
                 let tol = style_num(&style, "tol").unwrap_or(1e-8);
                 let grad_name = style_str(&style, "grad");
@@ -35462,6 +35476,7 @@ self.eval_grad(loss, wrt)
             f if lti_ops::NAMES.contains(&f) => lti_ops::call(f, &args, &style),
             f if trace_ops::NAMES.contains(&f) => trace_ops::call(f, &args, &style),
             f if num_ops::NAMES.contains(&f) => num_ops::call(f, &args),
+            f if solver_ops::NAMES.contains(&f) => self.solver_call(f, &args, &style),
             // atan2/hypot/fix/rem/maximum/minimum/isnan/isinf/isfinite/cumprod/repmat/kron/outer/
             // cross/tril/triu/nnz/lstsq/expm -- see `basics_ops.rs`.
             "atan2" | "hypot" | "fix" | "rem" | "maximum" | "minimum" | "isnan" | "isinf" | "isfinite"
@@ -47352,7 +47367,8 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "find_hex", "find_missing", "find_outliers", "find_peaks", "find_pulses", "find_trigger",
     "find_zero_crossings", "findpeaks", "finv", "fir1", "firls", "firpm", "first", "fit",
     "fit_scaler", "fix", "flatten", "flip", "fliplr", "flipud", "floor", "fold", "fontfamily",
-    "fontsize", "fopen", "foreground_mask", "format", "forward", "fpdf", "freqz", "frnd", "fstat",
+    "fontsize", "fopen", "foreground_mask", "format", "forward", "fpdf", "freqz", "frnd", "fsolve",
+    "fstat",
     "fuzzy_pid_init", "fvtool", "fzero", "gain", "gamcdf", "gamfit", "gaminv", "gamma", "gampdf",
     "gamrnd", "gamstat", "gaussian_process", "gcd", "generate", "geocdf", "geofit", "geoinv",
     "geopdf", "geornd", "geostat", "gerischer", "get", "get_bit", "getenv", "glob", "gmm_model",
@@ -47379,7 +47395,8 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "kurtosis", "lab", "label_blobs", "last", "last_index_of", "layer_norm", "lcase", "lcm",
     "lda_model", "least_squares", "left", "legend", "len", "length", "levenshtein", "lfilter",
     "lgamma", "like", "line", "line_at", "line_col", "line_count", "line_delete", "line_insert",
-    "line_range", "line_set", "lines", "linked_list", "linspace", "list_dir", "list_files",
+    "line_range", "line_set", "lines", "linked_list", "linprog",
+    "linspace", "list_dir", "list_files",
     "listdir", "listen_pool", "llm_load", "lms_init", "ln", "load", "load_image", "load_library",
     "load_model", "load_svg", "log", "log10", "log1p", "log2", "logistic_model", "loglog",
     "logncdf", "lognfit", "logninv", "lognpdf", "lognrnd", "lognstat", "logspace", "logsumexp",
@@ -47417,7 +47434,8 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "profile_start", "profile_stats", "profiling_mode", "progress", "proper", "psd", "pt",
     "pulse_frequency", "pulse_period", "pulse_width", "pump_watches", "push", "push_back",
     "push_front", "pwd", "pwl", "pwm", "python_exec", "pzplot", "q_learning", "qam_demodulate",
-    "qam_modulate", "qda_model", "qr", "quad", "quad_info", "quantile", "quantile_normalize",
+    "qam_modulate", "qda_model", "qr", "quad", "quad_info", "quadprog",
+    "quantile", "quantile_normalize",
     "queue", "quick_mlp", "r2", "raincloud", "rand", "randi", "randn", "random_forest_model",
     "random_walk", "range", "range_decode", "range_encode", "rank", "rans_decode", "rans_encode",
     "re", "read", "read_all", "read_all_text", "read_array", "read_bin", "read_bit", "read_byte",

@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>quadprog — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>quadprog</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/signal-processing.html">Signal processing</a></p>
+<pre class="fnsig">result = <code>quadprog(H, f, [A], [b], [Aeq=], [beq=], [lb=], [ub=], [max_iter=])</code></pre>
+<p class="fnnote">Input: H, f, A, b, Aeq, beq, lb, ub, max_iter &middot; Output: result</p>
+<h2>What it is</h2>
+<p>Convex quadratic programming: minimises <code>0.5 x'Hx + f'x</code> subject to <code>A x &lt;= b</code>, <code>Aeq x = beq</code> and <code>lb &lt;= x &lt;= ub</code>, with the same constraint conventions, bound defaults (<code>-Inf</code>/<code>+Inf</code>) and keyword-or-positional rules as <code>linprog</code>. <code>H</code>: a symmetric positive semidefinite N-by-N matrix; <code>f</code>: a length-N vector. Method: infeasibility is decided exactly first (the phase-I simplex of <code>linprog</code>), then unboundedness (a feasible direction in the null space of <code>H</code> along which the objective falls), then a Mehrotra predictor-corrector primal-dual interior-point method, and finally the active set it found is re-solved as an equality-constrained KKT system, so the answer is the exact vertex or face solution rather than an interior-point approximation (checked against <code>-H\f</code>, Nocedal and Wright's example 16.4 and a closed-form portfolio).</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = quadprog(H, f, [A], [b], [Aeq=], [beq=], [lb=], [ub=], [max_iter=])</code></td><td><div class="ioitem"><code>H</code> <span class="iotype">matrix</span><span class="iodesc"><code>H</code>: a symmetric positive semidefinite N-by-N matrix.</span></div>
+<div class="ioitem"><code>f</code> <span class="iotype">vector</span><span class="iodesc"><code>f</code>: a length-N vector.</span></div>
+<div class="ioitem"><code>A</code> <span class="iotype">optional</span><span class="iodesc">Convex quadratic programming: minimises <code>0.5 x'Hx + f'x</code> subject to <code>A x &lt;= b</code>, <code>Aeq x = beq</code> and <code>lb &lt;= x &lt;= ub</code>, with the same constraint conventions, bound defaults (<code>-Inf</code>/<code>+Inf</code>) and keyword-or-positional rules as <code>linprog</code>.</span></div>
+<div class="ioitem"><code>b</code> <span class="iotype">optional</span><span class="iodesc">Convex quadratic programming: minimises <code>0.5 x'Hx + f'x</code> subject to <code>A x &lt;= b</code>, <code>Aeq x = beq</code> and <code>lb &lt;= x &lt;= ub</code>, with the same constraint conventions, bound defaults (<code>-Inf</code>/<code>+Inf</code>) and keyword-or-positional rules as <code>linprog</code>.</span></div>
+<div class="ioitem"><code>Aeq</code> <span class="iotype">optional</span><span class="iodesc">Convex quadratic programming: minimises <code>0.5 x'Hx + f'x</code> subject to <code>A x &lt;= b</code>, <code>Aeq x = beq</code> and <code>lb &lt;= x &lt;= ub</code>, with the same constraint conventions, bound defaults (<code>-Inf</code>/<code>+Inf</code>) and keyword-or-positional rules as <code>linprog</code>.</span></div>
+<div class="ioitem"><code>beq</code> <span class="iotype">optional</span><span class="iodesc">Convex quadratic programming: minimises <code>0.5 x'Hx + f'x</code> subject to <code>A x &lt;= b</code>, <code>Aeq x = beq</code> and <code>lb &lt;= x &lt;= ub</code>, with the same constraint conventions, bound defaults (<code>-Inf</code>/<code>+Inf</code>) and keyword-or-positional rules as <code>linprog</code>.</span></div>
+<div class="ioitem"><code>lb</code> <span class="iotype">optional</span><span class="iodesc">Convex quadratic programming: minimises <code>0.5 x'Hx + f'x</code> subject to <code>A x &lt;= b</code>, <code>Aeq x = beq</code> and <code>lb &lt;= x &lt;= ub</code>, with the same constraint conventions, bound defaults (<code>-Inf</code>/<code>+Inf</code>) and keyword-or-positional rules as <code>linprog</code>.</span></div>
+<div class="ioitem"><code>ub</code> <span class="iotype">optional</span><span class="iodesc">Convex quadratic programming: minimises <code>0.5 x'Hx + f'x</code> subject to <code>A x &lt;= b</code>, <code>Aeq x = beq</code> and <code>lb &lt;= x &lt;= ub</code>, with the same constraint conventions, bound defaults (<code>-Inf</code>/<code>+Inf</code>) and keyword-or-positional rules as <code>linprog</code>.</span></div>
+<div class="ioitem"><code>max_iter</code> <span class="iotype">optional</span><span class="iogap">not documented yet</span></div>
+</td><td><div class="ioitem"><code>Model</code> <span class="iotype">&mdash;</span><span class="iodesc">kind <code>"quadprog"</code></span></div>
+<div class="ioitem"><code>status</code> <span class="iotype">&mdash;</span><span class="iodesc"><code>"optimal"</code>, <code>"infeasible"</code>, <code>"unbounded"</code> or <code>"iteration_limit"</code>, with the same NaN/-Inf conventions as <code>linprog</code></span></div>
+<div class="ioitem"><code>iterations</code> <span class="iotype">&mdash;</span><span class="iodesc">interior-point iterations; 1 for a pure equality-constrained problem</span></div>
+</td><td>Returns a <code>Model</code> (kind <code>"quadprog"</code>) with <code>x</code>, <code>fval</code>, <code>status</code> (<code>"optimal"</code>, <code>"infeasible"</code>, <code>"unbounded"</code> or <code>"iteration_limit"</code>, with the same NaN/-Inf conventions as <code>linprog</code>) and <code>iterations</code> (interior-point iterations; 1 for a pure equality-constrained problem). A singular <code>H</code> is fine as long as the problem is bounded. Errors: an <code>H</code> that is not symmetric (to 1e-8 relative; pass <code>(H + H') / 2</code> if you mean the symmetric part), an <code>H</code> that is clearly indefinite (the message gives the smallest eigenvalue; non-convex problems are not supported), <code>H</code> and <code>f</code> of different sizes, NaN or Inf in any input, and the constraint errors listed under <code>linprog</code>.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">No documentation example calls this form yet. The <a href="../docs/signal-processing.html">Signal processing</a> chapter is where one belongs.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.3.0 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

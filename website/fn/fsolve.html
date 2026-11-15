@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>fsolve — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>fsolve</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/signal-processing.html">Signal processing</a></p>
+<pre class="fnsig">result = <code>fsolve(f, x0, [tol=1e-10], [max_iter=200], [jac=])</code></pre>
+<p class="fnnote">Input: f, x0, tol, max_iter, jac &middot; Output: result</p>
+<h2>What it is</h2>
+<p>Solves the nonlinear system <code>f(x) = 0</code>. <code>f</code>: a function (or the string naming a user-defined function) taking a vector <code>x</code> and returning a real vector; <code>x0</code>: the starting vector; <code>tol</code> (number): the stopping tolerance; <code>max_iter</code> (positive whole number): the iteration cap (each trial step counts as one, and an iteration costs at most <code>length(x0) + 7</code> calls of <code>f</code>, so a slow <code>f</code> cannot run unbounded); <code>jac</code> (optional function or name): returns the Jacobian as a matrix with one row per equation and one column per unknown, otherwise a forward-difference Jacobian is used. Method: damped Newton (a backtracking line search on <code>norm(f)</code>) with Levenberg-Marquardt as the fallback whenever the Newton step cannot reduce the residual, which is robust far from the root and quadratically convergent near it. A non-square system is solved in the least-squares sense (more equations than unknowns) or returns a point on the solution set (fewer).</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = fsolve(f, x0, [tol=1e-10], [max_iter=200], [jac=])</code></td><td><div class="ioitem"><code>f</code> <span class="iotype">string or vector</span><span class="iodesc"><code>f</code>: a function (or the string naming a user-defined function) taking a vector <code>x</code> and returning a real vector.</span></div>
+<div class="ioitem"><code>x0</code> <span class="iotype">vector</span><span class="iodesc"><code>x0</code>: the starting vector.</span></div>
+<div class="ioitem"><code>tol</code> <span class="iotype">number, optional (default <code>1e-10</code>)</span><span class="iodesc"><code>tol</code> (number): the stopping tolerance.</span></div>
+<div class="ioitem"><code>max_iter</code> <span class="iotype">number, optional (default <code>200</code>)</span><span class="iodesc"><code>max_iter</code> (positive whole number): the iteration cap (each trial step counts as one, and an iteration costs at most <code>length(x0) + 7</code> calls of <code>f</code>, so a slow <code>f</code> cannot run unbounded).</span></div>
+<div class="ioitem"><code>jac</code> <span class="iotype">matrix, optional</span><span class="iodesc"><code>jac</code> (optional function or name): returns the Jacobian as a matrix with one row per equation and one column per unknown, otherwise a forward-difference Jacobian is used.</span></div>
+</td><td><div class="ioitem"><code>Model</code> <span class="iotype">&mdash;</span><span class="iodesc">kind <code>"fsolve"</code></span></div>
+<div class="ioitem"><code>x</code> <span class="iotype">vector</span><span class="iodesc">the solution vector</span></div>
+<div class="ioitem"><code>fval</code> <span class="iotype">&mdash;</span><span class="iodesc"><code>f</code> at <code>x</code></span></div>
+<div class="ioitem"><code>norm</code> <span class="iotype">&mdash;</span><span class="iodesc">the 2-norm of <code>fval</code></span></div>
+<div class="ioitem"><code>iterations</code> <span class="iotype">number</span><span class="iodesc">a number</span></div>
+<div class="ioitem"><code>converged</code> <span class="iotype">boolean</span><span class="iodesc">a boolean</span></div>
+<div class="ioitem"><code>jac</code> <span class="iotype">&mdash;</span><span class="iodesc">passed through</span></div>
+</td><td>Returns a <code>Model</code> (kind <code>"fsolve"</code>) with <code>x</code> (the solution vector), <code>fval</code> (<code>f</code> at <code>x</code>), <code>norm</code> (the 2-norm of <code>fval</code>), <code>iterations</code> (a number) and <code>converged</code> (a boolean). <code>converged</code> means <code>norm &lt;= tol * max(1, norm(f(x0)))</code>, or for more equations than unknowns that the residual is orthogonal to the Jacobian's columns (a least-squares minimum). Failing to converge is <strong>not</strong> an error: check <code>converged</code>; a system with no real root such as <code>x^2 + 1 = 0</code> returns the nearest point with <code>converged = false</code>. Errors: an unknown function, a non-finite <code>x0</code>, <code>f(x0)</code> that is NaN or Inf, an <code>f</code> that returns a different number of values on different calls, a <code>jac</code> of the wrong shape, and any error raised inside <code>f</code> or <code>jac</code> (passed through).</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">No documentation example calls this form yet. The <a href="../docs/signal-processing.html">Signal processing</a> chapter is where one belongs.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.3.0 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

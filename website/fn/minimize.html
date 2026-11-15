@@ -30,24 +30,25 @@
 <h1>minimize</h1>
 <nav class="onthispage"></nav>
 <p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/signal-processing.html">Signal processing</a></p>
-<pre class="fnsig">result = <code>minimize(f, x0, [grad=], [max_iter=200], [tol=1e-8])</code></pre>
-<p class="fnnote">Input: f, x0, grad, max_iter, tol &middot; Output: result</p>
+<pre class="fnsig">result = <code>minimize(f, x0, [method="bfgs"], [grad=], [max_iter=200], [tol=1e-8])</code></pre>
+<p class="fnnote">Input: f, x0, method, grad, max_iter, tol &middot; Output: result</p>
 <h2>What it is</h2>
-<p><code>f</code>: a string naming a user-defined function <code>f(params)</code> (a length-P vector) returning a scalar; <code>x0</code>: a length-P vector, the starting point; <code>grad</code> (optional string naming a gradient function, else the gradient is numerical/central-differences); <code>max_iter</code>/<code>tol</code> (optional numbers).</p>
+<p><code>f</code>: a string naming a user-defined function <code>f(params)</code> (a length-P vector) returning a scalar; <code>x0</code>: a length-P vector, the starting point; <code>method</code> (optional string, *added in v0.4.14*): <code>"bfgs"</code> (the default, unchanged: the L-BFGS quasi-Newton minimizer; <code>"lbfgs"</code> is an alias) or <code>"nelder_mead"</code> (derivative-free simplex with the adaptive coefficients of Gao and Han, which hold up as the dimension grows; the initial simplex perturbs each coordinate of <code>x0</code> by 5%, or by 0.00025 where it is zero; use it for noisy or non-smooth objectives; <code>converged</code> is true only when the simplex has shrunk below <code>tol</code> in every coordinate *and* the function values agree to <code>tol</code>; <code>max_iter</code> then defaults to <code>200*P</code>; <code>grad=</code> is refused with it; a NaN objective value is treated as +Inf and the simplex steps away from it; <code>f(x0)</code> must be finite); <code>grad</code> (optional string naming a gradient function, else the gradient is numerical/central-differences; <code>method="bfgs"</code> only); <code>max_iter</code>/<code>tol</code> (optional numbers).</p>
 <h2>Overloads</h2>
 <p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
 <div class="tablewrap"><table class="iotable">
 <tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
-<tr><td class="iocode"><code>result = minimize(f, x0, [grad=], [max_iter=200], [tol=1e-8])</code></td><td><div class="ioitem"><code>f</code> <span class="iotype">string, vector, or scalar</span><span class="iodesc"><code>f</code>: a string naming a user-defined function <code>f(params)</code> (a length-P vector) returning a scalar.</span></div>
+<tr><td class="iocode"><code>result = minimize(f, x0, [method="bfgs"], [grad=], [max_iter=200], [tol=1e-8])</code></td><td><div class="ioitem"><code>f</code> <span class="iotype">string, vector, or scalar</span><span class="iodesc"><code>f</code>: a string naming a user-defined function <code>f(params)</code> (a length-P vector) returning a scalar.</span></div>
 <div class="ioitem"><code>x0</code> <span class="iotype">vector</span><span class="iodesc"><code>x0</code>: a length-P vector, the starting point.</span></div>
-<div class="ioitem"><code>grad</code> <span class="iotype">string, optional</span><span class="iodesc"><code>grad</code> (optional string naming a gradient function, else the gradient is numerical/central-differences).</span></div>
-<div class="ioitem"><code>max_iter</code> <span class="iotype">number, optional (default <code>200</code>)</span><span class="iodesc"><code>max_iter</code>/<code>tol</code> (optional numbers).</span></div>
+<div class="ioitem"><code>method</code> <span class="iotype">string, optional (default <code>"bfgs"</code>)</span><span class="iodesc"><code>method</code> (optional string, *added in v0.4.14*): <code>"bfgs"</code> (the default, unchanged: the L-BFGS quasi-Newton minimizer.</span></div>
+<div class="ioitem"><code>grad</code> <span class="iotype">optional</span><span class="iodesc"><code>grad=</code> is refused with it.</span></div>
+<div class="ioitem"><code>max_iter</code> <span class="iotype">optional (default <code>200</code>)</span><span class="iodesc"><code>max_iter</code> then defaults to <code>200*P</code>.</span></div>
 <div class="ioitem"><code>tol</code> <span class="iotype">number, optional (default <code>1e-8</code>)</span><span class="iodesc"><code>max_iter</code>/<code>tol</code> (optional numbers).</span></div>
 </td><td><div class="ioitem"><code>Model</code> <span class="iotype">&mdash;</span><span class="iodesc">kind <code>"minimize"</code></span></div>
 <div class="ioitem"><code>params</code> <span class="iotype">vector</span><span class="iodesc">length-P vector</span></div>
 <div class="ioitem"><code>value</code> <span class="iotype">number</span><span class="iodesc">a number</span></div>
 <div class="ioitem"><code>converged</code> <span class="iotype">boolean</span><span class="iodesc">a boolean</span></div>
-</td><td>Returns a <code>Model</code> (kind <code>"minimize"</code>) with fields <code>params</code> (length-P vector), <code>value</code> (a number), <code>converged</code> (a boolean). L-BFGS quasi-Newton multivariate minimizer.</td></tr>
+</td><td>Returns a <code>Model</code> (kind <code>"minimize"</code>) with fields <code>params</code> (length-P vector), <code>value</code> (a number), <code>converged</code> (a boolean). An unknown <code>method</code> is an error naming the two choices.</td></tr>
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>

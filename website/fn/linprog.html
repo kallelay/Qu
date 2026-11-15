@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>linprog — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>linprog</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/signal-processing.html">Signal processing</a></p>
+<pre class="fnsig">result = <code>linprog(c, A, b, [Aeq=], [beq=], [lb=], [ub=], [max_iter=])</code></pre>
+<p class="fnnote">Input: c, A, b, Aeq, beq, lb, ub, max_iter &middot; Output: result</p>
+<h2>What it is</h2>
+<p>Linear programming: minimises <code>c'x</code> subject to <code>A x &lt;= b</code>, <code>Aeq x = beq</code> and <code>lb &lt;= x &lt;= ub</code>. <code>c</code>: a length-N vector; <code>A</code>: a matrix with N columns (one row per inequality; a plain vector of length N is one row) and <code>b</code> the matching vector, both given or both omitted (pass <code>[]</code> to skip them when you only use <code>Aeq</code>); <code>Aeq</code>/<code>beq</code>: the equalities, same shape rules; <code>lb</code>/<code>ub</code>: a length-N vector or one number for all variables. <strong>Bounds default to </strong><code>lb = -Inf</code>, <code>ub = +Inf</code><strong> (MATLAB's convention, so a variable is free unless bounded): the textbook standard form </strong><code>x &gt;= 0</code> needs <code>lb=0</code>. <code>Aeq</code>, <code>beq</code>, <code>lb</code> and <code>ub</code> can be keywords or, in MATLAB's order, positional arguments 4 to 7. Method: two-phase simplex on a dense tableau (free variables split, finite bounds substituted, inequalities given slacks); Dantzig's pivot rule, switching to Bland's smallest-index rule whenever the objective has stalled, so degenerate vertices cannot cycle (Beale's classic cycling example solves). Made for small and medium problems (hundreds of variables), not for large sparse LPs.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>result = linprog(c, A, b, [Aeq=], [beq=], [lb=], [ub=], [max_iter=])</code></td><td><div class="ioitem"><code>c</code> <span class="iotype">vector</span><span class="iodesc"><code>c</code>: a length-N vector.</span></div>
+<div class="ioitem"><code>A</code> <span class="iotype">matrix</span><span class="iodesc"><code>A</code>: a matrix with N columns (one row per inequality.</span></div>
+<div class="ioitem"><code>b</code> <span class="iotype">&mdash;</span><span class="iodesc">Linear programming: minimises <code>c'x</code> subject to <code>A x &lt;= b</code>, <code>Aeq x = beq</code> and <code>lb &lt;= x &lt;= ub</code>.</span></div>
+<div class="ioitem"><code>Aeq</code> <span class="iotype">optional</span><span class="iodesc"><code>Aeq</code>/<code>beq</code>: the equalities, same shape rules.</span></div>
+<div class="ioitem"><code>beq</code> <span class="iotype">optional</span><span class="iodesc">Linear programming: minimises <code>c'x</code> subject to <code>A x &lt;= b</code>, <code>Aeq x = beq</code> and <code>lb &lt;= x &lt;= ub</code>.</span></div>
+<div class="ioitem"><code>lb</code> <span class="iotype">vector or number, optional</span><span class="iodesc"><code>lb</code>/<code>ub</code>: a length-N vector or one number for all variables.</span></div>
+<div class="ioitem"><code>ub</code> <span class="iotype">optional</span><span class="iodesc">Linear programming: minimises <code>c'x</code> subject to <code>A x &lt;= b</code>, <code>Aeq x = beq</code> and <code>lb &lt;= x &lt;= ub</code>.</span></div>
+<div class="ioitem"><code>max_iter</code> <span class="iotype">optional</span><span class="iodesc"><code>status</code> is <code>"optimal"</code>, <code>"infeasible"</code> (<code>x</code> is all NaN, <code>fval</code> NaN), <code>"unbounded"</code> (<code>x</code> all NaN, <code>fval = -Inf</code>) or <code>"iteration_limit"</code> (<code>max_iter</code> pivots, default <code>20000 + 100*(N + rows)</code>, were not enough.</span></div>
+</td><td><div class="ioitem"><code>Model</code> <span class="iotype">&mdash;</span><span class="iodesc">kind <code>"linprog"</code></span></div>
+<div class="ioitem"><code>x</code> <span class="iotype">&mdash;</span><span class="iodesc">the minimiser</span></div>
+<div class="ioitem"><code>fval</code> <span class="iotype">&mdash;</span><span class="iodesc"><code>c'x</code></span></div>
+<div class="ioitem"><code>iterations</code> <span class="iotype">number</span><span class="iodesc">the number of pivots</span></div>
+</td><td>Returns a <code>Model</code> (kind <code>"linprog"</code>) with <code>x</code> (the minimiser), <code>fval</code> (<code>c'x</code>), <code>status</code> and <code>iterations</code> (the number of pivots). <code>status</code> is <code>"optimal"</code>, <code>"infeasible"</code> (<code>x</code> is all NaN, <code>fval</code> NaN), <code>"unbounded"</code> (<code>x</code> all NaN, <code>fval = -Inf</code>) or <code>"iteration_limit"</code> (<code>max_iter</code> pivots, default <code>20000 + 100*(N + rows)</code>, were not enough; <code>x</code> is all NaN). Infeasible and unbounded problems are results, not errors. Errors (all name the offending argument): a column count that does not match <code>c</code>, <code>A</code> without <code>b</code> or <code>Aeq</code> without <code>beq</code>, mismatched row counts, NaN or Inf in <code>c</code>, <code>A</code>, <code>b</code>, <code>Aeq</code> or <code>beq</code>, a NaN bound, and an option given both positionally and as a keyword.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">No documentation example calls this form yet. The <a href="../docs/signal-processing.html">Signal processing</a> chapter is where one belongs.</p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.3.0 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

@@ -32,7 +32,7 @@ use std::sync::Arc;
 
 pub const NAMES: &[&str] = &[
     "from_triplets", "from_dense", "eye", "diag", "random", "size", "nnz", "density", "to_dense", "get", "triplets", "transpose", "add",
-    "sub", "scale", "mul", "hadamard", "solve",
+    "sub", "scale", "mul", "hadamard", "solve", "cg", "gmres", "bicgstab",
 ];
 
 /// Largest row or column count.
@@ -600,14 +600,32 @@ fn apply_m(minv: &Option<Vec<f64>>, r: &[f64]) -> Vec<f64> {
 }
 
 pub fn cg(a: &Csr, b: &[f64], tol: f64, maxiter: usize, jacobi: bool) -> CR<Iter> {
+    cg_from(a, b, None, tol, maxiter, jacobi)
+}
+
+/// `r = b - A x` for a starting guess (`x0 = None` is the zero vector).
+fn start_point(a: &Csr, b: &[f64], x0: Option<&[f64]>) -> (Vec<f64>, Vec<f64>) {
+    match x0 {
+        None => (vec![0.0; a.n], b.to_vec()),
+        Some(x0) => {
+            let ax = a.matvec(x0);
+            (x0.to_vec(), b.iter().zip(&ax).map(|(bi, ai)| bi - ai).collect())
+        }
+    }
+}
+
+pub fn cg_from(a: &Csr, b: &[f64], x0: Option<&[f64]>, tol: f64, maxiter: usize, jacobi: bool) -> CR<Iter> {
     let n = a.n;
     let bnorm = norm(b);
     if bnorm == 0.0 {
         return Ok(Iter { x: vec![0.0; n], iterations: 0, residual: 0.0, converged: true, status: "converged".into() });
     }
     let minv = inv_diag(a, jacobi, true)?;
-    let mut x = vec![0.0; n];
-    let mut r = b.to_vec();
+    let (mut x, mut r) = start_point(a, b, x0);
+    if x0.is_some() && norm(&r) <= tol * bnorm {
+        let residual = true_residual(a, &x, b, bnorm);
+        return Ok(Iter { x, iterations: 0, residual, converged: true, status: "converged".into() });
+    }
     let mut z = apply_m(&minv, &r);
     let mut p = z.clone();
     let mut rz = dot(&r, &z);
@@ -644,15 +662,136 @@ pub fn cg(a: &Csr, b: &[f64], tol: f64, maxiter: usize, jacobi: bool) -> CR<Iter
     Ok(Iter { x, iterations, residual, converged, status })
 }
 
-pub fn bicgstab(a: &Csr, b: &[f64], tol: f64, maxiter: usize, jacobi: bool) -> CR<Iter> {
+/// Restarted GMRES(`restart`) with right preconditioning (so the monitored
+/// residual is the true one) and Givens-rotation least squares. `maxiter`
+/// counts inner iterations (matrix-vector products) over all restarts.
+pub fn gmres_from(
+    a: &Csr,
+    b: &[f64],
+    x0: Option<&[f64]>,
+    tol: f64,
+    restart: usize,
+    maxiter: usize,
+    jacobi: bool,
+) -> CR<Iter> {
     let n = a.n;
     let bnorm = norm(b);
     if bnorm == 0.0 {
         return Ok(Iter { x: vec![0.0; n], iterations: 0, residual: 0.0, converged: true, status: "converged".into() });
     }
     let minv = inv_diag(a, jacobi, false)?;
-    let mut x = vec![0.0; n];
-    let mut r = b.to_vec();
+    let restart = restart.min(n).max(1);
+    let (mut x, _) = start_point(a, b, x0);
+    let mut total = 0usize;
+    let mut status = format!("did not converge in {maxiter} iterations");
+    let mut converged = false;
+    loop {
+        let ax = a.matvec(&x);
+        let r: Vec<f64> = b.iter().zip(&ax).map(|(bi, ai)| bi - ai).collect();
+        let beta = norm(&r);
+        if beta <= tol * bnorm {
+            converged = true;
+            status = "converged".into();
+            break;
+        }
+        if !beta.is_finite() {
+            status = "breakdown: the residual is not finite".into();
+            break;
+        }
+        if total >= maxiter {
+            break;
+        }
+        let mut v: Vec<Vec<f64>> = vec![r.iter().map(|ri| ri / beta).collect()];
+        let mut h = vec![vec![0.0f64; restart]; restart + 1];
+        let (mut cs, mut sn) = (vec![0.0f64; restart], vec![0.0f64; restart]);
+        let mut g = vec![0.0f64; restart + 1];
+        g[0] = beta;
+        let mut used = 0usize;
+        for j in 0..restart {
+            if total >= maxiter {
+                break;
+            }
+            let zj = apply_m(&minv, &v[j]);
+            let mut w = a.matvec(&zj);
+            total += 1;
+            for i in 0..=j {
+                h[i][j] = dot(&w, &v[i]);
+                for k in 0..n {
+                    w[k] -= h[i][j] * v[i][k];
+                }
+            }
+            h[j + 1][j] = norm(&w);
+            for i in 0..j {
+                let t = cs[i] * h[i][j] + sn[i] * h[i + 1][j];
+                h[i + 1][j] = -sn[i] * h[i][j] + cs[i] * h[i + 1][j];
+                h[i][j] = t;
+            }
+            let (p, q) = (h[j][j], h[j + 1][j]);
+            let den = p.hypot(q);
+            if den == 0.0 || !den.is_finite() {
+                status = format!("breakdown at iteration {total}: the Krylov basis degenerated");
+                used = j;
+                break;
+            }
+            cs[j] = p / den;
+            sn[j] = q / den;
+            h[j][j] = den;
+            h[j + 1][j] = 0.0;
+            g[j + 1] = -sn[j] * g[j];
+            g[j] = cs[j] * g[j];
+            used = j + 1;
+            let lucky = q.abs() <= 1e-14 * den;
+            if g[j + 1].abs() <= tol * bnorm || lucky {
+                break;
+            }
+            v.push(w.iter().map(|wk| wk / q).collect());
+        }
+        if used == 0 {
+            break;
+        }
+        // back-substitute H y = g, then x += M^-1 (V y)
+        let mut y = vec![0.0f64; used];
+        for i in (0..used).rev() {
+            let mut sacc = g[i];
+            for k in i + 1..used {
+                sacc -= h[i][k] * y[k];
+            }
+            y[i] = sacc / h[i][i];
+        }
+        let mut upd = vec![0.0f64; n];
+        for (i, yi) in y.iter().enumerate() {
+            for k in 0..n {
+                upd[k] += yi * v[i][k];
+            }
+        }
+        let upd = apply_m(&minv, &upd);
+        for k in 0..n {
+            x[k] += upd[k];
+        }
+        if status.starts_with("breakdown") {
+            break;
+        }
+    }
+    let residual = true_residual(a, &x, b, bnorm);
+    Ok(Iter { x, iterations: total, residual, converged, status })
+}
+
+pub fn bicgstab(a: &Csr, b: &[f64], tol: f64, maxiter: usize, jacobi: bool) -> CR<Iter> {
+    bicgstab_from(a, b, None, tol, maxiter, jacobi)
+}
+
+pub fn bicgstab_from(a: &Csr, b: &[f64], x0: Option<&[f64]>, tol: f64, maxiter: usize, jacobi: bool) -> CR<Iter> {
+    let n = a.n;
+    let bnorm = norm(b);
+    if bnorm == 0.0 {
+        return Ok(Iter { x: vec![0.0; n], iterations: 0, residual: 0.0, converged: true, status: "converged".into() });
+    }
+    let minv = inv_diag(a, jacobi, false)?;
+    let (mut x, mut r) = start_point(a, b, x0);
+    if x0.is_some() && norm(&r) <= tol * bnorm {
+        let residual = true_residual(a, &x, b, bnorm);
+        return Ok(Iter { x, iterations: 0, residual, converged: true, status: "converged".into() });
+    }
     let rhat = r.clone();
     let (mut rho, mut alpha, mut omega) = (1.0f64, 1.0f64, 1.0f64);
     let mut v = vec![0.0; n];
@@ -1090,6 +1229,85 @@ impl Interp {
                     ("converged".into(), Value::Bool(r.converged)),
                     ("status".into(), Value::Str(r.status)),
                     ("method".into(), Value::Str(method)),
+                ])))
+            }
+            // `sparse.cg/gmres/bicgstab(S, b, [x0], [tol=1e-10], [max_iter], [precond=])`
+            // -- the iterative solvers behind `sparse.solve(method=)`, with a
+            // starting guess and a result record (`x`, `iterations`,
+            // `residual` relative to ||b||, `converged`, `status`).
+            "cg" | "gmres" | "bicgstab" => {
+                let a = csr_arg(args, 0, fq)?;
+                if a.m != a.n {
+                    return e(format!("{fq}: needs a square matrix, found {}", shape_str(&a)));
+                }
+                let tol = match style_entry(style, "tol") {
+                    None => 1e-10,
+                    Some((_, v)) => match v.as_num() {
+                        Ok(t) if t > 0.0 && t.is_finite() => t,
+                        _ => return e(format!("{fq}: tol must be a positive number")),
+                    },
+                };
+                let count = |key: &str, default: usize| -> R<usize> {
+                    match style_entry(style, key) {
+                        None => Ok(default),
+                        Some((_, v)) => match v.as_num() {
+                            Ok(m) if m >= 1.0 && m.is_finite() && m.fract() == 0.0 => Ok(m as usize),
+                            _ => e(format!("{fq}: {key} must be a positive whole number")),
+                        },
+                    }
+                };
+                let max_iter = count("max_iter", (10 * a.n).max(1000))?;
+                let restart = if name == "gmres" { count("restart", 30)? } else { 0 };
+                let precond = style_str(style, "precond").unwrap_or_else(|| "none".into());
+                if precond != "none" && precond != "jacobi" {
+                    return e(format!("{fq}: precond must be \"none\" or \"jacobi\", found \"{precond}\""));
+                }
+                let jacobi = precond == "jacobi";
+                let b_arg = arg_get(args, 1).ok_or_else(|| EvalError { msg: format!("{fq}: missing argument 2 (the right-hand side b)") })?;
+                if matches!(b_arg, Value::Mat(m) if m.cols() > 1 && m.rows() > 1) {
+                    return e(format!("{fq}: b must be a vector (one right-hand side at a time)"));
+                }
+                let b = to_vec(b_arg)?;
+                if b.len() != a.n {
+                    return e(format!("{fq}: b has length {} but the matrix is {}", b.len(), shape_str(&a)));
+                }
+                if b.iter().any(|v| !v.is_finite()) {
+                    return e(format!("{fq}: b contains a non-finite value"));
+                }
+                let x0 = match (style_entry(style, "x0").map(|(_, v)| v), arg_get(args, 2)) {
+                    (Some(_), Some(_)) => return e(format!("{fq}: x0 was given both positionally and as x0=")),
+                    (Some(v), None) | (None, Some(v)) => {
+                        let x0 = to_vec(v)?;
+                        if x0.len() != a.n {
+                            return e(format!("{fq}: x0 has length {} but the matrix is {}", x0.len(), shape_str(&a)));
+                        }
+                        if x0.iter().any(|v| !v.is_finite()) {
+                            return e(format!("{fq}: x0 contains a non-finite value"));
+                        }
+                        Some(x0)
+                    }
+                    (None, None) => None,
+                };
+                if a.data.iter().any(|v| !v.is_finite()) {
+                    return e(format!("{fq}: the matrix contains a non-finite value"));
+                }
+                let r = match name {
+                    "cg" => {
+                        let skew = a.lincomb(1.0, &a.transpose(), -1.0).map_err(lift)?.max_abs();
+                        if skew > 1e-10 * a.max_abs() {
+                            return e(format!("{fq}: needs a symmetric matrix (|A - A'| max = {skew:e}); use sparse.gmres or sparse.bicgstab for a nonsymmetric one"));
+                        }
+                        cg_from(&a, &b, x0.as_deref(), tol, max_iter, jacobi).map_err(lift)?
+                    }
+                    "gmres" => gmres_from(&a, &b, x0.as_deref(), tol, restart, max_iter, jacobi).map_err(lift)?,
+                    _ => bicgstab_from(&a, &b, x0.as_deref(), tol, max_iter, jacobi).map_err(lift)?,
+                };
+                Ok(Value::Record(Arc::new(vec![
+                    ("x".into(), vec_value(r.x)),
+                    ("iterations".into(), Value::Num(r.iterations as f64)),
+                    ("residual".into(), Value::Num(r.residual)),
+                    ("converged".into(), Value::Bool(r.converged)),
+                    ("status".into(), Value::Str(r.status)),
                 ])))
             }
             other => e(format!("sparse: unknown function `{other}`")),

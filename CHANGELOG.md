@@ -10,6 +10,10 @@ changes are called out.
 
 ## [Unreleased]
 
+- Solvers: new `fsolve(f, x0)` (nonlinear systems by damped Newton with a Levenberg-Marquardt fallback; non-square systems are least squares; failure is `converged=false`, not an error), `linprog(c, A, b, ...)` (two-phase simplex with Bland's rule against cycling; `status` is `"optimal"`, `"infeasible"` or `"unbounded"`; bounds default to `-Inf..Inf`, so pass `lb=0` for the standard form) and `quadprog(H, f, ...)` (convex QP: exact infeasible/unbounded classification, interior point, then an exact active-set polish; an indefinite or asymmetric `H` is an error). `minimize` gains `method="nelder_mead"` (derivative-free simplex); `method="bfgs"` is the unchanged default.
+
+- Sparse: new `sparse.cg`, `sparse.gmres` and `sparse.bicgstab` iterative solvers with a starting guess `x0`, `tol`, `max_iter`, `precond="jacobi"` and a result record (`x`, `iterations`, `residual`, `converged`, `status`).
+
 - `eig` no longer fails on permutation-like matrices such as the companion matrix of `x^4 + 1` ("Schur (QR iteration did not converge)"). When the plain double-shift iteration stalls, it now falls back to the windowed solver, which has exceptional shifts. Checked on the companion matrices of `x^n + c` for n = 3 to 12.
 
 - Polynomials: new `roots(p)` (companion-matrix eigenvalues, each answer verified against the polynomial and recomputed by an Aberth iteration if the eigenvalue solver fails or is inaccurate), `poly(r)` (coefficients from roots, real when the roots come in conjugate pairs), `deconv(b, a)` (long division, returns `{q, r}`), `polyder(p)` and `polyint(p, [k])`. Highest power first, like `polyfit`, `polyval` and `conv`.
