@@ -77,7 +77,7 @@ f = <span class="f">lu</span>([<span class="n">2</span>, <span class="n">1</span
 <div class="out"><span class="lbl">output</span><pre>U*S*Vt reconstructs A: [1, 2; 3, 4; 5, 6]
 Q*R == A: [1, 2; 3, 4; 5, 6]
 P*A == L*U: [8, 7, 9; 2, 1, 1; 4, 3, 3] vs [8, 7, 9; 2, 1, 1; 4, 3, 3]</pre></div></div><p class="fnfrom">from <a href="../docs/numerics-dsp.html">numerics-dsp</a></p>
-<div class="example hasout"><pre class="hl"><code><span class="k">function</span> <span class="f">summarize</span>(m: model&lt;<span class="s">"qr"</span>&gt;)
+<div class="example"><pre class="hl"><code><span class="k">function</span> <span class="f">summarize</span>(m: model&lt;<span class="s">"qr"</span>&gt;)
     <span class="k">return</span> <span class="s">"qr: q is {rows(m.q)}x{cols(m.q)}, r is {rows(m.r)}x{cols(m.r)}"</span>
 <span class="k">end</span> <span class="k">function</span>
 
@@ -98,9 +98,7 @@ pk = <span class="f">findpeaks</span>([<span class="n">0</span>,<span class="n">
 <span class="f">print</span>(<span class="f">summarize</span>(sres))
 <span class="f">print</span>(<span class="f">summarize</span>(pk))
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>qr: q is 2x2, r is 2x2
-svd: singular values = [8.335579, 0.719806]
-generic model, kind unhandled</pre></div></div><p class="fnfrom">from <a href="../docs/tour.html">tour</a></p>
+</div><p class="fnfrom">from <a href="../docs/tour.html">tour</a></p>
 <h2>How it works</h2>
 <p><code>qr(A)</code> — the thin QR decomposition <code>A = Q * R</code>. Model kind <code>"qr"</code>, fields <code>q</code>/<code>r</code>.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

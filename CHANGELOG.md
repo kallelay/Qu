@@ -10,6 +10,12 @@ changes are called out.
 
 ## [Unreleased]
 
+## [0.4.14] - 2026-11-16
+
+- Assigning a matrix into a block of another matrix (`M[0:1, 0:1] = A`, also `+=` and into complex matrices) wrote the block transposed, silently: the target cells were visited row by row but the source was read column by column. A square or rectangular block now lands exactly as written; single-row, single-column and element assignment were never affected.
+
+- Qu Studio's Loop tab gains **environments** and **plugins**. Nine ready environments (DC motor speed and position, mass-spring-damper, inverted pendulum on a cart, cruise control, two tanks, room heating with a delay, 1-D quadcopter altitude, magnetic levitation) each load a plant, a controller, a setpoint, a sample time and a stated tolerance in one pick, and say what to try; the unstable ones are stabilised by observer-based state feedback written in plain Qu. Plugins are small named Qu snippets hooked into the loop at the reference, sensor, monitor, actuator or disturbance point (seeded noise, delay, ADC quantisation, saturation, rate limit, dead zone, step/pulse/sine load, reference filters, a metrics recorder, a watchdog that stops the run, or your own, checked by running it). Each appears in the generated script as a commented block with its own `lpN_` names. See the new Loop tab chapter in the book.
+
 - New matrix-property builtins: `eps()` / `eps(x)` (machine epsilon and float spacing, a function because `eps` is a common variable name), `hilb(n)` and the exact integer `invhilb(n)` (n up to 12), the predicates `issymmetric(A, [tol])`, `isposdef(A)`, `isdiag`, `istril`, `istriu`, `isbanded(A, lower, upper)` and `bandwidth(A)` (a `{lower, upper}` record), `rcond(A)` (1-norm reciprocal condition number, exact up to 300 rows and the Hager / Higham estimator above) and `svdvals(A)`; `norm(x, p)` now takes `p` = 1, 2, `inf`, `"fro"` for matrices and 1, 2, `inf`, `-inf`, 0, any `p >= 1` for vectors, and `cond(A, p)` takes 1, 2, `inf`, `"fro"`. The one-argument `norm` and `cond` are unchanged.
 
 - `accuracy(y, p)` and `cross_val(..., metric="accuracy")` gave wrong scores for classes numbered 2 and up: any prediction other than exactly 0 or 1 was thresholded at 0.5 as if it were a score, so every correct "2" counted as a miss (five of six right scored 0.5, and a perfect 3-class kNN scored 0.667 under `cross_val`). With 0/1 labels the behaviour is unchanged (scores are cut at `threshold`, default 0.5); with any other labels predictions are compared as class labels, and `threshold=` is refused there.

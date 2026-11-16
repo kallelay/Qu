@@ -69,7 +69,7 @@ g = <span class="f">fopen</span>(<span class="s">"log.txt"</span>, <span class="
 value = 42
 run started
 value = 42</pre></div></div><p class="fnfrom">from <a href="../docs/file-io.html">file-io</a></p>
-<div class="example"><pre class="hl"><code>path = <span class="s">"touch_target.txt"</span>
+<div class="example hasout"><pre class="hl"><code>path = <span class="s">"touch_target.txt"</span>
 had_before = <span class="f">file_exists</span>(path)
 <span class="f">touch</span>(path)
 exists_after_touch = <span class="f">file_exists</span>(path)
@@ -88,7 +88,9 @@ content = <span class="f">read_all</span>(g)
 <span class="f">print</span>(<span class="s">"exists_after_touch = {exists_after_touch}"</span>)
 <span class="f">print</span>(<span class="s">"content = {content}"</span>)
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/tour.html">tour</a></p>
+<div class="out"><span class="lbl">output</span><pre>had_before = false
+exists_after_touch = true
+content = original content</pre></div></div><p class="fnfrom">from <a href="../docs/tour.html">tour</a></p>
 <div class="example hasout"><pre class="hl"><code>f = <span class="f">fopen</span>(<span class="s">"greeting.txt"</span>, <span class="s">"w"</span>)
 <span class="f">write_char</span>(f, <span class="s">"Hello,World"</span>)
 <span class="f">close</span>(f)

@@ -11620,7 +11620,18 @@ impl Interp {
                         cells.len()
                     ));
                 }
-                src.as_slice().to_vec()
+                {
+                    // The target cells are visited row-major, so read the
+                    // source row-major too: as_slice() is column-major and
+                    // wrote every 2-D block transposed.
+                    let mut o = Vec::with_capacity(src.len());
+                    for i in 0..src.rows() {
+                        for j in 0..src.cols() {
+                            o.push(src.get(i, j).map_err(idx_err)?);
+                        }
+                    }
+                    o
+                }
             }
             Value::Vec(v) => {
                 if v.len() != cells.len() {
@@ -11641,7 +11652,18 @@ impl Interp {
                         cells.len()
                     ));
                 }
-                src.as_slice().iter().map(|&x| Complex64::new(x, 0.0)).collect()
+                {
+                    // The target cells are visited row-major, so read the
+                    // source row-major too: as_slice() is column-major and
+                    // wrote every 2-D block transposed.
+                    let mut o = Vec::with_capacity(src.len());
+                    for i in 0..src.rows() {
+                        for j in 0..src.cols() {
+                            o.push(Complex64::new(src.get(i, j).map_err(idx_err)?, 0.0));
+                        }
+                    }
+                    o
+                }
             }
             Value::Complex(z) => vec![*z; cells.len()],
             other => {
@@ -11794,7 +11816,18 @@ impl Interp {
                         cells.len()
                     ));
                 }
-                src.as_slice().to_vec()
+                {
+                    // The target cells are visited row-major, so read the
+                    // source row-major too: as_slice() is column-major and
+                    // wrote every 2-D block transposed.
+                    let mut o = Vec::with_capacity(src.len());
+                    for i in 0..src.rows() {
+                        for j in 0..src.cols() {
+                            o.push(src.get(i, j).map_err(idx_err)?);
+                        }
+                    }
+                    o
+                }
             }
             _ => {
                 let s = rhs_v.as_num().map_err(|m| EvalError { msg: m })?;

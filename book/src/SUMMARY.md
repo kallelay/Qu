@@ -11,6 +11,7 @@
 - [Book 2 - Numerics, DSP & Linear Algebra](getting-started/book2-numerics-dsp.md)
 - [Book 3 - Specialized Domains](getting-started/book3-specialized.md)
 - [Qu Studio: the Fit tab](getting-started/studio-fit-tab.md)
+- [Qu Studio: the Loop tab, environments and plugins](getting-started/studio-loop-tab.md)
 - [Qu Studio: the Machine Learning lab](getting-started/ml-lab.md)
 
 # Language Reference

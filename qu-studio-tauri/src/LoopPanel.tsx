@@ -34,6 +34,8 @@ import {
   type SignalName,
   type SourceSpec,
 } from './loopDesign';
+import { environmentSpec } from './loopDesign';
+import { EnvironmentPicker, PluginsSection } from './LoopPluginsPanel';
 
 /** The Code tab's active file, offered as a plant or controller source. */
 export interface EditorFile {
@@ -739,8 +741,21 @@ export const LoopPanel: React.FC<LoopPanelProps> = ({ theme, invoke, editorFile,
             {WORKED_EXAMPLES.map((x) => <option key={x.id} value={x.id}>{x.label}</option>)}
           </select>
         </div>
+        <EnvironmentPicker
+          plantId={spec.plant.kind === 'example' ? spec.plant.example : ''}
+          controllerId={spec.controller.kind === 'example' ? spec.controller.example : ''}
+          onPick={(id) => {
+            const next = environmentSpec(id);
+            if (next) {
+              setDrafts({});
+              // Keep the run mode and I/O the user chose; the environment sets the rest.
+              useLoop.getState().replaceSpec({ ...next, mode: spec.mode, pace: spec.pace, toleranceMs: spec.toleranceMs, io: spec.io, record: spec.record, reference: spec.reference });
+            }
+          }}
+        />
         {sourceEditor('plant')}
         {sourceEditor('controller')}
+        <PluginsSection plugins={spec.plugins ?? []} onChange={(plugins) => setSpec({ plugins })} invoke={invoke} />
         <div className="flex flex-col gap-2">
           <span className="text-sm font-medium">Run</span>
           <div className="qu-live-tabs" role="tablist" aria-label="Mode" style={{ borderRadius: 8 }}>

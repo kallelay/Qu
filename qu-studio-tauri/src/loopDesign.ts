@@ -18,6 +18,9 @@
  *  a compiled C controller with `double controller(double, double, double)`
  *  drops into the same slot through `native_call`. */
 
+import { canAbort, hasPlugins, pluginBlocks, pluginReportCode, pluginStepCode, pluginsProblem, type PluginInstance } from './loopPlugins';
+import { ENVIRONMENTS, ENV_CONTROLLER_EXAMPLES, ENV_PLANT_EXAMPLES } from './loopEnvironments';
+
 export type LoopMode = 'sil' | 'hil';
 export type SourceKind = 'example' | 'file' | 'editor' | 'clib';
 export type SignalName = 't' | 'r' | 'y' | 'u' | 'e';
@@ -62,6 +65,9 @@ export interface LoopSpec {
   reference: { enabled: boolean; path: string; tol: Record<SignalName, Tolerance> };
   /** HIL only: the plant is real hardware on a port. */
   io: IoSpec;
+  /** Plugins hooked into the loop, applied in list order within each hook
+   *  point (see loopPlugins.ts). Absent or empty: the loop is unchanged. */
+  plugins?: PluginInstance[];
 }
 
 /** Binding the loop to a real port. Each step sends the controller output u
@@ -127,6 +133,7 @@ function plant(u, dt)
     return msd_x
 end function`,
   },
+  ...ENV_PLANT_EXAMPLES,
 ];
 
 export const CONTROLLER_EXAMPLES: Array<{ id: string; label: string; code: string }> = [
@@ -162,6 +169,7 @@ function controller(r, y, dt)
     return 1 * e + 2 * pi_i
 end function`,
   },
+  ...ENV_CONTROLLER_EXAMPLES,
 ];
 
 /** A C controller that fits the `clib` slot, for "Copy C template". */
@@ -225,6 +233,23 @@ export const WORKED_EXAMPLES: Array<{ id: string; label: string; spec: LoopSpec 
   },
 ];
 
+/** A ready environment as a loop setup: its plant, its controller, its
+ *  setpoint and sample time. Everything else is the panel's defaults. */
+export function environmentSpec(id: string): LoopSpec | null {
+  const env = ENVIRONMENTS.find((e) => e.id === id);
+  if (!env) return null;
+  return {
+    ...DEFAULT_LOOP,
+    plant: { kind: 'example', example: env.plant.id, path: '', func: '' },
+    controller: { kind: 'example', example: env.controller.id, path: '', func: 'controller' },
+    duration: env.duration,
+    dt: env.dt,
+    setpoint: { ...env.setpoint },
+    watch: ['r', 'y', 'u'],
+    plugins: (env.plugins ?? []).map((p) => ({ ...p, params: { ...p.params } })),
+  };
+}
+
 const IDENT = /^[A-Za-z_][A-Za-z0-9_]*$/;
 /** Paths go into a Qu string literal: no quote, no brace (interpolation). */
 const BAD_PATH_CHARS = /["{}\n\r]/;
@@ -281,6 +306,8 @@ export function validateLoop(s: LoopSpec, editor: { plant: boolean; controller: 
   if (s.setpoint.kind === 'step' ? !(s.setpoint.time >= 0) : !(s.setpoint.time > 0)) {
     return s.setpoint.kind === 'step' ? 'Step time must be 0 s or later.' : 'Setpoint period must be above 0 s.';
   }
+  const pl = pluginsProblem(s.plugins);
+  if (pl) return pl;
   if (s.record.enabled) {
     const p = tracePathProblem('Record', s.record.path);
     if (p) return p;
@@ -435,6 +462,8 @@ export function buildLoopScript(s: LoopSpec, src: ResolvedSources = {}): string 
   const sigVar: Record<SignalName, string> = { t: 't', r: 'r', y: 'y', u: 'u', e: 'err' };
   const scopeFields = watch.map((id) => `${id}={${sigVar[id]}}`).join(' ');
   const timing = hil ? ' late={late} over={n_over} lmax={late_max}' : '';
+  const plug = hasPlugins(s.plugins);
+  const hooks = pluginStepCode(s.plugins);
   const header = hil
     ? `# Loop, HIL: paced against the wall clock (real-time factor ${n(s.pace)})${usesIo(s) ? ', plant on a real port' : ''}.`
     : '# Loop, SIL: virtual clock, as fast as the machine can go.';
@@ -448,6 +477,7 @@ export function buildLoopScript(s: LoopSpec, src: ResolvedSources = {}): string 
     '',
     sourceBlock('controller', s.controller, src.controllerEditor),
     '',
+    ...(plug ? [...pluginBlocks(s.plugins).flatMap((b) => [b, '']),] : []),
     '# ---- setpoint ----',
     setpointFn(s.setpoint),
     '',
@@ -459,7 +489,7 @@ export function buildLoopScript(s: LoopSpec, src: ResolvedSources = {}): string 
     'log_u = zeros(n_max)',
     'log_e = zeros(n_max)',
     'k = 0',
-    'y = plant(0, 0)',
+    plug ? 'y_true = plant(0, 0)' : 'y = plant(0, 0)',
   ];
   if (hil) {
     lines.push(`pace = ${n(s.pace)}`, `tol_ms = ${n(s.toleranceMs)}`, 'late = 0', 'late_max = 0', 'n_over = 0');
@@ -480,6 +510,7 @@ export function buildLoopScript(s: LoopSpec, src: ResolvedSources = {}): string 
   }
   lines.push(
     '    r = setpoint(t)',
+    ...(plug ? hooks.before : []),
     '    err = r - y',
     '    u = controller(r, y, dt)',
     '    log_t[k - 1] = t',
@@ -490,14 +521,29 @@ export function buildLoopScript(s: LoopSpec, src: ResolvedSources = {}): string 
     `    if k mod ${every} == 0`,
     `        print("@loop k={k} t={t}${timing} ${scopeFields}")`,
     '    end if',
-    '    y = plant(u, dt)',
+    ...(plug ? [...hooks.monitors, ...hooks.actuate, '    y_true = plant(u_act, dt)'] : ['    y = plant(u, dt)']),
     'end',
     '',
   );
-  if (hil) {
-    lines.push('tic()', `run_for(duration, pace=pace, tolerance=${n(s.toleranceMs)} ms)`);
+  const runCall = hil ? `run_for(duration, pace=pace, tolerance=${n(s.toleranceMs)} ms)` : 'run_for(duration)';
+  if (hil) lines.push('tic()');
+  if (plug && canAbort(s.plugins)) {
+    // A monitor that returns 1 raises an error tagged lp_abort; only that one is caught.
+    lines.push(
+      'lp_aborted = 0',
+      'try',
+      `    ${runCall}`,
+      'catch lp_err',
+      '    if contains(lp_err.message, "lp_abort:")',
+      '        lp_aborted = 1',
+      '        print("run stopped by a monitor: " + lp_err.message)',
+      '    else',
+      '        error(lp_err.message)',
+      '    end if',
+      'end',
+    );
   } else {
-    lines.push('run_for(duration)');
+    lines.push(runCall);
   }
   if (usesIo(s)) lines.push(s.io.kind === 'serial' ? 'close(io)' : 'tcp_close(io)');
   lines.push(
@@ -506,9 +552,21 @@ export function buildLoopScript(s: LoopSpec, src: ResolvedSources = {}): string 
     'log_y = log_y[0:k - 1]',
     'log_u = log_u[0:k - 1]',
     'log_e = log_e[0:k - 1]',
-    'st = run_for_stats()',
-    'print("@stats steps={st.steps} overruns={st.overruns} max_ms={st.max_lateness_ms} mean_ms={st.mean_lateness_ms} wall_ms={st.wall_ms} paced={st.paced * 1}")',
   );
+  const statsLine = 'print("@stats steps={st.steps} overruns={st.overruns} max_ms={st.max_lateness_ms} mean_ms={st.mean_lateness_ms} wall_ms={st.wall_ms} paced={st.paced * 1}")';
+  if (plug && canAbort(s.plugins)) {
+    lines.push(
+      'if lp_aborted == 0',
+      '    st = run_for_stats()',
+      `    ${statsLine}`,
+      'else',
+      '    print("@stats steps={k} overruns=0 max_ms=0 mean_ms=0 wall_ms=0 paced=0")',
+      'end if',
+    );
+  } else {
+    lines.push('st = run_for_stats()', statsLine);
+  }
+  if (plug) lines.push(...pluginReportCode(s.plugins));
   if (s.record.enabled) {
     lines.push(
       '',

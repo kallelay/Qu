@@ -697,7 +697,7 @@ s = timer.<span class="f">stop</span>()
 <span class="f">print</span>(<span class="s">"done, acc = {acc}"</span>)
 </code></pre>
 <div class="out"><span class="lbl">output</span><pre>elapsed &gt;= 0: true
-stop returns: 0.000688
+stop returns: 0.000586
 done, acc = 5000050000</pre></div></div>
 <p>Output:</p>
 <pre><code>elapsed &gt;= 0: true
@@ -890,7 +890,7 @@ unknown shape
 <p>Each <code>__type</code> genuinely picks its own overload — this isn't three overloads falling through to one lucky match; swapping <code>c</code> and <code>tr</code> above (not shown) changes which body runs. The untagged <code>plain</code> record matches none of the three refined overloads (<code>record_type_tag</code> finds no <code>__type</code> field) and falls through to the plain <code>record</code> overload, exactly like §5's "omitting <code>__type</code> falls through" note, except here the fallback is a real user overload rather than a hard error.</p>
 <h3><code>model&lt;"kind"&gt;</code> refinement — <code>qr</code> vs <code>svd</code> vs a plain <code>model</code> fallback</h3>
 <p>The same refinement mechanism applies to <code>Value::Model</code>, keyed on the model's <code>kind</code> string rather than a record field. <code>qr</code> and <code>svd</code> are both real Model-returning builtins (§7); <code>findpeaks</code> (also from §7) is used here to exercise the plain, unrefined <code>model</code> fallback:</p>
-<div class="example hasout"><pre class="hl"><code><span class="k">function</span> <span class="f">summarize</span>(m: model&lt;<span class="s">"qr"</span>&gt;)
+<div class="example"><pre class="hl"><code><span class="k">function</span> <span class="f">summarize</span>(m: model&lt;<span class="s">"qr"</span>&gt;)
     <span class="k">return</span> <span class="s">"qr: q is {rows(m.q)}x{cols(m.q)}, r is {rows(m.r)}x{cols(m.r)}"</span>
 <span class="k">end</span> <span class="k">function</span>
 
@@ -911,9 +911,7 @@ pk = <span class="f">findpeaks</span>([<span class="n">0</span>,<span class="n">
 <span class="f">print</span>(<span class="f">summarize</span>(sres))
 <span class="f">print</span>(<span class="f">summarize</span>(pk))
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>qr: q is 2x2, r is 2x2
-svd: singular values = [8.335579, 0.719806]
-generic model, kind unhandled</pre></div></div>
+</div>
 <p>Output:</p>
 <pre><code>qr: q is 2x2, r is 2x2
 svd: singular values = [8.335579, 0.719806]
@@ -1089,7 +1087,7 @@ Peak frequencies (Hz): [40, 90]
 <p>Both injected tones (40 Hz and 90 Hz) are recovered exactly, since <code>Fs=N=512</code> makes bin index equal frequency in Hz here. <code>findpeaks</code>'s real keyword names are <code>min_peak_height</code>/<code>min_peak_distance</code> (MATLAB-style, matching the doc comment at <code>qu-interp/src/lib.rs:12899</code>) — not the shorter <code>min_height</code>/<code>min_distance</code> used by the separate <code>find_peaks</code> (underscore, index-returning) builtin, which is a distinct function with its own kwarg names.</p>
 <h3>Kalman filtering — constant-velocity position tracking</h3>
 <p><code>kalman_init(x0, P0)</code> returns a Model; <code>state.predict(F, Q)</code> and <code>state.update(H, z, R)</code> are dispatched via the model's own <code>kind</code> (<code>predict</code>/<code>update</code> are ordinary multiple-dispatch functions overloaded on <code>model&lt;"kalman"&gt;</code>, called through <code>.method()</code> sugar), each returning an updated state Model to thread into the next iteration — exactly the pattern already verified in <code>catalog/qu_kalman_tracking.qu</code>:</p>
-<div class="example"><pre class="hl"><code>N = <span class="n">60</span>
+<div class="example hasout"><pre class="hl"><code>N = <span class="n">60</span>
 dt = <span class="n">0.1</span>
 true_v = <span class="n">2.0</span>
 t = (<span class="n">0</span> <span class="k">to</span> N - <span class="n">1</span>) * dt
@@ -1116,7 +1114,8 @@ filt_err = <span class="f">rms</span>(est_pos - true_pos)
 <span class="f">print</span>(<span class="s">"Position RMS error: raw sensor={raw_err:.3f}, Kalman estimate={filt_err:.3f}"</span>)
 <span class="f">print</span>(<span class="s">"True velocity={true_v:.2f}, final estimated velocity={est_vel[N-1]:.3f}"</span>)
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>Position RMS error: raw sensor=0.914, Kalman estimate=0.353
+True velocity=2.00, final estimated velocity=2.102</pre></div></div>
 <p>Output:</p>
 <pre><code>Position RMS error: raw sensor=0.832, Kalman estimate=0.215
 True velocity=2.00, final estimated velocity=2.023
@@ -1204,7 +1203,7 @@ calls = 2
 <p>Three real filesystem features landed together: a proper Unix <code>touch</code>, an internal memory-efficiency fix to ordinary file reads, and read-only memory-mapped random access.</p>
 <h3><code>touch(path)</code></h3>
 <p>Unix <code>touch</code> semantics: creates an empty file if <code>path</code> doesn't exist; if it already exists, <code>touch</code> bumps its modification time WITHOUT altering its content:</p>
-<div class="example"><pre class="hl"><code>path = <span class="s">"touch_target.txt"</span>
+<div class="example hasout"><pre class="hl"><code>path = <span class="s">"touch_target.txt"</span>
 had_before = <span class="f">file_exists</span>(path)
 <span class="f">touch</span>(path)
 exists_after_touch = <span class="f">file_exists</span>(path)
@@ -1223,7 +1222,9 @@ content = <span class="f">read_all</span>(g)
 <span class="f">print</span>(<span class="s">"exists_after_touch = {exists_after_touch}"</span>)
 <span class="f">print</span>(<span class="s">"content = {content}"</span>)
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>had_before = false
+exists_after_touch = true
+content = original content</pre></div></div>
 <p>Output:</p>
 <pre><code>had_before = false
 exists_after_touch = true
@@ -1282,10 +1283,10 @@ last4 = [69, 70, 71, 72]
 <hr>
 <h2 id="s1157">21. <code>http_get(url)</code> — real HTTP GET</h2>
 <p><code>http_get(url)</code> issues a real HTTP(S) GET request and returns the response body as a string (GET-only, 30s timeout, clear errors on an unreachable host or non-2xx status — no custom headers, auth, or POST in this v1):</p>
-<div class="example"><pre class="hl"><code>body = <span class="f">http_get</span>(<span class="s">"https://example.com/"</span>)
+<div class="example hasout"><pre class="hl"><code>body = <span class="f">http_get</span>(<span class="s">"https://example.com/"</span>)
 <span class="f">print</span>(<span class="s">"len = {length(body)}"</span>)
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>len = 577</pre></div></div>
 <p>Output:</p>
 <pre><code>len = 559
 </code></pre>
@@ -1371,14 +1372,16 @@ qs = [0, 10, 20]
 <p><code>mid</code> (t=0.75s) sits exactly halfway between samples at t=0.5s (y=10) and t=1.0s (y=20), interpolating to <code>15</code>. <code>lo</code> (t=-0.5s) and <code>hi</code> (t=2.0s) both fall outside the signal's own 0..1.5s span and are extrapolated via the boundary segment's slope (20/s): <code>0 - 20*0.5 = -10</code>, <code>30 + 20*0.5 = 40</code>. The result is a plain <code>Num</code>/<code>Vec</code>, never re-wrapped as a <code>Signal</code> — the query times have no guaranteed uniform spacing, so there is no honest <code>Fs</code> left to attach.</p>
 <h3><code>s.apply(fnName)</code> — elementwise map that preserves the container</h3>
 <p>Distinct from <code>map(fnName, xs)</code>, which always returns a plain <code>List</code>. <code>apply(x, fnName)</code> instead matches this interpreter's existing container-preserving convention (the same one <code>sin</code>/<code>cos</code>/unary <code>-</code> already use): a <code>Signal</code> stays a <code>Signal</code> at the same <code>Fs</code>, a <code>Vec</code> stays a <code>Vec</code>:</p>
-<div class="example"><pre class="hl"><code><span class="f">double</span>(v) := v * <span class="n">2</span>
+<div class="example hasout"><pre class="hl"><code><span class="f">double</span>(v) := v * <span class="n">2</span>
 sig = <span class="f">signal</span>([<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>, <span class="n">4</span>], <span class="n">8</span>)
 out = sig.<span class="f">apply</span>(<span class="s">"double"</span>)
 <span class="f">print</span>(<span class="s">"out = {out}"</span>)
 <span class="f">print</span>(<span class="s">"out.Fs = {out.Fs}"</span>)
 <span class="f">print</span>(<span class="s">"sig unchanged = {sig}"</span>)
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>out = signal(Fs=8) [2, 4, 6, 8]
+out.Fs = 8
+sig unchanged = signal(Fs=8) [1, 2, 3, 4]</pre></div></div>
 <p>Output:</p>
 <pre><code>out = signal(Fs=8) [2, 4, 6, 8]
 out.Fs = 8
