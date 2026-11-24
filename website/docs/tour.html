@@ -363,8 +363,8 @@ k = 3
 
 <span class="f">print</span>(<span class="s">"add(2,3) = {add(2,3)}"</span>)
 
-<span class="f">square</span>(x) := x^<span class="n">2</span>
-<span class="f">print</span>(<span class="s">"square(5) = {square(5)}"</span>)
+<span class="f">sq</span>(x) := x^<span class="n">2</span>
+<span class="f">print</span>(<span class="s">"sq(5) = {sq(5)}"</span>)
 
 <span class="k">function</span> <span class="f">describe</span>(x: num)
     <span class="k">return</span> <span class="s">"num: {x}"</span>
@@ -378,12 +378,12 @@ k = 3
 <span class="f">print</span>(<span class="f">describe</span>(<span class="s">"hi"</span>))
 </code></pre>
 <div class="out"><span class="lbl">output</span><pre>add(2,3) = 5
-square(5) = 25
+sq(5) = 25
 num: 5
 str: hi</pre></div></div>
 <p>Output:</p>
 <pre><code>add(2,3) = 5
-square(5) = 25
+sq(5) = 25
 num: 5
 str: hi
 </code></pre>
@@ -401,7 +401,7 @@ sum = p1 + p2
 <pre><code>sum = {__type = "Vec2", x = 11, y = 22}
 </code></pre>
 <p>(Omitting <code>__type</code> on the record literals falls through to the built-in numeric <code>+</code> and errors with <code>expected a number, found record</code>.) The <code>record&lt;Tag&gt;</code> match is implemented via <code>record_type_tag</code> in <code>qu-interp/src/lib.rs:2709</code>, which specifically looks for a string field named <code>__type</code> — not a <code>kind</code> field, and not any structural/duck-typed match.</p>
-<p>&gt; <strong>MISMATCH — found and fixed same-day (commit </strong><code>f77713c</code>).<strong> This pass &gt; originally found </strong><code>function butter(x, order = 4, ...)</code> failing to parse &gt; at all (<code>expected ')', found Op("=")</code>, since <code>Param</code> had no default-value &gt; slot). Default parameters are now real: &gt; <code></code><code>qu &gt; function butter(x, order = 4, cutoff = 1000) &gt;     return "x={x} order={order} cutoff={cutoff}" &gt; end function &gt; print(butter(99))               # x=99 order=4 cutoff=1000 &gt; print(butter(99, 2, 500))       # x=99 order=2 cutoff=500 &gt; </code><code></code> &gt; The default expression is re-evaluated fresh on every call (not &gt; computed once at definition time) and may reference an earlier &gt; parameter (<code>function f(x, y = x * 2)</code> works). <strong>A real behavior change &gt; discovered along the way</strong>: named-argument calling on a user-defined &gt; function is NOT supported — <code>butter(99, cutoff=500)</code> is a clear error &gt; (<code></code> <code>butter</code> is a user-defined function -- named arguments... are not &gt; supported when calling one<code></code>), verified live. Only builtins accept &gt; <code>name=value</code> calling syntax; pass every argument to a user function &gt; positionally. There is no separate <code>optional</code>/<code>is_present()</code> mechanism &gt; — a parameter is either required or has a <code>= value</code> default.</p>
+<p>&gt; <strong>MISMATCH — found and fixed same-day (commit </strong><code>f77713c</code>).<strong> This pass &gt; originally found </strong><code>function scaled(x, order = 4, ...)</code> failing to parse &gt; at all (<code>expected ')', found Op("=")</code>, since <code>Param</code> had no default-value &gt; slot). Default parameters are now real: &gt; <code></code><code>qu &gt; function scaled(x, order = 4, cutoff = 1000) &gt;     return "x={x} order={order} cutoff={cutoff}" &gt; end function &gt; print(scaled(99))               # x=99 order=4 cutoff=1000 &gt; print(scaled(99, 2, 500))       # x=99 order=2 cutoff=500 &gt; </code><code></code> &gt; The default expression is re-evaluated fresh on every call (not &gt; computed once at definition time) and may reference an earlier &gt; parameter (<code>function f(x, y = x * 2)</code> works). <strong>A real behavior change &gt; discovered along the way</strong>: named-argument calling on a user-defined &gt; function is NOT supported — <code>scaled(99, cutoff=500)</code> is a clear error &gt; (<code></code> <code>scaled</code> is a user-defined function -- named arguments... are not &gt; supported when calling one<code></code>), verified live. Only builtins accept &gt; <code>name=value</code> calling syntax; pass every argument to a user function &gt; positionally. There is no separate <code>optional</code>/<code>is_present()</code> mechanism &gt; — a parameter is either required or has a <code>= value</code> default.</p>
 <p>&gt; <strong>MISMATCH — </strong><code>nargin</code>/<code>nargout</code>/varargs.<strong> The spec's §44.5 claims &gt; </strong><code>nargin</code>, <code>nargout</code>, <code>...args</code> (varargin), and <code>args...</code> (spread). Real &gt; behavior: <code>nargin</code> inside a function body gives <code>qu: runtime error: 'nargin' &gt; is not defined</code>. None of this argument-introspection machinery exists.</p>
 <p>&gt; <strong>MISMATCH — anonymous-function arrow lambdas.</strong> The spec's §44.5 shows &gt; <code>sq = (x) -&gt; x^2</code> as a MATLAB-<code>@(x)</code>-style lambda. Real behavior: this is a &gt; parse error — <code>qu: runtime error: parse error at 1:13: expected '(', found &gt; Ident("x")</code>. <code>-&gt;</code> today is exclusively the new reshape operator (§12): &gt; after <code>-&gt;</code> the parser expects a parenthesized dims tuple, not an arbitrary &gt; expression body, so a lambda arrow using the same token cannot coexist with &gt; reshape as currently implemented. There is no lambda literal syntax at all &gt; right now — <code>map</code> needs a named function.</p>
 <p>&gt; <strong>MISMATCH — </strong><code>pure function</code>/<code>elemental function</code> attributes.<strong> Claimed in &gt; spec §44.5; </strong><code>pure</code>/<code>elemental</code> are not in the lexer's keyword list at all &gt; (<code>qu-lexer/src/lib.rs:78-82</code>), so <code>pure function f(x) ... end function</code> &gt; would need to be tested but is very unlikely to be recognized — flagged &gt; from source inspection, not independently re-run, since the keyword's &gt; absence from the lexer table is already conclusive.</p>
@@ -604,7 +604,7 @@ grp  mean_v
 2        35
 </code></pre>
 <p><code>df[mask]</code> does <strong>not</strong> work — bracket indexing on a table is single-key row lookup only, with a very explicit error pointing at the fix:</p>
-<div class="example"><pre class="hl"><code>mask = df.x &gt; <span class="n">0</span>
+<div class="example norun"><pre class="hl"><code>mask = df.x &gt; <span class="n">0</span>
 bad = df[mask]
 </code></pre>
 </div>
@@ -697,7 +697,7 @@ s = timer.<span class="f">stop</span>()
 <span class="f">print</span>(<span class="s">"done, acc = {acc}"</span>)
 </code></pre>
 <div class="out"><span class="lbl">output</span><pre>elapsed &gt;= 0: true
-stop returns: 0.000586
+stop returns: 0.000696
 done, acc = 5000050000</pre></div></div>
 <p>Output:</p>
 <pre><code>elapsed &gt;= 0: true
@@ -725,7 +725,7 @@ w -&gt; (3,1) = [1; 2; 3]
 <hr>
 <h2 id="s595">13. Error handling</h2>
 <p>A real uncaught runtime error:</p>
-<div class="example"><pre class="hl"><code>y = [<span class="n">1</span>,<span class="n">2</span>] + [<span class="n">1</span>,<span class="n">2</span>,<span class="n">3</span>]
+<div class="example norun"><pre class="hl"><code>y = [<span class="n">1</span>,<span class="n">2</span>] + [<span class="n">1</span>,<span class="n">2</span>,<span class="n">3</span>]
 </code></pre>
 </div>
 <pre><code><span class="e">qu: runtime error: vector length mismatch: 2 vs 3 (broadcasting of unequal vectors is an error)</span>
@@ -777,7 +777,7 @@ parallel <span class="k">for</span> i <span class="k">in</span> <span class="n">
 <pre><code>[0, 1, 4, 9, 16]
 </code></pre>
 <p>Beyond that, there's a genuine worker-pool job scheduler — <code>pool</code> (with resource limits and a policy), <code>queue()</code> (a deferred-job list), and <code>run &lt;queue&gt; on &lt;pool&gt;</code> (dispatch every queued job across the pool):</p>
-<div class="example"><pre class="hl"><code><span class="k">function</span> <span class="f">square</span>(x)
+<div class="example"><pre class="hl"><code><span class="k">function</span> <span class="f">sq_job</span>(x)
     <span class="k">return</span> x * x
 <span class="k">end</span> <span class="k">function</span>
 
@@ -788,7 +788,7 @@ pool workers <span class="k">with</span> cpu=<span class="n">4</span>
 
 q = <span class="f">queue</span>()
 <span class="k">for</span> i <span class="k">in</span> <span class="n">0</span> <span class="k">to</span> <span class="n">9</span>
-    q.<span class="f">push</span>(<span class="s">"square"</span>, i)         <span class="c"># enqueue a deferred call by name + args</span>
+    q.<span class="f">push</span>(<span class="s">"sq_job"</span>, i)         <span class="c"># enqueue a deferred call by name + args</span>
 <span class="k">end</span> <span class="k">for</span>
 
 results = run q on workers
@@ -802,13 +802,13 @@ results = run q on workers
 <h3>15.1 Distributed pools — <code>listen_pool</code> and <code>pool ... remote=(...)</code></h3>
 <p>Beyond local threads, a pool's workers can be OTHER Qu processes running on the network — <code>listen_pool</code> starts one process in "listen mode," and a <code>remote = (...)</code> resource on <code>pool</code> names those listeners as extra workers. This is a real, minimal, working slice of what §54 of the language reference sketches as a much larger future cluster-management vision (<code>worker()</code>/<code>cluster()</code> objects, <code>least_loaded</code>/<code>affinity</code> policies, auto-discovery, fault-tolerant reschedule-on-node-drop) — none of that exists yet; what's here is deliberately small: name some <code>"host:port"</code> addresses, dispatch jobs to them by function name, get results back.</p>
 <p>On the listening machine (or a second terminal on the same machine, for trying this out locally over the loopback interface):</p>
-<div class="example"><pre class="hl"><code><span class="f">square</span>(x) := x * x
-<span class="f">listen_pool</span>(<span class="n">9000</span>, <span class="a">allow</span>=(<span class="s">"square"</span>))   <span class="c"># blocks forever, serving requests</span>
+<div class="example norun"><pre class="hl"><code><span class="f">sq_job</span>(x) := x * x
+<span class="f">listen_pool</span>(<span class="n">9000</span>, <span class="a">allow</span>=(<span class="s">"sq_job"</span>))   <span class="c"># blocks forever, serving requests</span>
 </code></pre>
 </div>
 <p><code>allow=(...)</code> is a hard requirement, not an option — a listener only ever executes a function whose NAME is in this list. A request for anything else gets a clean rejection, never a crash and never a silent bypass: this is what keeps a listening process from becoming "run any stdlib function a network caller asks for," which would otherwise let anyone who can reach the port trigger file writes, <code>http_get</code>, etc. by name alone. There is no way to ship a closure or raw source code over this wire — only pre-defined functions the listening SCRIPT itself already chose to expose.</p>
 <p>On the calling machine, name that address as a <code>remote</code> resource alongside (or instead of) local <code>cpu</code> workers:</p>
-<div class="example"><pre class="hl"><code><span class="f">square</span>(x) := x * x                    <span class="c"># still needed locally: `run` validates</span>
+<div class="example norun"><pre class="hl"><code><span class="f">sq_job</span>(x) := x * x                    <span class="c"># still needed locally: `run` validates</span>
                                        <span class="c"># every queued function name against</span>
                                        <span class="c"># the CALLING script's own functions</span>
                                        <span class="c"># before dispatching anything, even a</span>
@@ -819,7 +819,7 @@ pool workers <span class="k">with</span> cpu=<span class="n">2</span>, remote=(<
 
 q = <span class="f">queue</span>()
 <span class="k">for</span> i <span class="k">in</span> <span class="n">0</span> <span class="k">to</span> <span class="n">9</span>
-    q.<span class="f">push</span>(<span class="s">"square"</span>, i)
+    q.<span class="f">push</span>(<span class="s">"sq_job"</span>, i)
 <span class="k">end</span> <span class="k">for</span>
 
 results = run q on workers            <span class="c"># some jobs run locally, some remote —</span>
@@ -1087,7 +1087,7 @@ Peak frequencies (Hz): [40, 90]
 <p>Both injected tones (40 Hz and 90 Hz) are recovered exactly, since <code>Fs=N=512</code> makes bin index equal frequency in Hz here. <code>findpeaks</code>'s real keyword names are <code>min_peak_height</code>/<code>min_peak_distance</code> (MATLAB-style, matching the doc comment at <code>qu-interp/src/lib.rs:12899</code>) — not the shorter <code>min_height</code>/<code>min_distance</code> used by the separate <code>find_peaks</code> (underscore, index-returning) builtin, which is a distinct function with its own kwarg names.</p>
 <h3>Kalman filtering — constant-velocity position tracking</h3>
 <p><code>kalman_init(x0, P0)</code> returns a Model; <code>state.predict(F, Q)</code> and <code>state.update(H, z, R)</code> are dispatched via the model's own <code>kind</code> (<code>predict</code>/<code>update</code> are ordinary multiple-dispatch functions overloaded on <code>model&lt;"kalman"&gt;</code>, called through <code>.method()</code> sugar), each returning an updated state Model to thread into the next iteration — exactly the pattern already verified in <code>catalog/qu_kalman_tracking.qu</code>:</p>
-<div class="example hasout"><pre class="hl"><code>N = <span class="n">60</span>
+<div class="example"><pre class="hl"><code>N = <span class="n">60</span>
 dt = <span class="n">0.1</span>
 true_v = <span class="n">2.0</span>
 t = (<span class="n">0</span> <span class="k">to</span> N - <span class="n">1</span>) * dt
@@ -1114,8 +1114,7 @@ filt_err = <span class="f">rms</span>(est_pos - true_pos)
 <span class="f">print</span>(<span class="s">"Position RMS error: raw sensor={raw_err:.3f}, Kalman estimate={filt_err:.3f}"</span>)
 <span class="f">print</span>(<span class="s">"True velocity={true_v:.2f}, final estimated velocity={est_vel[N-1]:.3f}"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>Position RMS error: raw sensor=0.914, Kalman estimate=0.353
-True velocity=2.00, final estimated velocity=2.102</pre></div></div>
+</div>
 <p>Output:</p>
 <pre><code>Position RMS error: raw sensor=0.832, Kalman estimate=0.215
 True velocity=2.00, final estimated velocity=2.023
@@ -1153,7 +1152,7 @@ Best-match lag (samples): -15 (true shift was 15)
 <p><code>corr(x,x)=1</code> exactly, as expected. The direct-sample correlation <code>corr(x, y)</code> between the original and its 15-sample-delayed copy is near zero (delaying a 10 Hz tone by 15 samples at 200 Hz rotates its phase by 270 deg, which happens to land close to decorrelated) — <code>xcorr</code>'s full lag sweep is what actually finds the true delay: its peak sits at lag -15, correctly identifying that <code>y</code> is <code>x</code> delayed by 15 samples (the sign is <code>xcorr</code>'s own convention — <code>y</code> lags <code>x</code>, so the peak appears on the negative side).</p>
 <h3><code>square</code> is a square-WAVE generator, not "x squared" — a real silent-wrong-answer bug, now fixed</h3>
 <p><code>square(freq, fs, n, [duty=])</code> generates a bipolar pulse train — it has nothing to do with squaring a number, despite the name being very easy to misread as an elementwise math function. Before this fix, <code>square</code>'s (and <code>impulse</code>'s and <code>pwm</code>'s) required numeric arguments were read with <code>args.get(idx).and_then(|v| v.as_num().ok()).unwrap_or(default)</code> — a pattern that silently swallows a type error and substitutes the default whenever the argument is PRESENT but the WRONG type, rather than erroring. Live-confirmed footgun: piping a whole <code>Vec</code> into <code>square</code> as if it were an elementwise operation silently produced a meaningless 1-sample signal instead of any kind of error:</p>
-<div class="example"><pre class="hl"><code>x = [<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>, <span class="n">4</span>, <span class="n">5</span>]
+<div class="example norun"><pre class="hl"><code>x = [<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>, <span class="n">4</span>, <span class="n">5</span>]
 y = x |&gt; square |&gt; sum
 <span class="f">print</span>(y)
 </code></pre>
@@ -1203,7 +1202,7 @@ calls = 2
 <p>Three real filesystem features landed together: a proper Unix <code>touch</code>, an internal memory-efficiency fix to ordinary file reads, and read-only memory-mapped random access.</p>
 <h3><code>touch(path)</code></h3>
 <p>Unix <code>touch</code> semantics: creates an empty file if <code>path</code> doesn't exist; if it already exists, <code>touch</code> bumps its modification time WITHOUT altering its content:</p>
-<div class="example hasout"><pre class="hl"><code>path = <span class="s">"touch_target.txt"</span>
+<div class="example"><pre class="hl"><code>path = <span class="s">"touch_target.txt"</span>
 had_before = <span class="f">file_exists</span>(path)
 <span class="f">touch</span>(path)
 exists_after_touch = <span class="f">file_exists</span>(path)
@@ -1222,9 +1221,7 @@ content = <span class="f">read_all</span>(g)
 <span class="f">print</span>(<span class="s">"exists_after_touch = {exists_after_touch}"</span>)
 <span class="f">print</span>(<span class="s">"content = {content}"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>had_before = false
-exists_after_touch = true
-content = original content</pre></div></div>
+</div>
 <p>Output:</p>
 <pre><code>had_before = false
 exists_after_touch = true
@@ -1283,10 +1280,10 @@ last4 = [69, 70, 71, 72]
 <hr>
 <h2 id="s1157">21. <code>http_get(url)</code> — real HTTP GET</h2>
 <p><code>http_get(url)</code> issues a real HTTP(S) GET request and returns the response body as a string (GET-only, 30s timeout, clear errors on an unreachable host or non-2xx status — no custom headers, auth, or POST in this v1):</p>
-<div class="example hasout"><pre class="hl"><code>body = <span class="f">http_get</span>(<span class="s">"https://example.com/"</span>)
+<div class="example"><pre class="hl"><code>body = <span class="f">http_get</span>(<span class="s">"https://example.com/"</span>)
 <span class="f">print</span>(<span class="s">"len = {length(body)}"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>len = 577</pre></div></div>
+</div>
 <p>Output:</p>
 <pre><code>len = 559
 </code></pre>
@@ -1372,16 +1369,14 @@ qs = [0, 10, 20]
 <p><code>mid</code> (t=0.75s) sits exactly halfway between samples at t=0.5s (y=10) and t=1.0s (y=20), interpolating to <code>15</code>. <code>lo</code> (t=-0.5s) and <code>hi</code> (t=2.0s) both fall outside the signal's own 0..1.5s span and are extrapolated via the boundary segment's slope (20/s): <code>0 - 20*0.5 = -10</code>, <code>30 + 20*0.5 = 40</code>. The result is a plain <code>Num</code>/<code>Vec</code>, never re-wrapped as a <code>Signal</code> — the query times have no guaranteed uniform spacing, so there is no honest <code>Fs</code> left to attach.</p>
 <h3><code>s.apply(fnName)</code> — elementwise map that preserves the container</h3>
 <p>Distinct from <code>map(fnName, xs)</code>, which always returns a plain <code>List</code>. <code>apply(x, fnName)</code> instead matches this interpreter's existing container-preserving convention (the same one <code>sin</code>/<code>cos</code>/unary <code>-</code> already use): a <code>Signal</code> stays a <code>Signal</code> at the same <code>Fs</code>, a <code>Vec</code> stays a <code>Vec</code>:</p>
-<div class="example hasout"><pre class="hl"><code><span class="f">double</span>(v) := v * <span class="n">2</span>
+<div class="example"><pre class="hl"><code><span class="f">double</span>(v) := v * <span class="n">2</span>
 sig = <span class="f">signal</span>([<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>, <span class="n">4</span>], <span class="n">8</span>)
 out = sig.<span class="f">apply</span>(<span class="s">"double"</span>)
 <span class="f">print</span>(<span class="s">"out = {out}"</span>)
 <span class="f">print</span>(<span class="s">"out.Fs = {out.Fs}"</span>)
 <span class="f">print</span>(<span class="s">"sig unchanged = {sig}"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>out = signal(Fs=8) [2, 4, 6, 8]
-out.Fs = 8
-sig unchanged = signal(Fs=8) [1, 2, 3, 4]</pre></div></div>
+</div>
 <p>Output:</p>
 <pre><code>out = signal(Fs=8) [2, 4, 6, 8]
 out.Fs = 8
@@ -1410,7 +1405,7 @@ t2 after @cut = signal(Fs=10) [2, 3, 4, 5, 6]
 <hr>
 <h2 id="s1516">25. <code>watch</code> — file/variable/URL change detection</h2>
 <p><code>watch</code> registers a callback for one of three trigger conditions — a file's modification time changing, a variable's value changing, or an HTTP endpoint's response body changing. It reuses the exact same registration-then-fire shape as the pre-existing <code>every</code>/<code>after</code>/<code>at ... end</code> timers (§12's <code>timer.</code> sugar is a different feature — this is the statement-level <code>Timer</code>/<code>OnElapsed</code> machinery those use under the hood):</p>
-<div class="example"><pre class="hl"><code>watch <span class="f">file</span>(path) [<span class="k">do</span>]
+<div class="example norun"><pre class="hl"><code>watch <span class="f">file</span>(path) [<span class="k">do</span>]
     ...
 <span class="k">end</span>
 
@@ -1428,7 +1423,7 @@ watch <span class="f">url</span>(url, [<span class="a">interval_seconds</span>=]
 <p>This is the single most important thing to understand about <code>watch</code>. Qu's interpreter is synchronous and single-threaded, with no background event loop — exactly the same constraint that already makes <code>every</code>/<code>after</code>/<code>at</code> fire only during an explicit <code>run_for(duration)</code> call, never asynchronously while the rest of the script executes. <code>watch</code> inherits that same model: the <code>watch ... end</code> statement only <strong>registers</strong> the callback and takes a baseline snapshot of the current state (the file's mtime, the variable's value, or one real fetch of the URL) — the body never runs there. A callback only fires when the script later calls the <strong></strong><code>pump_watches()</code><strong> builtin, which checks every registered watch's real current state, right now, exactly once, and runs the body of any whose state has genuinely changed since the last check.</strong></p>
 <p><code>pump_watches()</code> is a <strong>new, separate builtin from </strong><code>run_for</code><strong> — investigated reusing </strong><code>run_for(duration)</code> and rejected it: <code>run_for</code> drives registered timers across a *simulated* virtual clock with no real waiting (see its own table entry below), which makes sense for a fixed time interval but has no honest equivalent for "has this file's real mtime changed" — there is no simulated mtime to fast-forward through. A <code>watch</code>'s condition is real external state (the filesystem, a variable, an HTTP endpoint) that can only be checked for real, at the moment you ask. <code>pump_watches()</code> means exactly that: check everything once, right now.</p>
 <p>A script that wants repeated checking drives it itself, typically pairing <code>pump_watches()</code> with the pre-existing <code>sleep(ms)</code> and <code>wait until ... end until</code>:</p>
-<div class="example"><pre class="hl"><code>n = <span class="n">0</span>
+<div class="example norun"><pre class="hl"><code>n = <span class="n">0</span>
 watch <span class="f">file</span>(<span class="s">"data.csv"</span>) <span class="k">do</span>
     n = n + <span class="n">1</span>
 <span class="k">end</span>
@@ -1467,7 +1462,7 @@ x = <span class="n">5</span>
 </div>
 <h3><code>watch url(url, [interval_seconds=])</code> — HTTP response body change</h3>
 <p>Fires when a fresh fetch of <code>url</code> (via the existing <code>http_get</code> builtin — see §21 — never a second HTTP implementation) returns a body different from the last fetch. <code>interval_seconds</code> bounds how often this actually fetches over the network, in real wall-clock seconds — <code>pump_watches()</code> may be called far more often than that; a call landing before the interval has elapsed is a cheap no-op, not a fetch. Defaults to <code>5</code> seconds when omitted (a plain "don't hammer the endpoint" default). The baseline is one real fetch performed at <code>watch url(...)</code> registration time, so whatever the endpoint returns *before* you started watching is never itself treated as a change.</p>
-<div class="example"><pre class="hl"><code>watch <span class="f">url</span>(<span class="s">"https://example.com/status"</span>, <span class="a">interval_seconds</span>=<span class="n">30</span>) <span class="k">do</span>
+<div class="example norun"><pre class="hl"><code>watch <span class="f">url</span>(<span class="s">"https://example.com/status"</span>, <span class="a">interval_seconds</span>=<span class="n">30</span>) <span class="k">do</span>
     <span class="f">print</span>(<span class="s">"status page changed"</span>)
 <span class="k">end</span>
 <span class="f">pump_watches</span>()
@@ -1479,7 +1474,11 @@ x = <span class="n">5</span>
 <p>Ahmed asked for a section comparing "advanced" Python code against the equivalent Qu, checking that Qu is easier, faster, and accurate — with the explicit caveat that the two languages don't always think about a problem the same way, so this isn't a line-for-line transliteration exercise. Both examples below were actually run (release <code>qu.exe</code> vs. Python 3.13 + NumPy 2.4.5), not estimated, and the second one caught a real bug along the way — reported honestly rather than adjusted to make the numbers look better.</p>
 <h3>26.1 HMM Viterbi decoding, 8000-step sequence — Qu wins on all three</h3>
 <p>Qu's <code>hmm(transition, emission, initial).viterbi(obs)</code> (§ Markov Chains &amp; HMM in <code>book/src/stdlib/statistics-ml.md</code>) does the entire dynamic- programming recursion inside one compiled Rust builtin call. Python's "advanced" equivalent (a real log-space Viterbi implementation, vectorized over states with NumPy inside each timestep) still needs an unavoidable Python-level <code>for t in range(T)</code> loop, because each timestep genuinely depends on the previous one — this is the case where Qu's advantage is structural, not incidental.</p>
-<div class="example"><pre class="hl"><code>model = <span class="f">hmm</span>(transition, emission, initial)
+<div class="example"><pre class="hl"><code>transition = [<span class="n">0.9</span>, <span class="n">0.1</span>; <span class="n">0.2</span>, <span class="n">0.8</span>]    <span class="c"># a small 2-state model standing in for the benchmark's</span>
+emission = [<span class="n">0.7</span>, <span class="n">0.3</span>; <span class="n">0.1</span>, <span class="n">0.9</span>]
+initial = [<span class="n">0.5</span>, <span class="n">0.5</span>]
+obs = [<span class="n">0</span>, <span class="n">0</span>, <span class="n">1</span>, <span class="n">1</span>, <span class="n">1</span>, <span class="n">0</span>, <span class="n">1</span>, <span class="n">1</span>]
+model = <span class="f">hmm</span>(transition, emission, initial)
 path = model.<span class="f">viterbi</span>(obs)          <span class="c"># one call, entire 8000-step decode</span>
 </code></pre>
 </div>
@@ -1500,7 +1499,10 @@ for t in range(1, T):
 <p><strong>A real bug found and fixed along the way (2026-09-01):</strong> the first run of this comparison showed Qu's checksum as 31413, not 15908 — a real mismatch. Both <code>hmm_forward</code> and <code>hmm_viterbi</code> (<code>engine/crates/qu-interp/ src/lib.rs</code>) originally accumulated raw linear probabilities, which underflow to exactly <code>0.0</code> in <code>f64</code> after roughly 300-700 observations depending on the model. Once every candidate ties at <code>0.0</code>, Rust's <code>Iterator::max_by</code> — which documents "if several elements are equally maximum, the last element is returned" — made the decoded path silently get stuck on the highest-index state forever after. Bisecting the sequence length localized the divergence to almost exactly the predicted double- underflow point, confirming the diagnosis before touching any code. Fixed by switching both functions to log-space accumulation (commit <code>92bc8c7</code>); after the fix, Qu's output matches the Python reference exactly, and a new regression test (<code>hmm_viterbi_does_not_underflow_and_get_stuck_on_a_long_sequence</code>) guards against it recurring. This is exactly why "measure, don't assume" matters even for code that already passed its original unit tests — the textbook 3-observation example that validated <code>hmm</code> at ship time was too short to ever exercise this failure mode.</p>
 <h3>26.2 Particle filter tracking, 50000 particles x 500 steps — was a real loss, now fixed</h3>
 <p><strong>Update:</strong> the first version of this section reported an honest loss for Qu (1959ms vs. Python's 864ms) and left it at that. Since then, profiling the actual gap (not guessing at it) found and fixed two real, avoidable costs — see §26.2.1 below. Qu now runs this benchmark in ~860ms, matching the NumPy reference. The code and honest-loss framing are kept below as they were originally written, since the fix (§26.2.1) is only meaningful in contrast to what it replaced.</p>
-<div class="example"><pre class="hl"><code>pf = <span class="f">particle_filter</span>(<span class="n">50000</span>, [<span class="n">0</span>, <span class="n">0</span>], <span class="a">process_noise</span>=<span class="n">0.08</span>, <span class="a">obs_noise</span>=<span class="n">0.4</span>, <span class="a">spread</span>=<span class="n">2.0</span>, <span class="a">seed</span>=<span class="n">3</span>)
+<div class="example"><pre class="hl"><code>N = <span class="n">500</span>                          <span class="c"># a small stand-in for the benchmark's tracking data</span>
+dt = <span class="n">0.1</span>
+measured = <span class="n">0.5</span> * dt * (<span class="n">0</span> <span class="k">to</span> N - <span class="n">1</span>) + <span class="n">0.4</span> * <span class="f">randn</span>(N, <span class="a">seed</span> = <span class="n">5</span>)
+pf = <span class="f">particle_filter</span>(<span class="n">50000</span>, [<span class="n">0</span>, <span class="n">0</span>], <span class="a">process_noise</span>=<span class="n">0.08</span>, <span class="a">obs_noise</span>=<span class="n">0.4</span>, <span class="a">spread</span>=<span class="n">2.0</span>, <span class="a">seed</span>=<span class="n">3</span>)
 <span class="k">for</span> k = <span class="n">0</span> <span class="k">to</span> N - <span class="n">1</span>
     pf = pf.<span class="f">move</span>(dt)
     pf = pf.<span class="f">update</span>([measured[k]])

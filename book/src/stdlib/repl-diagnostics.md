@@ -90,6 +90,13 @@ this is completely unrelated to the real `timer([interval])` object
 constructor above (a bare `timer.start()` never constructs one).
 
 ```qu
+function heavy_computation()
+    return sum(sin(1 to 100000))
+end function
+function more_work()
+    return sum(cos(1 to 100000))
+end function
+
 timer.start()               # same as tic()
 heavy_computation()
 mid = timer.elapsed()       # peek — does NOT reset, callable again

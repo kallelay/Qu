@@ -43,11 +43,6 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example"><pre class="hl"><code><span class="k">with</span> image
-    img = .<span class="f">load</span>(<span class="s">"photo.png"</span>) |&gt; .blur |&gt; .<span class="f">sobel</span>(<span class="a">direction</span>=<span class="s">"x"</span>)
-<span class="k">end</span>
-</code></pre>
-</div><p class="fnfrom">from <a href="../docs/stdlib-overview.html">stdlib-overview</a></p>
 <div class="example hasout"><pre class="hl"><code><span class="f">write_csv</span>(df, <span class="s">"data.csv"</span>)
 df2 = <span class="f">read_csv</span>(<span class="s">"data.csv"</span>)
 <span class="f">print</span>(df2)
@@ -75,6 +70,15 @@ m = <span class="f">ols_model</span>([<span class="n">1</span>;<span class="n">2
 p = <span class="f">predict</span>(m, [<span class="n">5</span>])                   <span class="c"># -&gt; [10]</span>
 </code></pre>
 </div><p class="fnfrom">from <a href="../docs/fundamentals.html">fundamentals</a></p>
+<div class="example"><pre class="hl"><code><span class="c"># Make a small gradient picture first, so the example has a file to load.</span>
+g = <span class="f">linspace</span>(<span class="n">0</span>, <span class="n">255</span>, <span class="n">32</span>)
+<span class="f">save_image</span>(<span class="s">"photo.png"</span>, <span class="f">image_from_matrix</span>(<span class="f">ones</span>(<span class="n">32</span>, <span class="n">1</span>) * <span class="f">reshape</span>(g, <span class="n">1</span>, <span class="n">32</span>)))
+
+<span class="k">with</span> image
+    img = .<span class="f">load</span>(<span class="s">"photo.png"</span>) |&gt; .blur |&gt; .<span class="f">sobel</span>(<span class="a">direction</span>=<span class="s">"x"</span>)
+<span class="k">end</span>
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/stdlib-overview.html">stdlib-overview</a></p>
 <h2>How it works</h2>
 <p><code>load(path)</code> — restore every variable a <code>save</code>/<code>save_all</code> call wrote, under the same names, into the top-level workspace (overwriting any existing variable of the same name, the same "load replaces" semantics MATLAB's own <code>load</code> has).</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

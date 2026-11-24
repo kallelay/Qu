@@ -48,6 +48,7 @@
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
 <div class="example"><pre class="hl"><code>  fs = <span class="n">8000</span>
   tone_hz = <span class="n">941</span>                  <span class="c"># one DTMF tone</span>
+  samples = <span class="f">sin</span>(<span class="n">2</span> * pi * tone_hz * (<span class="n">0</span> <span class="k">to</span> <span class="n">799</span>) / fs)   <span class="c"># 0.1 s of the tone</span>
   strength = <span class="f">abs</span>(<span class="f">goertzel_freq</span>(samples, fs, tone_hz))
 </code></pre>
 </div><p class="fnfrom">from <a href="../docs/numerics-dsp.html">numerics-dsp</a></p>

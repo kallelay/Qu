@@ -46,12 +46,15 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example"><pre class="hl"><code><span class="k">for</span> line <span class="k">in</span> <span class="f">lines</span>(<span class="f">trim</span>(txt))
+<div class="example hasout"><pre class="hl"><code><span class="k">for</span> line <span class="k">in</span> <span class="f">lines</span>(<span class="f">trim</span>(txt))
     parts = <span class="f">split</span>(line, <span class="s">","</span>)
     <span class="f">print</span>(<span class="s">"  {parts[0]} -&gt; {parts[1]}"</span>)
 <span class="k">end</span> <span class="k">for</span>
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/agent-guide.html">agent-guide</a></p>
+<div class="out"><span class="lbl">output</span><pre>  name -&gt; score
+  a -&gt; 1
+  b -&gt; 4
+  c -&gt; 9</pre></div></div><p class="fnfrom">from <a href="../docs/agent-guide.html">agent-guide</a></p>
 <div class="example hasout"><pre class="hl"><code>s = <span class="s">"  Hello, Qu World!  "</span>
 trimmed = <span class="f">trim</span>(s)
 parts = <span class="f">split</span>(trimmed, <span class="s">", "</span>)

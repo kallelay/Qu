@@ -93,7 +93,7 @@
 
 <main class="docmain">
 <h1>Statistics & ML</h1>
-<nav class="onthispage"><a href="#s0">Example data</a><a href="#s30">Descriptive statistics</a><a href="#s71">Regression</a><a href="#s100">Time series: autoregressive models</a><a href="#s154">Clustering and dimensionality reduction</a><a href="#s213">The fitted-model protocol</a><a href="#s258">Recurrent cells: LSTM</a><a href="#s299">Recurrent cells: GRU</a><a href="#s339">Local LLM inference (experimental)</a><a href="#s393">Feedforward layers and activations</a><a href="#s447">Convolution and pooling</a><a href="#s490">Layer normalization and attention</a><a href="#s543">Training loops and optimizers</a><a href="#s592">Ready-made architectures</a><a href="#s636">Reinforcement learning: gridworld</a><a href="#s689">Estimation: Kalman, EKF, UKF, particle filters</a><a href="#s755">Markov chains and hidden Markov models</a><a href="#s813">Computational geometry</a><a href="#s855">Feature scaling</a><a href="#s890">Splitting and evaluation</a><a href="#s934">Random distributions</a><a href="#s974">Distribution families</a><a href="#s1015">Putting it together</a><a href="#s1055">More functions</a></nav>
+<nav class="onthispage"><a href="#s0">Example data</a><a href="#s30">Descriptive statistics</a><a href="#s71">Regression</a><a href="#s100">Time series: autoregressive models</a><a href="#s154">Clustering and dimensionality reduction</a><a href="#s213">The fitted-model protocol</a><a href="#s258">Recurrent cells: LSTM</a><a href="#s299">Recurrent cells: GRU</a><a href="#s339">Local LLM inference (experimental)</a><a href="#s393">Feedforward layers and activations</a><a href="#s447">Convolution and pooling</a><a href="#s490">Layer normalization and attention</a><a href="#s543">Training loops and optimizers</a><a href="#s592">Ready-made architectures</a><a href="#s636">Reinforcement learning: gridworld</a><a href="#s689">Estimation: Kalman, EKF, UKF, particle filters</a><a href="#s755">Markov chains and hidden Markov models</a><a href="#s813">Computational geometry</a><a href="#s855">Feature scaling</a><a href="#s890">Splitting and evaluation</a><a href="#s934">Random distributions</a><a href="#s974">Distribution families</a><a href="#s1015">Choosing k, reading learning curves, and preparing data</a><a href="#s1091">Putting it together</a><a href="#s1131">More functions</a></nav>
 <p>Every statistics, machine-learning and estimation builtin that runs today. The list is read off the interpreter's own dispatch table, so nothing here is aspirational. Plain descriptive statistics — <code>mean</code>, <code>std</code>, <code>var</code>, <code>median</code> — are in <a href="core-math.html">Core Maths</a>; this chapter starts at correlation and goes up.</p>
 <h2 id="s0">Example data</h2>
 <p>A regression problem and a held-out set. Every example below runs against these.</p>
@@ -4043,7 +4043,96 @@ bino -&gt; poiss: 0.433431 vs 0.43347
 hypergeometric mean 2.4, variance 1.489
 gamfit: a = 2.55, b = 1.47, loglik = -10647.1
 95% of Binomial(20, 0.3) draws are &lt;= 9: binocdf = 0.952</pre></div></div>
-<h2 id="s1015">Putting it together</h2>
+<h2 id="s1015">Choosing k, reading learning curves, and preparing data</h2>
+<p>Added in v0.4.15. Each block below was run as written.</p>
+<p><strong>Pick the number of clusters by silhouette.</strong> <code>silhouette_score</code> is the mean silhouette over all points; the <code>k</code> with the largest value fits best. Three blobs, so <code>k = 3</code> should win, and it does:</p>
+<div class="example hasout"><pre class="hl"><code>G = <span class="f">vstack</span>(<span class="f">randn</span>(<span class="n">40</span>, <span class="n">2</span>, <span class="a">seed</span> = <span class="n">31</span>) + <span class="n">4</span>,
+           <span class="f">randn</span>(<span class="n">40</span>, <span class="n">2</span>, <span class="a">seed</span> = <span class="n">32</span>) - <span class="n">4</span>,
+           <span class="f">randn</span>(<span class="n">40</span>, <span class="n">2</span>, <span class="a">seed</span> = <span class="n">33</span>))
+<span class="k">for</span> k = <span class="n">2</span>:<span class="n">5</span>
+    s = <span class="f">silhouette_score</span>(G, <span class="f">kmeans</span>(G, k, <span class="a">seed</span> = <span class="n">5</span>))
+    <span class="f">print</span>(<span class="s">"k = {k}: silhouette = {round(s, 3)}"</span>)
+<span class="k">end</span> <span class="k">for</span>
+</code></pre>
+<div class="out"><span class="lbl">output</span><pre>k = 2: silhouette = 0.558
+k = 3: silhouette = 0.692
+k = 4: silhouette = 0.559
+k = 5: silhouette = 0.539</pre></div></div>
+<pre><code>k = 2: silhouette = 0.558
+k = 3: silhouette = 0.692
+k = 4: silhouette = 0.559
+k = 5: silhouette = 0.539
+</code></pre>
+<p><strong>A learning curve is two lines.</strong> <code>learning_curve</code> takes what <code>cross_val</code> takes. A 1-nearest-neighbour model memorises its training rows (training R2 is exactly 1) but interpolates a straight line more crudely the fewer points it has, so only the validation curve moves:</p>
+<div class="example hasout"><pre class="hl"><code>xl = <span class="f">linspace</span>(<span class="n">0</span>, <span class="n">10</span>, <span class="n">60</span>)
+yl = <span class="n">3</span> * xl + <span class="n">1</span>
+r = <span class="f">learning_curve</span>(knn_model, xl, yl, <span class="n">1</span>, <span class="a">seed</span> = <span class="n">11</span>)
+<span class="f">print</span>(<span class="s">"rows:       {r.sizes}"</span>)
+<span class="f">print</span>(<span class="s">"train R2:   {round(r.train_mean, 4)}"</span>)
+<span class="f">print</span>(<span class="s">"validation: {round(r.val_mean, 4)}"</span>)
+</code></pre>
+<div class="out"><span class="lbl">output</span><pre>rows:       [10, 19, 29, 38, 48]
+train R2:   [1, 1, 1, 1, 1]
+validation: [0.9394, 0.9832, 0.9917, 0.9936, 0.9949]</pre></div></div>
+<pre><code>rows:       [10, 19, 29, 38, 48]
+train R2:   [1, 1, 1, 1, 1]
+validation: [0.9394, 0.9832, 0.9917, 0.9936, 0.9949]
+</code></pre>
+<p>To draw it: <code>plot(r.sizes, r.train_mean)</code> and <code>plot(r.sizes, r.val_mean)</code>.</p>
+<p><strong>Encode string labels.</strong> <code>label_encode</code> and <code>one_hot</code> sort the classes, and <code>label_decode</code> turns integer codes (for instance a model's predictions) back into the original strings:</p>
+<div class="example hasout"><pre class="hl"><code>colors = (<span class="s">"red"</span>, <span class="s">"green"</span>, <span class="s">"blue"</span>, <span class="s">"green"</span>, <span class="s">"red"</span>, <span class="s">"blue"</span>, <span class="s">"green"</span>, <span class="s">"red"</span>)
+e = <span class="f">label_encode</span>(colors)
+<span class="f">print</span>(<span class="s">"classes: {e.classes}"</span>)
+<span class="f">print</span>(<span class="s">"codes:   {e.codes}"</span>)
+<span class="f">print</span>(<span class="s">"back:    {label_decode(e.codes, e.classes)}"</span>)
+oh = <span class="f">one_hot</span>(colors)
+<span class="f">print</span>(<span class="s">"one_hot is {rows(oh.matrix)} x {cols(oh.matrix)}, columns = {oh.classes}"</span>)
+</code></pre>
+<div class="out"><span class="lbl">output</span><pre>classes: ("blue", "green", "red")
+codes:   [2, 1, 0, 1, 2, 0, 1, 2]
+back:    ("red", "green", "blue", "green", "red", "blue", "green", "red")
+one_hot is 8 x 3, columns = ("blue", "green", "red")</pre></div></div>
+<pre><code>classes: ("blue", "green", "red")
+codes:   [2, 1, 0, 1, 2, 0, 1, 2]
+back:    ("red", "green", "blue", "green", "red", "blue", "green", "red")
+one_hot is 8 x 3, columns = ("blue", "green", "red")
+</code></pre>
+<p><strong>Impute, then fit.</strong> <code>impute</code> fills each column from its own observed values (here the column medians 4 and 14); <code>fillna</code> fills with a value you choose:</p>
+<div class="example hasout"><pre class="hl"><code>Xna = [<span class="n">1</span>, <span class="n">10</span>; nan, <span class="n">12</span>; <span class="n">3</span>, nan; <span class="n">5</span>, <span class="n">14</span>; <span class="n">7</span>, <span class="n">16</span>; nan, <span class="n">18</span>]
+yna = [<span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">1</span>, <span class="n">1</span>, <span class="n">1</span>]
+Xf = <span class="f">impute</span>(Xna, <span class="s">"median"</span>)
+<span class="f">print</span>(Xf)
+m = <span class="f">logistic_model</span>(Xf, yna)
+<span class="f">print</span>(<span class="s">"train accuracy: {round(m.score(Xf, yna), 3)}"</span>)
+<span class="f">print</span>(<span class="f">fillna</span>([<span class="n">1</span>, nan, <span class="n">3</span>], <span class="n">0</span>))
+</code></pre>
+<div class="out"><span class="lbl">output</span><pre>[1, 10; 4, 12; 3, 14; 5, 14; 7, 16; 4, 18]
+train accuracy: 0.667
+[1, 0, 3]</pre></div></div>
+<pre><code>[1, 10; 4, 12; 3, 14; 5, 14; 7, 16; 4, 18]
+train accuracy: 0.667
+[1, 0, 3]
+</code></pre>
+<p><strong>Sort by index, stably.</strong> <code>sortperm</code> returns the indices; unlike <code>argsort(x, true)</code>, the descending order keeps equal elements in their original order:</p>
+<div class="example hasout"><pre class="hl"><code>xs = [<span class="n">3</span>, <span class="n">1</span>, <span class="n">2</span>, <span class="n">1</span>, <span class="n">3</span>, <span class="n">1</span>]
+<span class="f">print</span>(<span class="f">sortperm</span>(xs))
+<span class="f">print</span>(<span class="f">sortperm</span>(xs, <span class="k">true</span>))
+<span class="f">print</span>(<span class="f">argsort</span>(xs, <span class="k">true</span>))
+<span class="f">print</span>(xs[<span class="f">sortperm</span>(xs)])
+<span class="f">print</span>(<span class="f">sortperm</span>((<span class="s">"pear"</span>, <span class="s">"fig"</span>, <span class="s">"apple"</span>)))
+</code></pre>
+<div class="out"><span class="lbl">output</span><pre>[1, 3, 5, 2, 0, 4]
+[0, 4, 2, 1, 3, 5]
+[4, 0, 2, 5, 3, 1]
+[1, 1, 1, 2, 3, 3]
+[2, 1, 0]</pre></div></div>
+<pre><code>[1, 3, 5, 2, 0, 4]
+[0, 4, 2, 1, 3, 5]
+[4, 0, 2, 5, 3, 1]
+[1, 1, 1, 2, 3, 3]
+[2, 1, 0]
+</code></pre>
+<h2 id="s1091">Putting it together</h2>
 <p>Everything above shows one call at a time. Two things only make sense as a sequence: reusing a scaler that was fitted somewhere else, and composing a transform with an estimator.</p>
 <p><strong>Fit the scaling on the training set, apply it unchanged to the test set.</strong> This is the whole reason <code>fit_scaler</code> exists as a separate step — scaling the test set on its own statistics leaks it into the model.</p>
 <div class="example hasout"><pre class="hl"><code>split = <span class="f">train_test_split</span>(X, y, <span class="a">test_size</span> = <span class="n">0.25</span>, <span class="a">seed</span> = <span class="n">1</span>)
@@ -4069,7 +4158,7 @@ fitted = pipe.<span class="f">fit</span>(split.X_train, split.y_train)
 </code></pre>
 <div class="out"><span class="lbl">output</span><pre>held-out R2: 0.991</pre></div></div>
 <p><code>.predict</code> and <code>.score</code> on the fitted pipeline replay <code>standardize_cols</code> before delegating, so the test set goes through exactly the transform the training set did.</p>
-<h2 id="s1055">More functions</h2>
+<h2 id="s1131">More functions</h2>
 <div class="tablewrap"><table>
 <tr><td>Function</td><td>Signature</td><td>Description</td></tr>
 <tr><td><code>corrcoef</code></td><td><code>corrcoef(M)</code></td><td>Called on an <code>N</code>-row, <code>D</code>-column matrix or table <code>M</code>, returns the full <code>(D, D)</code> matrix of pairwise Pearson correlations between its columns. For two length-<code>N</code> vectors <code>x</code>/<code>y</code>, use <code>corr(x, y)</code> instead, which returns their correlation as a single number. <code>corr_heatmap</code> draws the same <code>corrcoef</code> numbers as a plot. Returns a <code>(D, D)</code> <code>Mat</code>, symmetric with ones down the diagonal.</td></tr>
@@ -4079,6 +4168,14 @@ fitted = pipe.<span class="f">fit</span>(split.X_train, split.y_train)
 <tr><td><code>cv_stability</code></td><td><code>cv_stability(X, y, [n_repeats=10], [cv_folds=5])</code></td><td>Repeats cross-validation <code>n_repeats</code> times (integer, default 10) with <code>cv_folds</code> folds each (integer, default 5) on an <code>N</code>-row <code>X</code> and length-<code>N</code> <code>y</code>, reshuffling between repeats. Returns a length-<code>n_repeats</code> vector of the raw per-repeat scores (not just their average): <code>mean</code> and <code>std</code> of the result give the usual score-plus-variability summary, and a wide spread means the single number you were about to quote was luck.</td></tr>
 <tr><td><code>cross_val</code> &lt;br&gt; *Added in v0.4.14*</td><td><code>cross_val(fit, X, y, [extra...], [folds=5], [shuffle=true], [seed=], [metric="auto"])</code></td><td>k-fold cross-validation of anything that fits a model. <code>fit</code> is a function you wrote, <code>fit(X, y, extra...)</code>, returning a model; or a model builder passed by name, such as <code>knn_model</code>, with its extra arguments after <code>y</code> (<code>cross_val(knn_model, X, y, 3)</code>). Each fold fits on the other folds and scores on the held-out one: by the model's own <code>score</code> for <code>metric="auto"</code>, else by the named metric, one of <code>accuracy</code>, <code>f1</code>, <code>precision</code>, <code>recall</code>, <code>r2</code>, <code>rmse</code>, <code>mae</code>, <code>mse</code>, <code>roc_auc</code>, <code>brier</code>, on <code>(actual, predict(X))</code>. Returns <code>{scores, mean, std, folds, metric}</code>; <code>std</code> is the population standard deviation. <code>seed=</code> fixes the folds.</td></tr>
 <tr><td><code>grid_search</code> &lt;br&gt; *Added in v0.4.14*</td><td><code>grid_search(fit, X, y, grid, [folds=5], [shuffle=true], [seed=], [metric="auto"])</code></td><td>Cross-validates <code>fit(X, y, params)</code> over every combination of <code>grid</code>, a record of lists such as <code>{k = [1, 3, 5], tag = [10, 20]}</code> (a single value counts as a one-point list; the last name varies fastest; at most 10000 combinations). <code>params</code> is the record of one combination. Every combination is scored on the SAME folds, and error metrics (<code>rmse</code>, <code>mae</code>, <code>mse</code>, <code>brier</code>) are minimized while the others are maximized. Returns <code>{best_params, best_score, best_index, scores, results, folds, metric}</code>, where <code>results</code> is a list of <code>{params, mean, std}</code>.</td></tr>
+<tr><td><code>silhouette</code> &lt;br&gt; *Added in v0.4.15*</td><td><code>silhouette(X, labels)</code></td><td>Per-sample silhouette values of a clustering, as a <code>Vec</code> with one value in <code>[-1, 1]</code> per row of <code>X</code>: <code>(b - a) / max(a, b)</code>, where <code>a</code> is the point's mean Euclidean distance to the other points of its own cluster and <code>b</code> the smallest mean distance to the points of any other cluster. Near <code>1</code> the point sits well inside its cluster, near <code>0</code> on a border, negative closer to another cluster than its own. <code>X</code> is an <code>N</code>-row matrix (a plain <code>Vec</code> is one feature); <code>labels</code> is a length-<code>N</code> numeric vector or list of strings, any values (the cluster ids from <code>kmeans</code> work as they are). A singleton cluster scores <code>0</code> (the scikit-learn convention), as does a point whose <code>a</code> and <code>b</code> are both <code>0</code>. The cost is <code>O(N^2)</code> distances. Errors: fewer than 2 clusters, as many clusters as points, a length mismatch, <code>NaN</code> in <code>X</code> or <code>labels</code>, complex input.</td></tr>
+<tr><td><code>silhouette_score</code> &lt;br&gt; *Added in v0.4.15*</td><td><code>silhouette_score(X, labels)</code></td><td>The mean of <code>silhouette(X, labels)</code>, a number in <code>[-1, 1]</code>; the usual single figure for choosing the number of clusters <code>k</code> (largest wins). Same arguments and errors as <code>silhouette</code>.</td></tr>
+<tr><td><code>learning_curve</code> &lt;br&gt; *Added in v0.4.15*</td><td><code>learning_curve(fit, X, y, [extra...], [sizes=], [folds=5], [shuffle=true], [seed=], [metric="auto"])</code></td><td>How a model's score changes with the amount of training data. Takes the same <code>fit</code>, <code>X</code>, <code>y</code>, <code>extra...</code>, <code>folds=</code>, <code>shuffle=</code>, <code>seed=</code> and <code>metric=</code> as <code>cross_val</code>, and deals the rows into folds the same way (same <code>seed=</code>, same folds). For each fold the model is fitted on the first <code>s</code> rows of the other folds, for each <code>s</code> in <code>sizes=</code> (the rows come in the shuffled order, so each training set contains the smaller ones), and scored on those <code>s</code> rows (training score) and on the held-out fold (validation score). <code>sizes=</code> is a vector: entries all at most <code>1</code> are fractions of the smallest training fold (<code>n - ceil(n / folds)</code> rows), the default being <code>[0.2, 0.4, 0.6, 0.8, 1.0]</code>; otherwise they are whole row counts no larger than that, the same for every fold (a fraction rounds to the nearest whole row, at least 1). Returns <code>{sizes, train_mean, train_std, val_mean, val_std, train_scores, val_scores, folds, metric}</code>: <code>sizes</code> the row counts actually used, the <code>*_mean</code> and <code>*_std</code> vectors one entry per size (population standard deviation over the folds), and <code>train_scores</code> / <code>val_scores</code> the <code>sizes x folds</code> matrices behind them, so <code>plot(r.sizes, r.train_mean)</code> and <code>plot(r.sizes, r.val_mean)</code> draw the curve. A large gap between the two that closes as <code>sizes</code> grows says more data would help; two low curves that meet say the model is too simple. Errors: <code>folds</code> outside <code>2..n</code>, a <code>sizes</code> entry that is not positive or larger than the smallest training fold, fractions mixed with row counts, an unknown <code>metric</code>.</td></tr>
+<tr><td><code>one_hot</code> &lt;br&gt; *Added in v0.4.15*</td><td><code>one_hot(labels)</code></td><td>One-hot encoding of a length-<code>N</code> label vector (numbers or a list of strings) with one column per distinct label in sorted order (numbers ascending, strings in byte order). Returns a <strong>record</strong> <code>{matrix, classes}</code>, the shape the other multi-output builtins use: <code>matrix</code> is <code>N x K</code> of <code>0</code> and <code>1</code> (row <code>i</code> has its <code>1</code> in the column of <code>labels[i]</code>'s class) and <code>classes</code> the <code>K</code> labels in column order, a <code>Vec</code> for numbers and a list for strings. Errors: an empty vector, <code>NaN</code>, strings mixed with other values.</td></tr>
+<tr><td><code>label_encode</code> &lt;br&gt; *Added in v0.4.15*</td><td><code>label_encode(labels)</code></td><td>Replaces each label by the 0-based index of its class in sorted class order. Returns a record <code>{codes, classes}</code>: <code>codes</code> a <code>Vec</code> of whole numbers and <code>classes</code> the sorted distinct labels (a <code>Vec</code> for numbers, a list for strings). <code>label_decode(codes, classes)</code> is its inverse. Errors: as <code>one_hot</code>.</td></tr>
+<tr><td><code>label_decode</code> &lt;br&gt; *Added in v0.4.15*</td><td><code>label_decode(codes, classes)</code></td><td>The inverse of <code>label_encode</code>: the <code>classes</code> entry at each 0-based code, a <code>Vec</code> when <code>classes</code> is numeric and a list when it holds strings. Use it to turn a model's integer predictions back into the original labels. Errors: a code that is not a whole number or lies outside <code>0 .. K-1</code>.</td></tr>
+<tr><td><code>fillna</code> &lt;br&gt; *Added in v0.4.15*</td><td><code>fillna(x, value)</code></td><td>Replaces every <code>NaN</code> (the missing-value marker) in a vector or matrix by <code>value</code>, leaving every other entry, <code>inf</code> included, untouched. For a matrix <code>value</code> is a single number or a vector with one number per column. A <code>Signal</code> keeps its <code>Fs</code>. For time series use <code>fill_missing</code>, which interpolates instead. Errors: a vector <code>x</code> with a vector <code>value</code>, a per-column <code>value</code> of the wrong length, complex input.</td></tr>
+<tr><td><code>impute</code> &lt;br&gt; *Added in v0.4.15*</td><td><code>impute(x, strategy)</code></td><td>Replaces each <code>NaN</code> by a statistic of the observed (non-<code>NaN</code>) values of its own column (a vector is one column): <code>strategy</code> is <code>"mean"</code>, <code>"median"</code> (the mean of the two middle values for an even count), <code>"most_frequent"</code> (ties go to the smallest value) or <code>"zero"</code>. Columns with nothing missing are left as they are. The statistic comes from <code>x</code> itself: to impute a test set with training statistics, compute them on the training set and use <code>fillna</code>. Errors: an unknown strategy, and a column that is all <code>NaN</code> under <code>"mean"</code>, <code>"median"</code> or <code>"most_frequent"</code>, which has no statistic to use (<code>"zero"</code> still works).</td></tr>
 <tr><td><code>roc_curve</code> &lt;br&gt; *Added in v0.4.14*</td><td><code>roc_curve(actual, score)</code></td><td>ROC curve of any real-valued <code>score</code> against 0/1 labels <code>actual</code>. Returns <code>{fpr, tpr, thresholds, auc}</code>: one point per distinct threshold (equal scores move together), starting at rate (0, 0) with threshold <code>inf</code>; <code>auc</code> is the trapezoid area and equals <code>roc_auc(actual, score)</code>. Errors if a label is not 0 or 1, a score is NaN, or only one class is present.</td></tr>
 <tr><td><code>pr_curve</code> &lt;br&gt; *Added in v0.4.14*</td><td><code>pr_curve(actual, score)</code></td><td>Precision-recall curve of <code>score</code> against 0/1 labels <code>actual</code>. Returns <code>{precision, recall, thresholds, ap}</code>, one point per distinct threshold from high to low; <code>ap</code> is the average precision <code>sum (R_n - R_(n-1)) P_n</code>. Same errors as <code>roc_curve</code>.</td></tr>
 <tr><td><code>ablation_study</code></td><td><code>ablation_study(X, y, [cv_folds=3])</code></td><td>Computes one importance score per feature column of an <code>N</code>-row, <code>D</code>-column <code>X</code> and length-<code>N</code> <code>y</code>, using <code>cv_folds</code> folds (integer, default 3): the full model's cross-validated score minus the score of the same model refit without that column. Returns a length-<code>D</code> vector of importance scores — a report on each feature's contribution, not a selection of which to keep.</td></tr>

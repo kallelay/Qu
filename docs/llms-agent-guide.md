@@ -93,6 +93,8 @@ file and `qu run scratch.qu`.
 Whole file as text:
 
 ```qu
+path = tmp_file()                 # a scratch file, so this runs as written
+write_text(path, "name,score\na,1\nb,4\nc,9\n")
 txt = read_all_text(path)
 print("chars: {len(txt)}")
 ```
@@ -229,7 +231,7 @@ the nearest match, so a wrong guess is cheap.
 
 Qu catches it, and tells you the arity:
 
-```qu
+```qu,ignore
 tic(1)
 # tic: 1 arguments given, but tic reads 0 arguments -- 1 would be silently
 # ignored. Check the order, or `help("tic")` for related names and worked
@@ -372,7 +374,7 @@ And `as matrix` fills **column-major**: `[1,2,3,4] as matrix(2,2)` is
 
 `(1, 2)` has no arithmetic and does not stack:
 
-```qu
+```qu,ignore
 print((1,2,3,4) as matrix(2,2))     # cannot reshape a list
 print(hstack(("a",), ("b",)))       # expected a number, found list
 ```
@@ -403,7 +405,7 @@ names.
 
 ### `mod` is an operator, not a function
 
-```qu
+```qu,ignore
 n mod 2 == 0        # correct
 mod(n, 2)           # parse error: unexpected Keyword("mod") in expression
 ```
@@ -439,7 +441,7 @@ live variables.
 If the name does *not* exist you get a **runtime** error, not a parse
 error:
 
-```qu
+```qu,ignore
 print("literal {braces} here")
 # qu: runtime error: `braces` is not defined
 ```
@@ -510,6 +512,7 @@ anyone drawing SOLID fills, which is exactly what a filled map region or
 a triangle-mesh renderer needs:
 
 ```qu
+tmp_svg = tmp_file() + ".svg"
 figure()
 polygon([0.0, 1.0, 1.0], [0.0, 0.0, 1.0], fill = "#ff0000")
 savefig(tmp_svg)
@@ -526,6 +529,7 @@ Only the bare `figure()` (no arguments) starts a blank canvas. Sizing an
 existing one leaves whatever was already drawn in place — shapes drawn
 before it keep accumulating:
 
+tmp_svg = tmp_file() + ".svg"
 ```qu
 figure()
 polygon([0.0, 1.0, 1.0], [0.0, 0.0, 1.0], fill = "#00ff00", alpha = 1.0)

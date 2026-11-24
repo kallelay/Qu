@@ -188,19 +188,17 @@
 </g>
 <text x="71.12" y="26.33" font-size="14" text-anchor="start" fill="#444444" font-weight="700">Styled panel</text>
 </svg></figure></div><p class="fnfrom">from <a href="../docs/plotting.html">plotting</a></p>
-<div class="example"><pre class="hl"><code>n = <span class="n">0</span> <span class="k">to</span> <span class="n">255</span>
-x = <span class="f">sin</span>(n * <span class="n">0.1</span>) + <span class="n">0.05</span> * <span class="f">randn</span>(<span class="n">256</span>)
-spectrum_mag = x |&gt; fft |&gt; abs
-smoothed = spectrum_mag |&gt; dct |&gt; idct
+<div class="example"><pre class="hl"><code>  signal = <span class="f">sin</span>(<span class="n">2</span> * pi * <span class="n">10</span> * (<span class="n">0</span> <span class="k">to</span> <span class="n">999</span>) / <span class="n">1000</span>) + <span class="n">0.5</span> * <span class="f">sin</span>(<span class="n">2</span> * pi * <span class="n">80</span> * (<span class="n">0</span> <span class="k">to</span> <span class="n">999</span>) / <span class="n">1000</span>)
+  v = <span class="f">vmd</span>(signal, <span class="n">2</span>)                 <span class="c"># exactly 2 modes</span>
+  freqs_hz = v.center_freqs .* fs    <span class="c"># convert to Hz</span>
 </code></pre>
 </div><p class="fnfrom">from <a href="../docs/numerics-dsp.html">numerics-dsp</a></p>
-<div class="example hasout"><pre class="hl"><code>t = (<span class="n">0</span> <span class="k">to</span> <span class="n">4095</span>) / <span class="n">10000</span>
-v = <span class="n">1.2</span> * <span class="f">sin</span>(<span class="n">2</span> * pi * <span class="n">101</span> * t) + <span class="n">2.048</span>
-
-c = <span class="f">adc</span>(v, <span class="a">bits</span> = <span class="n">12</span>, <span class="a">vmin</span> = <span class="n">0</span>, <span class="a">vmax</span> = <span class="n">4.096</span>)
-<span class="f">print</span>(<span class="s">"LSB {c.lsb * 1000:.3f} mV, clipped {c.clipped}, ideal SNR {c.snr_ideal:.1f} dB"</span>)
+<div class="example"><pre class="hl"><code>  k = <span class="n">0</span> <span class="k">to</span> <span class="n">99</span>
+  t = <span class="n">0.02</span> * k + <span class="n">0.008</span> * <span class="f">sin</span>(<span class="n">7</span> * k)       <span class="c"># uneven sample times</span>
+  x = <span class="f">sin</span>(<span class="n">2</span> * pi * <span class="n">3</span> * t)                 <span class="c"># a 3 Hz sinusoid</span>
+  power = <span class="f">vanicek</span>(t, x, [<span class="n">1</span>, <span class="n">3</span>, <span class="n">5</span>, <span class="n">8</span>, <span class="n">12</span>])   <span class="c"># t need not be evenly spaced</span>
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>LSB 1.000 mV, clipped 0, ideal SNR 74.0 dB</pre></div></div><p class="fnfrom">from <a href="../docs/noise.html">noise</a></p>
+</div><p class="fnfrom">from <a href="../docs/numerics-dsp.html">numerics-dsp</a></p>
 <h2>See also</h2>
 <p><a href="cos.html"><code>cos</code></a>, <a href="tan.html"><code>tan</code></a> &mdash; documented in the same entry.</p>
 </main>

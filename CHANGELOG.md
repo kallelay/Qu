@@ -10,6 +10,10 @@ changes are called out.
 
 ## [Unreleased]
 
+- New clustering and model-selection builtins: `silhouette(X, labels)` (per-sample silhouette values in [-1, 1], Euclidean; a singleton cluster scores 0 as in scikit-learn), `silhouette_score(X, labels)` (their mean) and `learning_curve(fit, X, y, [extra...], [sizes=], [folds=5], [seed=], [metric=])`, which takes `cross_val`'s arguments and returns the training and validation score (mean and std over the folds) at each training-set size, so a learning curve is two `plot` calls.
+- New data-preparation builtins: `one_hot(labels)` (a `{matrix, classes}` record, numbers or strings), `label_encode(labels)` (`{codes, classes}`) and `label_decode(codes, classes)`, `fillna(x, value)` and `impute(x, "mean" | "median" | "most_frequent" | "zero")` for vectors and matrices (column-wise, `NaN` is the missing marker; an all-`NaN` column is an error, not a silent `NaN`), and `sortperm(x, [desc])`, the indices that sort `x`, stable in both directions (unlike `argsort(x, true)`, which reverses ties).
+- Security: the engine no longer links `zip` 8.6.0 (zip-cloaking advisory GHSA-m665 and the `extract` symlink advisories). `candle-core` moves to 0.11.1, which uses `zip` 9, and `umya-spreadsheet` (xlsx reading and writing) is vendored with only its `zip` requirement and one name lookup changed so it uses `zip` 9 as well; every `zip` in the engine is now 9.5.1. Building the engine now needs a recent Rust (tested with 1.100.0; `candle-core` 0.11.1 does not compile on 1.93).
+
 ## [0.4.14] - 2026-11-16
 
 - Assigning a matrix into a block of another matrix (`M[0:1, 0:1] = A`, also `+=` and into complex matrices) wrote the block transposed, silently: the target cells were visited row by row but the source was read column by column. A square or rectangular block now lands exactly as written; single-row, single-column and element assignment were never affected.

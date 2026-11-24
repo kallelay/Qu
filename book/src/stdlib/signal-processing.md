@@ -1354,7 +1354,10 @@ bin `k` at `k*fs/nperseg`, in Hz — so an `impedance` result hands straight to
 `rlkk_validate(Z.z, Z.freq)` and the rest of the rLKK family below.
 
 ```qu
-# A broadband (noise or multisine) excitation, galvanostatic.
+# A broadband (noise or multisine) excitation, galvanostatic. Here a
+# simulated 10-ohm resistor plus measurement noise stands in for a recording.
+i = randn(4096, seed = 2)
+v = 10 * i + 0.5 * randn(4096, seed = 3)
 Z = impedance(v, i, 1000)
 print("coherence at bin 10: {Z.coherence()[10]}")
 Z.nyquist()

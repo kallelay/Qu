@@ -154,7 +154,8 @@ X = <span class="f">fft</span>(x, N)
 <ul>
 <li><strong></strong><code>stft(x, nfft[, hop])</code><strong> — the short-time Fourier transform: a periodic-Hann-windowed FFT per frame, assembled as an </strong><code>(nfft, n_frames)</code> complex matrix (one column per frame). <code>abs(stft(x, ...))</code> is a spectrogram; default hop is 50% overlap:</li>
 </ul>
-<div class="example"><pre class="hl"><code>  S = <span class="f">stft</span>(x, <span class="n">256</span>, <span class="n">128</span>)
+<div class="example"><pre class="hl"><code>  sig = <span class="f">sin</span>(<span class="n">2</span> * pi * <span class="n">50</span> * (<span class="n">0</span> <span class="k">to</span> <span class="n">1023</span>) / <span class="n">1000</span>)   <span class="c"># 1024 samples: enough for several frames</span>
+  S = <span class="f">stft</span>(sig, <span class="n">256</span>, <span class="n">128</span>)
   spectrogram = <span class="f">abs</span>(S)
 </code></pre>
 </div>
@@ -169,13 +170,17 @@ X = <span class="f">fft</span>(x, N)
 </ul>
 <div class="example"><pre class="hl"><code>  fs = <span class="n">8000</span>
   tone_hz = <span class="n">941</span>                  <span class="c"># one DTMF tone</span>
+  samples = <span class="f">sin</span>(<span class="n">2</span> * pi * tone_hz * (<span class="n">0</span> <span class="k">to</span> <span class="n">799</span>) / fs)   <span class="c"># 0.1 s of the tone</span>
   strength = <span class="f">abs</span>(<span class="f">goertzel_freq</span>(samples, fs, tone_hz))
 </code></pre>
 </div>
 <ul>
 <li><strong></strong><code>vanicek(t, x, freqs)</code><strong> — Vaníček's Least-Squares Spectral Analysis (LSSA): a power spectrum at the requested </strong><code>freqs</code>, valid for <strong>unevenly-sampled</strong> <code>(t, x)</code> — the one case <code>fft</code>/<code>dft</code>/<code>goertzel</code> all refuse to handle, since each assumes uniform sampling. At each frequency it fits <code>x(t) ~= a*cos(2*pi*f*t) + b*sin(2*pi*f*t)</code> by ordinary least squares and reports <code>(a^2+b^2)/var(x)</code> — a pure sinusoid scores close to <code>2.0</code> at its own frequency and far lower elsewhere:</li>
 </ul>
-<div class="example"><pre class="hl"><code>  power = <span class="f">vanicek</span>(t, x, [<span class="n">1</span>, <span class="n">3</span>, <span class="n">5</span>, <span class="n">8</span>, <span class="n">12</span>])   <span class="c"># t need not be evenly spaced</span>
+<div class="example"><pre class="hl"><code>  k = <span class="n">0</span> <span class="k">to</span> <span class="n">99</span>
+  t = <span class="n">0.02</span> * k + <span class="n">0.008</span> * <span class="f">sin</span>(<span class="n">7</span> * k)       <span class="c"># uneven sample times</span>
+  x = <span class="f">sin</span>(<span class="n">2</span> * pi * <span class="n">3</span> * t)                 <span class="c"># a 3 Hz sinusoid</span>
+  power = <span class="f">vanicek</span>(t, x, [<span class="n">1</span>, <span class="n">3</span>, <span class="n">5</span>, <span class="n">8</span>, <span class="n">12</span>])   <span class="c"># t need not be evenly spaced</span>
 </code></pre>
 </div>
 <h3>Convolution, correlation, the analytic signal, and peak detection</h3>
@@ -183,26 +188,32 @@ X = <span class="f">fft</span>(x, N)
 <li><strong></strong><code>conv(x, h, [mode="full"])</code><strong> — discrete convolution, MATLAB's own </strong><code>mode</code> naming: <code>"full"</code> (default, every nonzero-overlap sample), <code>"same"</code> (the middle <code>length(x)</code> samples, aligned with the input — the usual choice for filtering in place), <code>"valid"</code> (only where <code>h</code> fully overlaps <code>x</code>):</li>
 </ul>
 <div class="example"><pre class="hl"><code>  y = <span class="f">conv</span>([<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>], [<span class="n">0</span>, <span class="n">1</span>, <span class="n">0.5</span>])                  <span class="c"># [0, 1, 2.5, 4, 1.5]</span>
-  filtered = <span class="f">conv</span>(signal, kernel, <span class="a">mode</span>=<span class="s">"same"</span>)       <span class="c"># same length as signal</span>
+  sig = [<span class="n">1</span>, <span class="n">2</span>, <span class="n">4</span>, <span class="n">8</span>, <span class="n">4</span>, <span class="n">2</span>, <span class="n">1</span>]
+  kernel = [<span class="n">1</span>, <span class="n">1</span>, <span class="n">1</span>] / <span class="n">3</span>                            <span class="c"># 3-point moving average</span>
+  filtered = <span class="f">conv</span>(sig, kernel, <span class="a">mode</span>=<span class="s">"same"</span>)          <span class="c"># same length as sig</span>
 </code></pre>
 </div>
 <ul>
 <li><strong></strong><code>xcorr(x, [y])</code><strong> — cross-correlation over the full lag range (</strong><code>length(x)+length(y)-1</code> values); autocorrelation when <code>y</code> is omitted. Zero lag sits at the middle index for equal-length inputs, and an autocorrelation's value there is exactly <code>sum(x.^2)</code> (the signal's own energy) — the peak an autocorrelation is guaranteed to hit:</li>
 </ul>
-<div class="example"><pre class="hl"><code>  r = <span class="f">xcorr</span>(x)             <span class="c"># autocorrelation</span>
+<div class="example"><pre class="hl"><code>  a = <span class="f">sin</span>(<span class="n">2</span> * pi * <span class="n">5</span> * (<span class="n">0</span> <span class="k">to</span> <span class="n">199</span>) / <span class="n">200</span>)
+  b = <span class="f">sin</span>(<span class="n">2</span> * pi * <span class="n">5</span> * (<span class="n">0</span> <span class="k">to</span> <span class="n">199</span>) / <span class="n">200</span> + <span class="n">0.5</span>)
+  r = <span class="f">xcorr</span>(x)             <span class="c"># autocorrelation</span>
   lag = <span class="f">xcorr</span>(a, b)        <span class="c"># cross-correlation between two signals</span>
 </code></pre>
 </div>
 <ul>
 <li><strong></strong><code>hilbert(x)</code><strong> — the analytic signal </strong><code>x + j*H[x]</code> (a <code>CVec</code>), via the standard FFT-based construction. <code>abs(hilbert(x))</code> is <code>x</code>'s envelope; <code>imag(hilbert(x))</code> is the Hilbert transform of <code>x</code> itself:</li>
 </ul>
-<div class="example"><pre class="hl"><code>  envelope = <span class="f">abs</span>(<span class="f">hilbert</span>(am_signal))   <span class="c"># recovers an AM envelope</span>
+<div class="example"><pre class="hl"><code>  am_signal = (<span class="n">1</span> + <span class="n">0.5</span> * <span class="f">sin</span>(<span class="n">2</span> * pi * <span class="n">2</span> * (<span class="n">0</span> <span class="k">to</span> <span class="n">999</span>) / <span class="n">1000</span>)) .* <span class="f">sin</span>(<span class="n">2</span> * pi * <span class="n">100</span> * (<span class="n">0</span> <span class="k">to</span> <span class="n">999</span>) / <span class="n">1000</span>)
+  envelope = <span class="f">abs</span>(<span class="f">hilbert</span>(am_signal))   <span class="c"># recovers an AM envelope</span>
 </code></pre>
 </div>
 <ul>
 <li><strong></strong><code>find_peaks(x, [min_height=], [min_distance=], [min_prominence=])</code><strong> — indices of </strong><code>x</code>'s local maxima. <code>min_distance</code> (samples) is enforced greedily by height, so a tight cluster of close peaks keeps only its tallest member rather than just the first one scanned; <code>min_prominence</code> filters by how much a peak rises above its *own* surrounding terrain, not just its absolute height (rejecting a small shoulder bump riding on a much taller peak, for instance):</li>
 </ul>
-<div class="example"><pre class="hl"><code>  peaks = <span class="f">find_peaks</span>(spectrum, <span class="a">min_height</span>=<span class="n">0.1</span>, <span class="a">min_distance</span>=<span class="n">5</span>)
+<div class="example"><pre class="hl"><code>  spectrum = <span class="f">abs</span>(<span class="f">rfft</span>(<span class="f">sin</span>(<span class="n">2</span> * pi * <span class="n">40</span> * (<span class="n">0</span> <span class="k">to</span> <span class="n">999</span>) / <span class="n">1000</span>)))   <span class="c"># one clear peak</span>
+  peaks = <span class="f">find_peaks</span>(spectrum, <span class="a">min_height</span>=<span class="n">0.1</span>, <span class="a">min_distance</span>=<span class="n">5</span>)
 </code></pre>
 </div>
 <p><code>find_peaks</code> returns *local* maxima, so the single largest one is whichever candidate has the biggest value — <code>max(x[peaks])</code>, or a small loop over <code>peaks</code> if you want its index too. <code>engine/examples/ peak_finding.qu</code> is a full worked example that cross-checks that "biggest local max" answer against <code>max</code>/<code>argmax</code> and a hand-written brute-force scan, confirms all three agree, and annotates the winner on a plot with <code>point</code>/<code>annotate</code>.</p>
@@ -223,29 +234,33 @@ X = <span class="f">fft</span>(x, N)
 <ul>
 <li><strong></strong><code>energy(x)</code><strong> / </strong><code>tkeo(x)</code><strong> — </strong><code>energy</code> is total signal energy (<code>sum(x.^2)</code>, no time localization); <code>tkeo</code> is the Teager-Kaiser Energy Operator, a cheap nonlinear *instantaneous* energy tracker (<code>psi[x(n)] = x(n)^2 - x(n-1)*x(n+1)</code>, single-sample resolution, three multiplies per sample — far cheaper than a full <code>hilbert</code>-based envelope when you just need an onset/energy estimate):</li>
 </ul>
-<div class="example"><pre class="hl"><code>  e = <span class="f">energy</span>(signal)
+<div class="example"><pre class="hl"><code>  signal = <span class="f">sin</span>(<span class="n">2</span> * pi * <span class="n">10</span> * (<span class="n">0</span> <span class="k">to</span> <span class="n">999</span>) / <span class="n">1000</span>)
+  e = <span class="f">energy</span>(signal)
   instant_energy = <span class="f">tkeo</span>(signal)   <span class="c"># length(signal) - 2 (needs a neighbor each side)</span>
 </code></pre>
 </div>
 <ul>
 <li><strong></strong><code>ste(x, [win=256], [hop=win/2])</code><strong> — short-time energy: the windowed extension of </strong><code>energy(x)</code> over sliding, overlapping frames (each Hann-windowed, like <code>stft</code>), giving one energy value per frame instead of a single total. The answer to "what's energy as a function of time called" — the standard way to locate bursts of activity in a signal, e.g. muscle-activation onsets in an EMG recording:</li>
 </ul>
-<div class="example"><pre class="hl"><code>  e_t = <span class="f">ste</span>(emg_signal, <span class="n">200</span>, <span class="n">100</span>)   <span class="c"># energy per 200-sample frame, 50% overlap</span>
+<div class="example"><pre class="hl"><code>  emg_signal = <span class="f">randn</span>(<span class="n">2048</span>, <span class="a">seed</span> = <span class="n">3</span>)
+  e_t = <span class="f">ste</span>(emg_signal, <span class="n">200</span>, <span class="n">100</span>)   <span class="c"># energy per 200-sample frame, 50% overlap</span>
 </code></pre>
 </div>
 <ul>
 <li><strong></strong><code>spectral_entropy(x, [nfft=256], [hop=nfft/2])</code><strong> — the Shannon entropy of each </strong><code>stft</code> frame's normalized power spectrum, scaled to <code>[0, 1]</code>: low when a frame's energy concentrates in a few frequency bins (a clean tone), high when it's spread broadly (noise, or a complex signal). The other half of the "energy or entropy as a function of time" answer — where <code>ste</code> tracks *how much* signal there is, this tracks *how tonal vs. noisy* it is:</li>
 </ul>
-<div class="example"><pre class="hl"><code>  h = <span class="f">spectral_entropy</span>(emg_signal, <span class="n">256</span>, <span class="n">128</span>)
+<div class="example hasout"><pre class="hl"><code>  emg_signal = <span class="f">randn</span>(<span class="n">2048</span>, <span class="a">seed</span> = <span class="n">3</span>)
+  h = <span class="f">spectral_entropy</span>(emg_signal, <span class="n">256</span>, <span class="n">128</span>)
   <span class="f">print</span>(<span class="s">"mean spectral entropy: {mean(h)}"</span>)
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>mean spectral entropy: 0.916231</pre></div></div>
 <h3>Adaptive decomposition: EMD and VMD</h3>
 <p>Unlike <code>fft</code>/<code>dct</code>/<code>dwt</code> (which project onto a *fixed* basis), Empirical Mode Decomposition and Variational Mode Decomposition split a signal into a small number of oscillatory modes discovered from the data itself — the right tool when the dominant frequencies drift over time (nonstationary, nonlinear signals) rather than staying fixed.</p>
 <ul>
 <li><strong></strong><code>emd(x, [max_imfs=])</code><strong> — the classical sifting algorithm (Huang et al., 1998): repeatedly subtracts the mean of the upper/lower envelopes (fit through the signal's own local maxima/minima via a cubic spline) until each intrinsic mode function (IMF) is extracted, highest frequency first, stopping once what's left has too few extrema to be meaningfully oscillatory. Returns a </strong><code>model(...)</code> (fields <code>imfs</code> — a matrix, one IMF per row — and <code>residual</code>, the overall trend). Sifting only ever subtracts, so reconstruction is exact by construction:</li>
 </ul>
-<div class="example"><pre class="hl"><code>  e = <span class="f">emd</span>(signal)
+<div class="example"><pre class="hl"><code>  signal = <span class="f">sin</span>(<span class="n">2</span> * pi * <span class="n">10</span> * (<span class="n">0</span> <span class="k">to</span> <span class="n">999</span>) / <span class="n">1000</span>) + <span class="n">0.5</span> * <span class="f">sin</span>(<span class="n">2</span> * pi * <span class="n">80</span> * (<span class="n">0</span> <span class="k">to</span> <span class="n">999</span>) / <span class="n">1000</span>)
+  e = <span class="f">emd</span>(signal)
   recon = <span class="f">sum</span>(e.imfs, <span class="a">axis</span>=<span class="n">0</span>) + e.residual   <span class="c"># == signal, to floating precision</span>
   first_imf = e.imfs[<span class="n">0</span>, :]                    <span class="c"># the highest-frequency mode</span>
 </code></pre>
@@ -253,7 +268,8 @@ X = <span class="f">fft</span>(x, N)
 <ul>
 <li><strong></strong><code>vmd(x, k, [alpha=2000])</code><strong> — Variational Mode Decomposition (Dragomiretskiy &amp; Zosso, 2014): a non-recursive alternative that solves for exactly </strong><code>k</code> band-limited modes at once, by minimizing each mode's bandwidth around its own center frequency (an ADMM optimization in the frequency domain, not sifting). Less prone to the mode-mixing EMD can suffer on noisy data, at the cost of needing <code>k</code> decided up front. Returns a <code>model(...)</code> (fields <code>modes</code> and <code>center_freqs</code>, each mode's converged frequency normalized to cycles/sample):</li>
 </ul>
-<div class="example"><pre class="hl"><code>  v = <span class="f">vmd</span>(signal, <span class="n">2</span>)                 <span class="c"># exactly 2 modes</span>
+<div class="example"><pre class="hl"><code>  signal = <span class="f">sin</span>(<span class="n">2</span> * pi * <span class="n">10</span> * (<span class="n">0</span> <span class="k">to</span> <span class="n">999</span>) / <span class="n">1000</span>) + <span class="n">0.5</span> * <span class="f">sin</span>(<span class="n">2</span> * pi * <span class="n">80</span> * (<span class="n">0</span> <span class="k">to</span> <span class="n">999</span>) / <span class="n">1000</span>)
+  v = <span class="f">vmd</span>(signal, <span class="n">2</span>)                 <span class="c"># exactly 2 modes</span>
   freqs_hz = v.center_freqs .* fs    <span class="c"># convert to Hz</span>
 </code></pre>
 </div>
@@ -269,20 +285,35 @@ notch = <span class="f">butter</span>(<span class="n">2</span>, <span class="s">
 <ul>
 <li><strong>Batch</strong> — <code>sosfilt(filt, x)</code> (causal, one pass, has the usual IIR phase lag) and <code>filtfilt(filt, x)</code> (filters forward then backward, canceling phase distortion entirely — the standard choice for offline analysis, at double the effective filter order):</li>
 </ul>
-<div class="example"><pre class="hl"><code>  filtered = <span class="f">sosfilt</span>(lp, signal)
+<div class="example"><pre class="hl"><code>  signal = <span class="f">sin</span>(<span class="n">2</span> * pi * <span class="n">10</span> * (<span class="n">0</span> <span class="k">to</span> <span class="n">999</span>) / <span class="n">1000</span>) + <span class="n">0.3</span> * <span class="f">randn</span>(<span class="n">1000</span>, <span class="a">seed</span> = <span class="n">1</span>)   <span class="c"># 1 s at fs = 1000</span>
+  filtered = <span class="f">sosfilt</span>(lp, signal)
   zero_phase = <span class="f">filtfilt</span>(lp, signal)
 </code></pre>
 </div>
 <ul>
 <li><strong>Streaming</strong> — for real-time or serial-fed data where a whole array isn't available up front: <code>state = filter_init(filt)</code>, then repeatedly <code>state = filter_next(state, next_sample)</code>, reading <code>state.y</code> for each filtered output. This is the same "thread a new state through each call" idiom <code>kalman_predict</code>/<code>kalman_update</code> already use — Qu has no mutable-iterator-object primitive, so the state itself is threaded through, not mutated in place. It's mathematically identical to <code>sosfilt</code> — feeding a whole signal through one sample at a time gives the same result as <code>sosfilt</code> on the whole array:</li>
 </ul>
-<div class="example"><pre class="hl"><code>  state = <span class="f">filter_init</span>(lp)
+<div class="example hasout"><pre class="hl"><code>  state = <span class="f">filter_init</span>(lp)
   <span class="k">for</span> i = <span class="n">0</span> <span class="k">to</span> <span class="f">length</span>(samples) - <span class="n">1</span>
       state = <span class="f">filter_next</span>(state, samples[i])
       <span class="f">print</span>(state.y)         <span class="c"># this sample's filtered output, right away</span>
   <span class="k">end</span> <span class="k">for</span>
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>0
+0.00325
+0.025502
+0.095472
+0.228751
+0.393986
+0.510896
+0.491571
+0.299115
+-0.016006
+-0.328507
+-0.496991
+-0.438187
+-0.175561
+    ... 786 more lines</pre></div></div>
 <h2 id="s51">2. Matrices: the linear-algebra floor</h2>
 <p>Qu treats <code>matmul</code>, <code>dot</code>, <code>norm</code>, <code>inv</code>, <code>pinv</code>, transpose, and matrix power as core language features, not an optional package — see spec §23.</p>
 <div class="example hasout"><pre class="hl"><code>a = [<span class="n">1</span>, <span class="n">2</span>, <span class="n">2</span>]
@@ -404,6 +435,7 @@ x = <span class="f">sum</span>(A .* <span class="f">cos</span>(phase), <span cla
 c = <span class="f">chirp</span>(<span class="n">20</span>, <span class="n">20000</span>, <span class="n">48</span> kHz, <span class="n">48000</span>)       <span class="c"># linear sweep, 20Hz to 20kHz</span>
 lc = <span class="f">chirp</span>(<span class="n">20</span>, <span class="n">20000</span>, <span class="n">48</span> kHz, <span class="n">48000</span>, <span class="a">method</span>=<span class="s">"logarithmic"</span>)
 sq = <span class="f">square</span>(<span class="n">100</span>, <span class="n">1000</span>, <span class="n">1000</span>, <span class="a">duty</span>=<span class="n">0.3</span>)    <span class="c"># bipolar (+-1) pulse train</span>
+modulator = <span class="n">0.5</span> + <span class="n">0.4</span> * <span class="f">sin</span>(<span class="n">2</span> * pi * <span class="n">50</span> * (<span class="n">0</span> <span class="k">to</span> <span class="n">999</span>) / <span class="n">48000</span>)   <span class="c"># slow sine, 0..1</span>
 p = <span class="f">pwm</span>(modulator, <span class="n">5000</span>, <span class="n">48000</span>)           <span class="c"># natural-sampling PWM against</span>
                                            <span class="c"># a triangle carrier (duty</span>
                                            <span class="c"># follows the modulator's value)</span>
@@ -557,11 +589,13 @@ root2 = <span class="f">newton</span>(<span class="s">"f"</span>, <span class="s
 </code></pre>
 </div>
 <p><strong>Nonlinear curve fitting</strong> — <code>curve_fit(model, xdata, ydata, p0)</code> finds the parameters minimizing <code>sum((model(x, params) - y)^2)</code> via Levenberg-Marquardt (damped Gauss-Newton), with a numerically-computed Jacobian (Qu has no automatic differentiation):</p>
-<div class="example"><pre class="hl"><code><span class="f">model</span>(x, p) := p[<span class="n">0</span>] * <span class="f">exp</span>(-p[<span class="n">1</span>] * x)
+<div class="example hasout"><pre class="hl"><code><span class="f">model</span>(x, p) := p[<span class="n">0</span>] * <span class="f">exp</span>(-p[<span class="n">1</span>] * x)
+xdata = <span class="n">0</span> <span class="k">to</span> <span class="n">9</span>
+ydata = <span class="n">2.0</span> * <span class="f">exp</span>(-<span class="n">0.3</span> * xdata)    <span class="c"># noise-free data from a = 2, b = 0.3</span>
 fit = <span class="f">curve_fit</span>(<span class="s">"model"</span>, xdata, ydata, [<span class="n">1</span>, <span class="n">1</span>])   <span class="c"># initial guess [1, 1]</span>
 <span class="f">print</span>(<span class="s">"a = {fit.params[0]}, b = {fit.params[1]}, cost = {fit.cost}"</span>)
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>a = 2, b = 0.3, cost = 9.020498e-26</pre></div></div>
 <p><strong>General minimization</strong> — <code>minimize(f, x0, [grad=])</code> is L-BFGS, a quasi-Newton ("pseudo-Newton" — it approximates the inverse Hessian from recent gradient history instead of computing it outright) multivariate minimizer. By default the gradient is computed numerically (central differences):</p>
 <div class="example hasout"><pre class="hl"><code><span class="f">bowl</span>(p) := (p[<span class="n">0</span>]-<span class="n">3</span>)^<span class="n">2</span> + (p[<span class="n">1</span>]+<span class="n">2</span>)^<span class="n">2</span>
 m = <span class="f">minimize</span>(<span class="s">"bowl"</span>, [<span class="n">0</span>, <span class="n">0</span>])

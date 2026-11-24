@@ -60,7 +60,16 @@
 <span class="f">print</span>(<span class="f">reshape</span>(v, <span class="n">2</span>, <span class="n">3</span>))        <span class="c"># [1, 3, 5; 2, 4, 6] -- vector source, real relayout</span>
 </code></pre>
 <div class="out"><span class="lbl">output</span><pre>[1, 3, 5; 2, 4, 6]</pre></div></div><p class="fnfrom">from <a href="../docs/core-math.html">core-math</a></p>
-<div class="example hasout"><pre class="hl"><code>N = <span class="n">60</span>
+<div class="example"><pre class="hl"><code><span class="c"># Make a small gradient picture first, so the example has a file to load.</span>
+g = <span class="f">linspace</span>(<span class="n">0</span>, <span class="n">255</span>, <span class="n">32</span>)
+<span class="f">save_image</span>(<span class="s">"photo.png"</span>, <span class="f">image_from_matrix</span>(<span class="f">ones</span>(<span class="n">32</span>, <span class="n">1</span>) * <span class="f">reshape</span>(g, <span class="n">1</span>, <span class="n">32</span>)))
+
+<span class="k">with</span> image
+    img = .<span class="f">load</span>(<span class="s">"photo.png"</span>) |&gt; .blur |&gt; .<span class="f">sobel</span>(<span class="a">direction</span>=<span class="s">"x"</span>)
+<span class="k">end</span>
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/stdlib-overview.html">stdlib-overview</a></p>
+<div class="example"><pre class="hl"><code>N = <span class="n">60</span>
 dt = <span class="n">0.1</span>
 true_v = <span class="n">2.0</span>
 t = (<span class="n">0</span> <span class="k">to</span> N - <span class="n">1</span>) * dt
@@ -87,8 +96,7 @@ filt_err = <span class="f">rms</span>(est_pos - true_pos)
 <span class="f">print</span>(<span class="s">"Position RMS error: raw sensor={raw_err:.3f}, Kalman estimate={filt_err:.3f}"</span>)
 <span class="f">print</span>(<span class="s">"True velocity={true_v:.2f}, final estimated velocity={est_vel[N-1]:.3f}"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>Position RMS error: raw sensor=0.914, Kalman estimate=0.353
-True velocity=2.00, final estimated velocity=2.102</pre></div></div><p class="fnfrom">from <a href="../docs/tour.html">tour</a></p>
+</div><p class="fnfrom">from <a href="../docs/tour.html">tour</a></p>
 <div class="example hasout"><pre class="hl"><code>n_per_class = <span class="n">60</span>
 c0x = <span class="f">normal</span>(<span class="n">0</span>, <span class="n">0.6</span>, n_per_class, <span class="a">seed</span>=<span class="n">1</span>)
 c0y = <span class="f">normal</span>(<span class="n">0</span>, <span class="n">0.6</span>, n_per_class, <span class="a">seed</span>=<span class="n">2</span>)
@@ -147,7 +155,16 @@ acc = <span class="f">accuracy</span>(trained, Xc, Y, n)
 <span class="f">print</span>(<span class="f">reshape</span>(v, <span class="n">2</span>, <span class="n">3</span>))        <span class="c"># [1, 3, 5; 2, 4, 6] -- vector source, real relayout</span>
 </code></pre>
 <div class="out"><span class="lbl">output</span><pre>[1, 3, 5; 2, 4, 6]</pre></div></div><p class="fnfrom">from <a href="../docs/core-math.html">core-math</a></p>
-<div class="example hasout"><pre class="hl"><code>N = <span class="n">60</span>
+<div class="example"><pre class="hl"><code><span class="c"># Make a small gradient picture first, so the example has a file to load.</span>
+g = <span class="f">linspace</span>(<span class="n">0</span>, <span class="n">255</span>, <span class="n">32</span>)
+<span class="f">save_image</span>(<span class="s">"photo.png"</span>, <span class="f">image_from_matrix</span>(<span class="f">ones</span>(<span class="n">32</span>, <span class="n">1</span>) * <span class="f">reshape</span>(g, <span class="n">1</span>, <span class="n">32</span>)))
+
+<span class="k">with</span> image
+    img = .<span class="f">load</span>(<span class="s">"photo.png"</span>) |&gt; .blur |&gt; .<span class="f">sobel</span>(<span class="a">direction</span>=<span class="s">"x"</span>)
+<span class="k">end</span>
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/stdlib-overview.html">stdlib-overview</a></p>
+<div class="example"><pre class="hl"><code>N = <span class="n">60</span>
 dt = <span class="n">0.1</span>
 true_v = <span class="n">2.0</span>
 t = (<span class="n">0</span> <span class="k">to</span> N - <span class="n">1</span>) * dt
@@ -174,8 +191,7 @@ filt_err = <span class="f">rms</span>(est_pos - true_pos)
 <span class="f">print</span>(<span class="s">"Position RMS error: raw sensor={raw_err:.3f}, Kalman estimate={filt_err:.3f}"</span>)
 <span class="f">print</span>(<span class="s">"True velocity={true_v:.2f}, final estimated velocity={est_vel[N-1]:.3f}"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>Position RMS error: raw sensor=0.914, Kalman estimate=0.353
-True velocity=2.00, final estimated velocity=2.102</pre></div></div><p class="fnfrom">from <a href="../docs/tour.html">tour</a></p>
+</div><p class="fnfrom">from <a href="../docs/tour.html">tour</a></p>
 <div class="example hasout"><pre class="hl"><code>n_per_class = <span class="n">60</span>
 c0x = <span class="f">normal</span>(<span class="n">0</span>, <span class="n">0.6</span>, n_per_class, <span class="a">seed</span>=<span class="n">1</span>)
 c0y = <span class="f">normal</span>(<span class="n">0</span>, <span class="n">0.6</span>, n_per_class, <span class="a">seed</span>=<span class="n">2</span>)

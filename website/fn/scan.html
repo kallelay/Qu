@@ -46,11 +46,14 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example"><pre class="hl"><code><span class="f">scan</span>(<span class="s">"12 goodbye world"</span>, <span class="s">"%d hello world"</span>, <span class="a">must_match</span>=<span class="k">true</span>)
-<span class="c"># error: scan: `%d hello world` did not match `12 goodbye world`</span>
-<span class="c">#        -- expected ` hello world` after %d</span>
+<div class="example hasout"><pre class="hl"><code><span class="k">try</span>
+    <span class="f">scan</span>(<span class="s">"12 goodbye world"</span>, <span class="s">"%d hello world"</span>, <span class="a">must_match</span>=<span class="k">true</span>)
+<span class="k">catch</span> e
+    <span class="f">print</span>(e.message)
+<span class="k">end</span> <span class="k">try</span>
+<span class="c"># scan: `%d hello world` did not match `12 goodbye world` -- expected ` hello world` after %d</span>
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/collections-strings.html">collections-strings</a></p>
+<div class="out"><span class="lbl">output</span><pre>scan: `%d hello world` did not match `12 goodbye world` -- expected ` hello world` after %d</pre></div></div><p class="fnfrom">from <a href="../docs/collections-strings.html">collections-strings</a></p>
 <div class="example hasout"><pre class="hl"><code>n = <span class="f">parse_as</span>(<span class="s">"hello world 12"</span>, <span class="s">"hello world %d"</span>)
 <span class="f">print</span>(n)                          <span class="c"># 12</span>
 reading = <span class="f">scan</span>(<span class="s">"temp = 98.6 F"</span>, <span class="s">"temp = %f %s"</span>)

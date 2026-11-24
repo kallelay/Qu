@@ -45,15 +45,16 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example"><pre class="hl"><code>  filtered = <span class="f">sosfilt</span>(lp, signal)
-  zero_phase = <span class="f">filtfilt</span>(lp, signal)
-</code></pre>
-</div><p class="fnfrom">from <a href="../docs/numerics-dsp.html">numerics-dsp</a></p>
 <div class="example hasout"><pre class="hl"><code>lp       = <span class="f">butter</span>(<span class="n">4</span>, <span class="s">"low"</span>, <span class="n">120</span>, fs)          <span class="c"># 4th order, cut at 120 Hz</span>
 smoothed = <span class="f">filtfilt</span>(lp, y)                    <span class="c"># zero-phase, forward and back</span>
 <span class="f">print</span>(<span class="s">"noise removed: rms {rms(y - x):.4f} -&gt; {rms(smoothed - x):.4f}"</span>)
 </code></pre>
 <div class="out"><span class="lbl">output</span><pre>noise removed: rms 0.2010 -&gt; 0.0916</pre></div></div><p class="fnfrom">from <a href="../docs/from-zero.html">from-zero</a></p>
+<div class="example"><pre class="hl"><code>  signal = <span class="f">sin</span>(<span class="n">2</span> * pi * <span class="n">10</span> * (<span class="n">0</span> <span class="k">to</span> <span class="n">999</span>) / <span class="n">1000</span>) + <span class="n">0.3</span> * <span class="f">randn</span>(<span class="n">1000</span>, <span class="a">seed</span> = <span class="n">1</span>)   <span class="c"># 1 s at fs = 1000</span>
+  filtered = <span class="f">sosfilt</span>(lp, signal)
+  zero_phase = <span class="f">filtfilt</span>(lp, signal)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/numerics-dsp.html">numerics-dsp</a></p>
 <div class="example hasout"><pre class="hl"><code>fs = <span class="n">1000</span>
 n = <span class="n">0</span> <span class="k">to</span> <span class="n">999</span>
 t = n / fs

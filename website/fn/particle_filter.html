@@ -49,7 +49,10 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example"><pre class="hl"><code>pf = <span class="f">particle_filter</span>(<span class="n">50000</span>, [<span class="n">0</span>, <span class="n">0</span>], <span class="a">process_noise</span>=<span class="n">0.08</span>, <span class="a">obs_noise</span>=<span class="n">0.4</span>, <span class="a">spread</span>=<span class="n">2.0</span>, <span class="a">seed</span>=<span class="n">3</span>)
+<div class="example"><pre class="hl"><code>N = <span class="n">500</span>                          <span class="c"># a small stand-in for the benchmark's tracking data</span>
+dt = <span class="n">0.1</span>
+measured = <span class="n">0.5</span> * dt * (<span class="n">0</span> <span class="k">to</span> N - <span class="n">1</span>) + <span class="n">0.4</span> * <span class="f">randn</span>(N, <span class="a">seed</span> = <span class="n">5</span>)
+pf = <span class="f">particle_filter</span>(<span class="n">50000</span>, [<span class="n">0</span>, <span class="n">0</span>], <span class="a">process_noise</span>=<span class="n">0.08</span>, <span class="a">obs_noise</span>=<span class="n">0.4</span>, <span class="a">spread</span>=<span class="n">2.0</span>, <span class="a">seed</span>=<span class="n">3</span>)
 <span class="k">for</span> k = <span class="n">0</span> <span class="k">to</span> N - <span class="n">1</span>
     pf = pf.<span class="f">move</span>(dt)
     pf = pf.<span class="f">update</span>([measured[k]])

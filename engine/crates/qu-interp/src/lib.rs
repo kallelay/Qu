@@ -189,6 +189,7 @@ pub mod lti_ops;
 mod basics_ops;
 mod linalg_ops;
 mod matfun_ops;
+mod ml_prep;
 mod num_ops;
 mod numerics4_ops;
 mod solver_ops;
@@ -35523,6 +35524,10 @@ self.eval_grad(loss, wrt)
             f if lti_ops::NAMES.contains(&f) => lti_ops::call(f, &args, &style),
             f if trace_ops::NAMES.contains(&f) => trace_ops::call(f, &args, &style),
             f if num_ops::NAMES.contains(&f) => num_ops::call(f, &args),
+            // learning_curve is below, next to cross_val; the other ML / data-prep
+            // builtins (silhouette, one_hot, fillna, impute, sortperm, ...) are
+            // pure functions -- see `ml_prep.rs`.
+            f if ml_prep::NAMES.contains(&f) => ml_prep::call(f, &args),
             f if linalg_ops::NAMES.contains(&f) => linalg_ops::call(f, &args),
             f if numerics4_ops::NAMES.contains(&f) => self.numerics4_call(f, &args, &style),
             f if solver_ops::NAMES.contains(&f) => self.solver_call(f, &args, &style),
@@ -40666,6 +40671,10 @@ self.eval_grad(loss, wrt)
                 let scores = self.cv_scores(&fit, &all[3..], &all[1], &y, &fold_of, k, &metric, None)?;
                 Ok(cv_summary(&scores, k, &metric))
             }
+            // `learning_curve(fit, X, y, [extra...], [sizes=], [folds=5],
+            // [shuffle=true], [seed=], [metric=])` -- `cross_val`'s argument
+            // shape; train and validation scores at growing training-set sizes.
+            "learning_curve" => self.learning_curve(&args, &style, seed),
             // `grid_search(fit, X, y, grid, [folds=5], [shuffle=true], [seed=],
             // [metric=])` -- cross-validate `fit(X, y, params)` over every
             // combination of a record of lists, e.g. `{k = [1, 3, 5], p = [1, 2]}`,
@@ -47417,7 +47426,7 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "exprnd", "expstat", "extend", "eye", "f1", "factor", "factorial", "fall_time", "falling_edges",
     "fcdf", "fft", "fftc", "fftr", "fifo", "figure", "figure_background", "figure_size",
     "file_exists", "file_history", "file_info", "file_size", "file_versioning", "fill_between",
-    "fill_missing", "filter", "filter_ba", "filter_from_sos", "filter_from_tf", "filter_from_zpk",
+    "fill_missing", "fillna", "filter", "filter_ba", "filter_from_sos", "filter_from_tf", "filter_from_zpk",
     "filter_info", "filter_init", "filter_next", "filtfilt", "find", "find_clipping", "find_edges",
     "find_hex", "find_missing", "find_outliers", "find_peaks", "find_pulses", "find_trigger",
     "find_zero_crossings", "findpeaks", "finv", "fir1", "firls", "firpm", "first", "fit",
@@ -47440,7 +47449,7 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "idwt", "ifft", "im", "imadjust", "imag", "image", "image_from_matrix", "image_new",
     "image_regions", "imagesc", "imbothat", "imclose", "imdilate", "imequalize", "imerode",
     "imfilter", "imhist", "imnoise", "imopen", "impedance", "impedance_from_reflection", "impulse",
-    "impz", "imrotate", "imscale", "imshow", "imtophat", "imtranslate", "imwarp", "inch", "indent",
+    "impute", "impz", "imrotate", "imscale", "imshow", "imtophat", "imtranslate", "imwarp", "inch", "indent",
     "index", "index_of", "indexof", "inductor", "input", "insert", "insert_column", "insert_row", "integral2",
     "interp1", "interp2", "interpolate_at", "interpolate_nan", "inv", "inverse_transform", "invert",
     "invhilb", "iqr", "irfft", "is_clipped", "is_empty", "is_full", "is_readonly", "is_stable", "isbanded",
@@ -47449,8 +47458,8 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "json2csv", "json2xml", "json_delete", "json_get", "json_set", "jsonify", "k_fold", "kaiser",
     "kaiserord", "kalman_init", "kapur_threshold", "keys", "kfold", "kill", "kmeans",
     "kmeans_centers", "kmeans_model", "kmedians_model", "kmedoids_model", "knn_model", "kron",
-    "kurtosis", "lab", "label_blobs", "last", "last_index_of", "layer_norm", "lcase", "lcm",
-    "lda_model", "least_squares", "left", "legend", "legendre", "len", "length", "levenshtein",
+    "kurtosis", "lab", "label_blobs", "label_decode", "label_encode", "last", "last_index_of", "layer_norm", "lcase", "lcm",
+    "lda_model", "learning_curve", "least_squares", "left", "legend", "legendre", "len", "length", "levenshtein",
     "lfilter",
     "lgamma", "like", "line", "line_at", "line_col", "line_count", "line_delete", "line_insert",
     "line_range", "line_set", "lines", "linked_list", "linprog",
@@ -47475,7 +47484,7 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "nbinfit", "nbininv", "nbinpdf", "nbinrnd", "nbinstat", "nbytes", "nchoosek", "ncol",
     "neighbors", "nesterov_sgd", "newton", "nmf", "nnls", "nnz", "nor", "norm", "normal",
     "normalize", "normcdf", "normfit", "norminv", "normpdf", "normrnd", "normstat", "notch", "now",
-    "nrow", "null", "numel", "nyquist", "ode23", "ode45", "ode_stiff", "ols_model", "ones",
+    "nrow", "null", "numel", "nyquist", "ode23", "ode45", "ode_stiff", "ols_model", "one_hot", "ones",
     "ones_like", "optimizer_step", "or", "ord", "orth", "otsu", "otsu_threshold", "outer",
     "overshoot", "pack", "pad_bytes", "pad_left", "pad_right", "palette", "panel", "parallel",
     "param", "parse_as", "parse_csv", "parse_json", "parse_xml", "particle_filter",
@@ -47520,10 +47529,10 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "semilogx", "semilogy", "sequential", "sequential_split", "serial_open", "serial_ports",
     "series", "set", "set_bit", "set_metadata", "set_start_time", "setenv", "sfdr", "sgd", "sha256",
     "shape", "sharpen", "shell", "shortest_path", "sigma_delta", "sigmoid", "sign", "signal",
-    "signal_slice_time", "signal_unit", "similar", "simple_cnn", "simple_rnn_classifier", "simpson",
+    "signal_slice_time", "signal_unit", "silhouette", "silhouette_score", "similar", "simple_cnn", "simple_rnn_classifier", "simpson",
     "simulate", "sin", "sinad", "sinad_estimate", "sine", "sinh", "size", "sizeof", "skewness",
     "sleep", "slice_at", "smc_init", "smith", "smooth", "smoothmax", "snr", "sns_bar", "sns_box",
-    "sns_scatter", "softmax", "softmax_rows", "solve", "sort", "sort_by", "sosfilt", "spawn",
+    "sns_scatter", "softmax", "softmax_rows", "solve", "sort", "sort_by", "sortperm", "sosfilt", "spawn",
     "spectral_coherence", "spectral_entropy", "spectrogram", "spectrum", "spectrum_at",
     "spectrum_normalize", "spectrum_unnormalize", "spiderplot", "spl", "splice", "splineplot",
     "split", "split_time", "sprintf", "sqrt", "sqrtm", "square", "stackbar", "stair", "stamp",

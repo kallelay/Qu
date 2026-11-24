@@ -49,6 +49,18 @@
 <div class="example hasout"><pre class="hl"><code>G = <span class="f">vstack</span>(<span class="f">randn</span>(<span class="n">40</span>, <span class="n">2</span>, <span class="a">seed</span> = <span class="n">31</span>) + <span class="n">4</span>,
            <span class="f">randn</span>(<span class="n">40</span>, <span class="n">2</span>, <span class="a">seed</span> = <span class="n">32</span>) - <span class="n">4</span>,
            <span class="f">randn</span>(<span class="n">40</span>, <span class="n">2</span>, <span class="a">seed</span> = <span class="n">33</span>))
+<span class="k">for</span> k = <span class="n">2</span>:<span class="n">5</span>
+    s = <span class="f">silhouette_score</span>(G, <span class="f">kmeans</span>(G, k, <span class="a">seed</span> = <span class="n">5</span>))
+    <span class="f">print</span>(<span class="s">"k = {k}: silhouette = {round(s, 3)}"</span>)
+<span class="k">end</span> <span class="k">for</span>
+</code></pre>
+<div class="out"><span class="lbl">output</span><pre>k = 2: silhouette = 0.558
+k = 3: silhouette = 0.692
+k = 4: silhouette = 0.559
+k = 5: silhouette = 0.539</pre></div></div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
+<div class="example hasout"><pre class="hl"><code>G = <span class="f">vstack</span>(<span class="f">randn</span>(<span class="n">40</span>, <span class="n">2</span>, <span class="a">seed</span> = <span class="n">31</span>) + <span class="n">4</span>,
+           <span class="f">randn</span>(<span class="n">40</span>, <span class="n">2</span>, <span class="a">seed</span> = <span class="n">32</span>) - <span class="n">4</span>,
+           <span class="f">randn</span>(<span class="n">40</span>, <span class="n">2</span>, <span class="a">seed</span> = <span class="n">33</span>))
 labels = <span class="f">kmeans</span>(G, <span class="n">3</span>, <span class="a">seed</span> = <span class="n">5</span>)
 centers = <span class="f">kmeans_centers</span>(G, <span class="n">3</span>, <span class="a">seed</span> = <span class="n">5</span>)
 xs = G[:, <span class="n">0</span>]

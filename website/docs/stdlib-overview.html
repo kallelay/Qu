@@ -99,7 +99,11 @@
 <p>Every builtin is called as <code>name(positional, args, key=value, ...)</code>. Most accept a scalar, a <code>Vec</code>, or a <code>Mat</code>/<code>Signal</code> interchangeably and apply elementwise where that makes sense — this is noted per-function only when the behavior is not the obvious elementwise case. A trailing <code>style=</code> argument bag (<code>color=</code>, <code>marker=</code>, <code>label=</code>, <code>method=</code>, ...) is used extensively by the plotting and modeling builtins; where a whole family of functions shares the same named-argument convention, it is described once at the top of that chapter rather than repeated in every row.</p>
 <h2 id="s36">Module block sugar: <code>with</code></h2>
 <p>*Added in v0.4.0.* A native module (<code>image</code>, <code>pdf</code>, <code>svg</code>, <code>xlsx</code>, <code>codec</code>, ...) is called as <code>module.function(...)</code>, which reads fine for one or two calls but gets noisy in a longer pipeline that stays inside one module the whole time. <code>with &lt;module&gt; ... end</code> opens a block in which a <strong>leading</strong> <code>.function(...)</code> — a dot where an expression is expected, not a dot continuing something already written — is sugar for <code>&lt;module&gt;.function(...)</code>:</p>
-<div class="example"><pre class="hl"><code><span class="k">with</span> image
+<div class="example"><pre class="hl"><code><span class="c"># Make a small gradient picture first, so the example has a file to load.</span>
+g = <span class="f">linspace</span>(<span class="n">0</span>, <span class="n">255</span>, <span class="n">32</span>)
+<span class="f">save_image</span>(<span class="s">"photo.png"</span>, <span class="f">image_from_matrix</span>(<span class="f">ones</span>(<span class="n">32</span>, <span class="n">1</span>) * <span class="f">reshape</span>(g, <span class="n">1</span>, <span class="n">32</span>)))
+
+<span class="k">with</span> image
     img = .<span class="f">load</span>(<span class="s">"photo.png"</span>) |&gt; .blur |&gt; .<span class="f">sobel</span>(<span class="a">direction</span>=<span class="s">"x"</span>)
 <span class="k">end</span>
 </code></pre>
@@ -134,12 +138,16 @@ b = <span class="f">slow_square</span>(<span class="n">7</span>)   <span class="
 <p><strong>Verifying it's working</strong>: since the whole point is that the body does NOT run again, the direct way to confirm memoization is happening is a counter the body itself increments (as in the example above, replace <code>print</code> with <code>calls = calls + 1</code>) — call the function twice with identical arguments and check the counter only advanced once.</p>
 <h2 id="s159">Lazy Variables</h2>
 <p><code>lazy name = expr</code> (§ lazy variables, 2026-08-31) is a variable-binding form distinct from <code>memoize</code> above (which caches a *function's* result across repeated calls) — a <strong>lazy variable</strong> defers evaluating its right-hand side entirely: the expression does not run at the <code>lazy name = expr</code> statement at all, only on the variable's first actual *read* afterward, and the computed value is then cached in place so a second read never re-runs it. An ordinary <code>name = expr</code> is unchanged and still evaluates immediately, exactly as before — <code>lazy</code> is an explicit opt-in, not a new default.</p>
-<div class="example"><pre class="hl"><code>lazy x = <span class="f">expensive_computation</span>()   <span class="c"># nothing runs yet</span>
+<div class="example hasout"><pre class="hl"><code><span class="k">function</span> <span class="f">expensive_computation</span>()
+    <span class="k">return</span> <span class="f">sum</span>(<span class="n">1</span> <span class="k">to</span> <span class="n">1000</span>)
+<span class="k">end</span> <span class="k">function</span>
+
+lazy x = <span class="f">expensive_computation</span>()   <span class="c"># nothing runs yet</span>
 <span class="f">print</span>(<span class="s">"declared, nothing computed yet"</span>)
 y = x   <span class="c"># FIRST read: runs expensive_computation() now, caches the result</span>
 z = x   <span class="c"># second read: reuses the cached value, no recomputation</span>
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>declared, nothing computed yet</pre></div></div>
 <p><strong>Verifying it's deferred</strong>: the same technique <code>memoize</code> above uses — a counter (or a <code>print</code>) the expression's own body advances — confirms the work happens on first read, not at the <code>lazy</code> statement:</p>
 <div class="example"><pre class="hl"><code>counter = <span class="n">0</span>
 <span class="k">function</span> <span class="f">tick</span>()

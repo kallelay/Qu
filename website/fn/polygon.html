@@ -44,20 +44,167 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example"><pre class="hl"><code><span class="f">figure</span>()
+<div class="example hasout"><pre class="hl"><code>tmp_svg = <span class="f">tmp_file</span>() + <span class="s">".svg"</span>
+<span class="f">figure</span>()
 <span class="f">polygon</span>([<span class="n">0.0</span>, <span class="n">1.0</span>, <span class="n">1.0</span>], [<span class="n">0.0</span>, <span class="n">0.0</span>, <span class="n">1.0</span>], <span class="a">fill</span> = <span class="s">"#ff0000"</span>)
 <span class="f">savefig</span>(tmp_svg)
 <span class="f">print</span>(<span class="f">contains</span>(<span class="f">read_all_text</span>(tmp_svg), <span class="s">"opacity=\"0.18\""</span>))   <span class="c"># true</span>
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/agent-guide.html">agent-guide</a></p>
-<div class="example"><pre class="hl"><code><span class="f">figure</span>()
+<div class="out"><span class="lbl">output</span><pre>· savefig &lt;tmp&gt;.svg
+  note: this figure uses screen styling and may not hold up in print -- call theme("publication") before saving for a paper (said once per session)
+  note: fonts render using whatever is installed on the viewer's machine (none are embedded) -- pass embed_fonts=true (fontfamily preset only) or export .tikz for guaranteed appearance
+true</pre></div><figure class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 600" width="900" height="600" font-family="'Inter', 'Latin Modern Math', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif">
+
+<rect x="0" y="0" width="900" height="600" fill="#ffffff"/>
+<line x1="104.06" y1="528.84" x2="866.00" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="528.84" x2="104.06" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="534.51" font-size="16.2" text-anchor="end" fill="#4d4d4d">0</text>
+<line x1="104.06" y1="483.05" x2="866.00" y2="483.05" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="483.05" x2="104.06" y2="483.05" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="488.72" font-size="16.2" text-anchor="end" fill="#4d4d4d">0.1</text>
+<line x1="104.06" y1="437.25" x2="866.00" y2="437.25" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="437.25" x2="104.06" y2="437.25" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="442.92" font-size="16.2" text-anchor="end" fill="#4d4d4d">0.2</text>
+<line x1="104.06" y1="391.46" x2="866.00" y2="391.46" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="391.46" x2="104.06" y2="391.46" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="397.13" font-size="16.2" text-anchor="end" fill="#4d4d4d">0.3</text>
+<line x1="104.06" y1="345.67" x2="866.00" y2="345.67" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="345.67" x2="104.06" y2="345.67" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="351.34" font-size="16.2" text-anchor="end" fill="#4d4d4d">0.4</text>
+<line x1="104.06" y1="299.87" x2="866.00" y2="299.87" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="299.87" x2="104.06" y2="299.87" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="305.54" font-size="16.2" text-anchor="end" fill="#4d4d4d">0.5</text>
+<line x1="104.06" y1="254.08" x2="866.00" y2="254.08" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="254.08" x2="104.06" y2="254.08" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="259.75" font-size="16.2" text-anchor="end" fill="#4d4d4d">0.6</text>
+<line x1="104.06" y1="208.28" x2="866.00" y2="208.28" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="208.28" x2="104.06" y2="208.28" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="213.95" font-size="16.2" text-anchor="end" fill="#4d4d4d">0.7</text>
+<line x1="104.06" y1="162.49" x2="866.00" y2="162.49" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="162.49" x2="104.06" y2="162.49" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="168.16" font-size="16.2" text-anchor="end" fill="#4d4d4d">0.8</text>
+<line x1="104.06" y1="116.69" x2="866.00" y2="116.69" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="116.69" x2="104.06" y2="116.69" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="122.36" font-size="16.2" text-anchor="end" fill="#4d4d4d">0.9</text>
+<line x1="104.06" y1="70.90" x2="866.00" y2="70.90" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="99.56" y1="70.90" x2="104.06" y2="70.90" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="92.81" y="76.57" font-size="16.2" text-anchor="end" fill="#4d4d4d">1.0</text>
+<line x1="104.06" y1="48.00" x2="104.06" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="104.06" y1="528.84" x2="104.06" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="104.06" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">0</text>
+<line x1="176.63" y1="48.00" x2="176.63" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="176.63" y1="528.84" x2="176.63" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="176.63" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">0.1</text>
+<line x1="249.19" y1="48.00" x2="249.19" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="249.19" y1="528.84" x2="249.19" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="249.19" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">0.2</text>
+<line x1="321.76" y1="48.00" x2="321.76" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="321.76" y1="528.84" x2="321.76" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="321.76" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">0.3</text>
+<line x1="394.32" y1="48.00" x2="394.32" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="394.32" y1="528.84" x2="394.32" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="394.32" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">0.4</text>
+<line x1="466.89" y1="48.00" x2="466.89" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="466.89" y1="528.84" x2="466.89" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="466.89" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">0.5</text>
+<line x1="539.46" y1="48.00" x2="539.46" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="539.46" y1="528.84" x2="539.46" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="539.46" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">0.6</text>
+<line x1="612.02" y1="48.00" x2="612.02" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="612.02" y1="528.84" x2="612.02" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="612.02" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">0.7</text>
+<line x1="684.59" y1="48.00" x2="684.59" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="684.59" y1="528.84" x2="684.59" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="684.59" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">0.8</text>
+<line x1="757.15" y1="48.00" x2="757.15" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="757.15" y1="528.84" x2="757.15" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="757.15" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">0.9</text>
+<line x1="829.72" y1="48.00" x2="829.72" y2="528.84" stroke="#e6e6e6" stroke-width="0.8181818181818182"/>
+<line x1="829.72" y1="528.84" x2="829.72" y2="533.34" stroke="#333333" stroke-width="0.8181818181818182"/>
+<text x="829.72" y="549.09" font-size="16.2" text-anchor="middle" fill="#4d4d4d">1.0</text>
+<line x1="104.06" y1="528.84" x2="866.00" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<line x1="104.06" y1="48.00" x2="104.06" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<line x1="104.06" y1="48.00" x2="866.00" y2="48.00" stroke="#333333" stroke-width="0.8181818181818182"/>
+<line x1="866.00" y1="48.00" x2="866.00" y2="528.84" stroke="#333333" stroke-width="0.8181818181818182"/>
+<clipPath id="qu-clip-10406-4800-76194-48084"><rect x="104.06" y="48.00" width="761.94" height="480.84"/></clipPath><g clip-path="url(#qu-clip-10406-4800-76194-48084)">
+<polygon points="104.06,528.84 829.72,528.84 829.72,70.90" fill="#ff0000" stroke="none" stroke-width="1.40" opacity="0.18"/>
+</g>
+</svg></figure></div><p class="fnfrom">from <a href="../docs/agent-guide.html">agent-guide</a></p>
+<div class="example hasout"><pre class="hl"><code><span class="f">figure</span>()
 <span class="f">polygon</span>([<span class="n">0.0</span>, <span class="n">1.0</span>, <span class="n">1.0</span>], [<span class="n">0.0</span>, <span class="n">0.0</span>, <span class="n">1.0</span>], <span class="a">fill</span> = <span class="s">"#00ff00"</span>, <span class="a">alpha</span> = <span class="n">1.0</span>)
 <span class="f">figure_size</span>(<span class="n">200</span>, <span class="n">150</span>, <span class="a">unit</span> = <span class="s">"mm"</span>)
 <span class="f">polygon</span>([<span class="n">2.0</span>, <span class="n">3.0</span>, <span class="n">3.0</span>], [<span class="n">0.0</span>, <span class="n">0.0</span>, <span class="n">1.0</span>], <span class="a">fill</span> = <span class="s">"#0000ff"</span>, <span class="a">alpha</span> = <span class="n">1.0</span>)
 <span class="f">savefig</span>(tmp_svg)
 <span class="f">print</span>(<span class="f">regex_count</span>(<span class="f">read_all_text</span>(tmp_svg), <span class="s">"&lt;polygon"</span>))   <span class="c"># 2, not 1</span>
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/agent-guide.html">agent-guide</a></p>
+<div class="out"><span class="lbl">output</span><pre>· savefig &lt;tmp&gt;.svg
+  note: fonts render using whatever is installed on the viewer's machine (none are embedded) -- pass embed_fonts=true (fontfamily preset only) or export .tikz for guaranteed appearance
+2</pre></div><figure class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2000 1500" width="2000" height="1500" font-family="'Inter', 'Latin Modern Math', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif">
+
+<rect x="0" y="0" width="2000" height="1500" fill="#ffffff"/>
+<line x1="209.25" y1="1363.88" x2="1966.00" y2="1363.88" stroke="#e6e6e6" stroke-width="1.8181818181818183"/>
+<line x1="199.25" y1="1363.88" x2="209.25" y2="1363.88" stroke="#333333" stroke-width="1.8181818181818183"/>
+<text x="184.25" y="1376.47" font-size="36" text-anchor="end" fill="#4d4d4d">0</text>
+<line x1="209.25" y1="1242.05" x2="1966.00" y2="1242.05" stroke="#e6e6e6" stroke-width="1.8181818181818183"/>
+<line x1="199.25" y1="1242.05" x2="209.25" y2="1242.05" stroke="#333333" stroke-width="1.8181818181818183"/>
+<text x="184.25" y="1254.65" font-size="36" text-anchor="end" fill="#4d4d4d">0.1</text>
+<line x1="209.25" y1="1120.22" x2="1966.00" y2="1120.22" stroke="#e6e6e6" stroke-width="1.8181818181818183"/>
+<line x1="199.25" y1="1120.22" x2="209.25" y2="1120.22" stroke="#333333" stroke-width="1.8181818181818183"/>
+<text x="184.25" y="1132.82" font-size="36" text-anchor="end" fill="#4d4d4d">0.2</text>
+<line x1="209.25" y1="998.39" x2="1966.00" y2="998.39" stroke="#e6e6e6" stroke-width="1.8181818181818183"/>
+<line x1="199.25" y1="998.39" x2="209.25" y2="998.39" stroke="#333333" stroke-width="1.8181818181818183"/>
+<text x="184.25" y="1010.99" font-size="36" text-anchor="end" fill="#4d4d4d">0.3</text>
+<line x1="209.25" y1="876.56" x2="1966.00" y2="876.56" stroke="#e6e6e6" stroke-width="1.8181818181818183"/>
+<line x1="199.25" y1="876.56" x2="209.25" y2="876.56" stroke="#333333" stroke-width="1.8181818181818183"/>
+<text x="184.25" y="889.16" font-size="36" text-anchor="end" fill="#4d4d4d">0.4</text>
+<line x1="209.25" y1="754.73" x2="1966.00" y2="754.73" stroke="#e6e6e6" stroke-width="1.8181818181818183"/>
+<line x1="199.25" y1="754.73" x2="209.25" y2="754.73" stroke="#333333" stroke-width="1.8181818181818183"/>
+<text x="184.25" y="767.33" font-size="36" text-anchor="end" fill="#4d4d4d">0.5</text>
+<line x1="209.25" y1="632.90" x2="1966.00" y2="632.90" stroke="#e6e6e6" stroke-width="1.8181818181818183"/>
+<line x1="199.25" y1="632.90" x2="209.25" y2="632.90" stroke="#333333" stroke-width="1.8181818181818183"/>
+<text x="184.25" y="645.50" font-size="36" text-anchor="end" fill="#4d4d4d">0.6</text>
+<line x1="209.25" y1="511.07" x2="1966.00" y2="511.07" stroke="#e6e6e6" stroke-width="1.8181818181818183"/>
+<line x1="199.25" y1="511.07" x2="209.25" y2="511.07" stroke="#333333" stroke-width="1.8181818181818183"/>
+<text x="184.25" y="523.67" font-size="36" text-anchor="end" fill="#4d4d4d">0.7</text>
+<line x1="209.25" y1="389.24" x2="1966.00" y2="389.24" stroke="#e6e6e6" stroke-width="1.8181818181818183"/>
+<line x1="199.25" y1="389.24" x2="209.25" y2="389.24" stroke="#333333" stroke-width="1.8181818181818183"/>
+<text x="184.25" y="401.84" font-size="36" text-anchor="end" fill="#4d4d4d">0.8</text>
+<line x1="209.25" y1="267.41" x2="1966.00" y2="267.41" stroke="#e6e6e6" stroke-width="1.8181818181818183"/>
+<line x1="199.25" y1="267.41" x2="209.25" y2="267.41" stroke="#333333" stroke-width="1.8181818181818183"/>
+<text x="184.25" y="280.01" font-size="36" text-anchor="end" fill="#4d4d4d">0.9</text>
+<line x1="209.25" y1="145.58" x2="1966.00" y2="145.58" stroke="#e6e6e6" stroke-width="1.8181818181818183"/>
+<line x1="199.25" y1="145.58" x2="209.25" y2="145.58" stroke="#333333" stroke-width="1.8181818181818183"/>
+<text x="184.25" y="158.18" font-size="36" text-anchor="end" fill="#4d4d4d">1.0</text>
+<line x1="209.25" y1="84.67" x2="209.25" y2="1363.88" stroke="#e6e6e6" stroke-width="1.8181818181818183"/>
+<line x1="209.25" y1="1363.88" x2="209.25" y2="1373.88" stroke="#333333" stroke-width="1.8181818181818183"/>
+<text x="209.25" y="1408.88" font-size="36" text-anchor="middle" fill="#4d4d4d">0</text>
+<line x1="488.10" y1="84.67" x2="488.10" y2="1363.88" stroke="#e6e6e6" stroke-width="1.8181818181818183"/>
+<line x1="488.10" y1="1363.88" x2="488.10" y2="1373.88" stroke="#333333" stroke-width="1.8181818181818183"/>
+<text x="488.10" y="1408.88" font-size="36" text-anchor="middle" fill="#4d4d4d">0.5</text>
+<line x1="766.95" y1="84.67" x2="766.95" y2="1363.88" stroke="#e6e6e6" stroke-width="1.8181818181818183"/>
+<line x1="766.95" y1="1363.88" x2="766.95" y2="1373.88" stroke="#333333" stroke-width="1.8181818181818183"/>
+<text x="766.95" y="1408.88" font-size="36" text-anchor="middle" fill="#4d4d4d">1.0</text>
+<line x1="1045.80" y1="84.67" x2="1045.80" y2="1363.88" stroke="#e6e6e6" stroke-width="1.8181818181818183"/>
+<line x1="1045.80" y1="1363.88" x2="1045.80" y2="1373.88" stroke="#333333" stroke-width="1.8181818181818183"/>
+<text x="1045.80" y="1408.88" font-size="36" text-anchor="middle" fill="#4d4d4d">1.5</text>
+<line x1="1324.65" y1="84.67" x2="1324.65" y2="1363.88" stroke="#e6e6e6" stroke-width="1.8181818181818183"/>
+<line x1="1324.65" y1="1363.88" x2="1324.65" y2="1373.88" stroke="#333333" stroke-width="1.8181818181818183"/>
+<text x="1324.65" y="1408.88" font-size="36" text-anchor="middle" fill="#4d4d4d">2.0</text>
+<line x1="1603.50" y1="84.67" x2="1603.50" y2="1363.88" stroke="#e6e6e6" stroke-width="1.8181818181818183"/>
+<line x1="1603.50" y1="1363.88" x2="1603.50" y2="1373.88" stroke="#333333" stroke-width="1.8181818181818183"/>
+<text x="1603.50" y="1408.88" font-size="36" text-anchor="middle" fill="#4d4d4d">2.5</text>
+<line x1="1882.35" y1="84.67" x2="1882.35" y2="1363.88" stroke="#e6e6e6" stroke-width="1.8181818181818183"/>
+<line x1="1882.35" y1="1363.88" x2="1882.35" y2="1373.88" stroke="#333333" stroke-width="1.8181818181818183"/>
+<text x="1882.35" y="1408.88" font-size="36" text-anchor="middle" fill="#4d4d4d">3.0</text>
+<line x1="209.25" y1="1363.88" x2="1966.00" y2="1363.88" stroke="#333333" stroke-width="1.8181818181818183"/>
+<line x1="209.25" y1="84.67" x2="209.25" y2="1363.88" stroke="#333333" stroke-width="1.8181818181818183"/>
+<line x1="209.25" y1="84.67" x2="1966.00" y2="84.67" stroke="#333333" stroke-width="1.8181818181818183"/>
+<line x1="1966.00" y1="84.67" x2="1966.00" y2="1363.88" stroke="#333333" stroke-width="1.8181818181818183"/>
+<clipPath id="qu-clip-20925-8467-175675-127921"><rect x="209.25" y="84.67" width="1756.75" height="1279.21"/></clipPath><g clip-path="url(#qu-clip-20925-8467-175675-127921)">
+<polygon points="209.25,1363.88 766.95,1363.88 766.95,145.58" fill="#00ff00" stroke="none" stroke-width="1.40" opacity="1"/>
+<polygon points="1324.65,1363.88 1882.35,1363.88 1882.35,145.58" fill="#0000ff" stroke="none" stroke-width="1.40" opacity="1"/>
+</g>
+</svg></figure></div><p class="fnfrom">from <a href="../docs/agent-guide.html">agent-guide</a></p>
 <div class="example hasout"><pre class="hl"><code><span class="c"># A square canvas, so that equal ranges really are equal scales and the</span>
 <span class="c"># circle below comes out round. Without it the figure would render an</span>
 <span class="c"># ellipse while the paragraph above it explained how to avoid one.</span>

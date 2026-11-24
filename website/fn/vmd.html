@@ -48,7 +48,8 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example"><pre class="hl"><code>  v = <span class="f">vmd</span>(signal, <span class="n">2</span>)                 <span class="c"># exactly 2 modes</span>
+<div class="example"><pre class="hl"><code>  signal = <span class="f">sin</span>(<span class="n">2</span> * pi * <span class="n">10</span> * (<span class="n">0</span> <span class="k">to</span> <span class="n">999</span>) / <span class="n">1000</span>) + <span class="n">0.5</span> * <span class="f">sin</span>(<span class="n">2</span> * pi * <span class="n">80</span> * (<span class="n">0</span> <span class="k">to</span> <span class="n">999</span>) / <span class="n">1000</span>)
+  v = <span class="f">vmd</span>(signal, <span class="n">2</span>)                 <span class="c"># exactly 2 modes</span>
   freqs_hz = v.center_freqs .* fs    <span class="c"># convert to Hz</span>
 </code></pre>
 </div><p class="fnfrom">from <a href="../docs/numerics-dsp.html">numerics-dsp</a></p>

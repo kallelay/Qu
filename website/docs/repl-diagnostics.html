@@ -145,7 +145,14 @@ hello file
 </table></div>
 <h3><code>timer.start()</code> / <code>timer.elapsed()</code> / <code>timer.stop()</code> — Stopwatch-style sugar for <code>tic</code>/<code>toc</code></h3>
 <p>Part of the same small, closed <code>table.</code>/<code>timer.</code> "namespace-dot" alias set as <code>table.load</code>/<code>table.write</code> (§ ergonomic API layer, 2026-08-31): the parser recognizes exactly <code>timer.start(</code>/<code>timer.elapsed(</code>/<code>timer.stop(</code> and rewrites each, at parse time, straight to <code>tic()</code>/<code>toc()</code>/<code>toc()</code> — so evaluation is byte-identical to calling those directly. <code>timer</code> is not a namespace value; it still works as an ordinary variable (<code>timer = 5</code>), and this is completely unrelated to the real <code>timer([interval])</code> object constructor above (a bare <code>timer.start()</code> never constructs one).</p>
-<div class="example"><pre class="hl"><code>timer.<span class="f">start</span>()               <span class="c"># same as tic()</span>
+<div class="example"><pre class="hl"><code><span class="k">function</span> <span class="f">heavy_computation</span>()
+    <span class="k">return</span> <span class="f">sum</span>(<span class="f">sin</span>(<span class="n">1</span> <span class="k">to</span> <span class="n">100000</span>))
+<span class="k">end</span> <span class="k">function</span>
+<span class="k">function</span> <span class="f">more_work</span>()
+    <span class="k">return</span> <span class="f">sum</span>(<span class="f">cos</span>(<span class="n">1</span> <span class="k">to</span> <span class="n">100000</span>))
+<span class="k">end</span> <span class="k">function</span>
+
+timer.<span class="f">start</span>()               <span class="c"># same as tic()</span>
 <span class="f">heavy_computation</span>()
 mid = timer.<span class="f">elapsed</span>()       <span class="c"># peek — does NOT reset, callable again</span>
 <span class="f">more_work</span>()
@@ -303,14 +310,14 @@ y = <span class="n">5</span> ppm               <span class="c"># 5e-6 -- literal
 elapsed_s = <span class="f">toc</span>()
 <span class="f">print</span>(<span class="s">"took {elapsed_s:.4f}s"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>took 0.0068s</pre></div></div>
+<div class="out"><span class="lbl">output</span><pre>took 0.0073s</pre></div></div>
 <p><code>track</code> and <code>grad</code> are the entry points to Qu's reverse-mode autodiff tape: wrap the inputs you want a derivative with respect to in <code>track</code> (or its alias <code>param</code>), build an ordinary arithmetic expression from them, and then call <code>grad</code> on the result to walk the tape backwards. Here <code>x</code> is tracked, <code>y = x^2 + 2x</code> is computed from it, and <code>grad</code> returns <code>dy/dx</code> evaluated at <code>x = 3</code> (analytically <code>2x + 2 = 8</code>), which is then printed:</p>
-<div class="example hasout"><pre class="hl"><code>x = <span class="f">track</span>(<span class="n">3.0</span>)
+<div class="example"><pre class="hl"><code>x = <span class="f">track</span>(<span class="n">3.0</span>)
 y = x * x + <span class="n">2</span> * x
 dy_dx = <span class="f">grad</span>(y, <span class="a">wrt</span>=x)      <span class="c"># 2*x + 2 = 8</span>
 <span class="f">print</span>(<span class="s">"dy/dx = {dy_dx}"</span>)
 </code></pre>
-<div class="out"><span class="lbl">output</span><pre>dy/dx = 8</pre></div></div>
+</div>
 <p>A numeric literal followed directly by a recognized suffix is normalized to its SI base value at the moment it is parsed — no explicit conversion call needed. <code>5 kHz</code> becomes <code>5000</code> (hertz, the base unit) and <code>50m</code> uses the bare SI-magnitude prefix form (no base unit attached) to mean <code>50 * 1e-3</code>. Both results are ordinary numbers from that point on, so they print like any other value:</p>
 <div class="example"><pre class="hl"><code>Fs = <span class="n">5</span> kHz        <span class="c"># normalizes to 5000</span>
 dt = <span class="n">50m</span>          <span class="c"># bare SI-magnitude prefix: 50 * 1e-3 = 0.05 (no base unit)</span>

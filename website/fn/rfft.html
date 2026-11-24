@@ -63,20 +63,16 @@ X[<span class="n">0.2</span> kHz]          <span class="c"># same bin as X[200 H
   back = <span class="f">irfft</span>(half, <span class="f">length</span>(x))
 </code></pre>
 </div><p class="fnfrom">from <a href="../docs/numerics-dsp.html">numerics-dsp</a></p>
+<div class="example"><pre class="hl"><code>  spectrum = <span class="f">abs</span>(<span class="f">rfft</span>(<span class="f">sin</span>(<span class="n">2</span> * pi * <span class="n">40</span> * (<span class="n">0</span> <span class="k">to</span> <span class="n">999</span>) / <span class="n">1000</span>)))   <span class="c"># one clear peak</span>
+  peaks = <span class="f">find_peaks</span>(spectrum, <span class="a">min_height</span>=<span class="n">0.1</span>, <span class="a">min_distance</span>=<span class="n">5</span>)
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/numerics-dsp.html">numerics-dsp</a></p>
 <div class="example hasout"><pre class="hl"><code>spectrum = <span class="f">abs</span>(<span class="f">rfft</span>(y))
 freqs    = (<span class="n">0</span> <span class="k">to</span> <span class="f">len</span>(spectrum) - <span class="n">1</span>) * fs / <span class="f">len</span>(y)
 peak     = <span class="f">argmax</span>(spectrum)
 <span class="f">print</span>(<span class="s">"largest component at {freqs[peak]:.1f} Hz"</span>)
 </code></pre>
 <div class="out"><span class="lbl">output</span><pre>largest component at 50.0 Hz</pre></div></div><p class="fnfrom">from <a href="../docs/from-zero.html">from-zero</a></p>
-<div class="example"><pre class="hl"><code>t  = <span class="f">linspace</span>(<span class="n">0</span>, <span class="n">1</span>, <span class="n">500</span>)                  <span class="c"># one second at 500 Hz</span>
-y  = <span class="f">sin</span>(<span class="n">2</span> * pi * <span class="n">5</span> * t) + <span class="n">0.2</span> * <span class="f">randn</span>(<span class="n">500</span>, <span class="a">seed</span> = <span class="n">1</span>)
-mag  = <span class="f">abs</span>(<span class="f">rfft</span>(y))                       <span class="c"># 251 bins for 500 samples</span>
-f    = <span class="f">linspace</span>(<span class="n">0</span>, <span class="n">250</span>, <span class="f">len</span>(mag))         <span class="c"># the matching frequency axis</span>
-yhat = <span class="f">sin</span>(<span class="n">2</span> * pi * <span class="n">5</span> * t)                <span class="c"># a "model" to compare against</span>
-losses = <span class="n">1</span> ./ (<span class="n">1</span> <span class="k">to</span> <span class="n">40</span>)                   <span class="c"># a decaying training curve</span>
-</code></pre>
-</div><p class="fnfrom">from <a href="../docs/plotting.html">plotting</a></p>
 <h2>How it works</h2>
 <p><code>rfft(x, [scaling=])</code> -- <code>scaling=</code> picks the normalisation stamped on the returned <code>Spectrum</code>: <code>"raw"</code> (default, the unnormalised DFT sum), <code>"amplitude"</code> (a bin reads the peak amplitude of the tone at that frequency) or <code>"rms"</code> (that tone's RMS value). Requires a <code>Signal</code> input -- the convention is metadata carried on <code>Value::Spectrum</code>, and a bare <code>CVec</code> has nowhere to record it, so asking for a scaling on plain numbers is refused rather than silently dropped.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

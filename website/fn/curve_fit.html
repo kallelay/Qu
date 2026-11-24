@@ -55,11 +55,13 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example"><pre class="hl"><code><span class="f">model</span>(x, p) := p[<span class="n">0</span>] * <span class="f">exp</span>(-p[<span class="n">1</span>] * x)
+<div class="example hasout"><pre class="hl"><code><span class="f">model</span>(x, p) := p[<span class="n">0</span>] * <span class="f">exp</span>(-p[<span class="n">1</span>] * x)
+xdata = <span class="n">0</span> <span class="k">to</span> <span class="n">9</span>
+ydata = <span class="n">2.0</span> * <span class="f">exp</span>(-<span class="n">0.3</span> * xdata)    <span class="c"># noise-free data from a = 2, b = 0.3</span>
 fit = <span class="f">curve_fit</span>(<span class="s">"model"</span>, xdata, ydata, [<span class="n">1</span>, <span class="n">1</span>])   <span class="c"># initial guess [1, 1]</span>
 <span class="f">print</span>(<span class="s">"a = {fit.params[0]}, b = {fit.params[1]}, cost = {fit.cost}"</span>)
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/numerics-dsp.html">numerics-dsp</a></p>
+<div class="out"><span class="lbl">output</span><pre>a = 2, b = 0.3, cost = 9.020498e-26</pre></div></div><p class="fnfrom">from <a href="../docs/numerics-dsp.html">numerics-dsp</a></p>
 <div class="example hasout"><pre class="hl"><code><span class="f">model</span>(x, p) := p[<span class="n">0</span>] * <span class="f">exp</span>(-p[<span class="n">1</span>] * x)
 xdata = <span class="f">linspace</span>(<span class="n">0</span>, <span class="n">5</span>, <span class="n">50</span>)
 ydata = <span class="n">3</span> * <span class="f">exp</span>(-<span class="n">0.7</span> * xdata) + <span class="n">0.02</span> * <span class="f">randn</span>(<span class="n">50</span>, <span class="a">seed</span>=<span class="n">1</span>)   <span class="c"># noisy samples of a=3, b=0.7</span>

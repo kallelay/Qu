@@ -45,13 +45,27 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example"><pre class="hl"><code>  state = <span class="f">filter_init</span>(lp)
+<div class="example hasout"><pre class="hl"><code>  state = <span class="f">filter_init</span>(lp)
   <span class="k">for</span> i = <span class="n">0</span> <span class="k">to</span> <span class="f">length</span>(samples) - <span class="n">1</span>
       state = <span class="f">filter_next</span>(state, samples[i])
       <span class="f">print</span>(state.y)         <span class="c"># this sample's filtered output, right away</span>
   <span class="k">end</span> <span class="k">for</span>
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/numerics-dsp.html">numerics-dsp</a></p>
+<div class="out"><span class="lbl">output</span><pre>0
+0.00325
+0.025502
+0.095472
+0.228751
+0.393986
+0.510896
+0.491571
+0.299115
+-0.016006
+-0.328507
+-0.496991
+-0.438187
+-0.175561
+    ... 786 more lines</pre></div></div><p class="fnfrom">from <a href="../docs/numerics-dsp.html">numerics-dsp</a></p>
 <div class="example hasout"><pre class="hl"><code>lp = <span class="f">butter</span>(<span class="n">4</span>, <span class="s">"low"</span>, <span class="n">80</span>, <span class="n">1000</span>)
 
 <span class="k">function</span> <span class="f">lp_block</span>(b, st)

@@ -51,6 +51,7 @@
 c = <span class="f">chirp</span>(<span class="n">20</span>, <span class="n">20000</span>, <span class="n">48</span> kHz, <span class="n">48000</span>)       <span class="c"># linear sweep, 20Hz to 20kHz</span>
 lc = <span class="f">chirp</span>(<span class="n">20</span>, <span class="n">20000</span>, <span class="n">48</span> kHz, <span class="n">48000</span>, <span class="a">method</span>=<span class="s">"logarithmic"</span>)
 sq = <span class="f">square</span>(<span class="n">100</span>, <span class="n">1000</span>, <span class="n">1000</span>, <span class="a">duty</span>=<span class="n">0.3</span>)    <span class="c"># bipolar (+-1) pulse train</span>
+modulator = <span class="n">0.5</span> + <span class="n">0.4</span> * <span class="f">sin</span>(<span class="n">2</span> * pi * <span class="n">50</span> * (<span class="n">0</span> <span class="k">to</span> <span class="n">999</span>) / <span class="n">48000</span>)   <span class="c"># slow sine, 0..1</span>
 p = <span class="f">pwm</span>(modulator, <span class="n">5000</span>, <span class="n">48000</span>)           <span class="c"># natural-sampling PWM against</span>
                                            <span class="c"># a triangle carrier (duty</span>
                                            <span class="c"># follows the modulator's value)</span>

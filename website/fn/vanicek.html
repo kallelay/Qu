@@ -46,7 +46,10 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example"><pre class="hl"><code>  power = <span class="f">vanicek</span>(t, x, [<span class="n">1</span>, <span class="n">3</span>, <span class="n">5</span>, <span class="n">8</span>, <span class="n">12</span>])   <span class="c"># t need not be evenly spaced</span>
+<div class="example"><pre class="hl"><code>  k = <span class="n">0</span> <span class="k">to</span> <span class="n">99</span>
+  t = <span class="n">0.02</span> * k + <span class="n">0.008</span> * <span class="f">sin</span>(<span class="n">7</span> * k)       <span class="c"># uneven sample times</span>
+  x = <span class="f">sin</span>(<span class="n">2</span> * pi * <span class="n">3</span> * t)                 <span class="c"># a 3 Hz sinusoid</span>
+  power = <span class="f">vanicek</span>(t, x, [<span class="n">1</span>, <span class="n">3</span>, <span class="n">5</span>, <span class="n">8</span>, <span class="n">12</span>])   <span class="c"># t need not be evenly spaced</span>
 </code></pre>
 </div><p class="fnfrom">from <a href="../docs/numerics-dsp.html">numerics-dsp</a></p>
 <h2>How it works</h2>

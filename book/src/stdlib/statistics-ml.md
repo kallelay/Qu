@@ -1524,6 +1524,115 @@ k = binoinv(0.95, 20, 0.3)
 print("95% of Binomial(20, 0.3) draws are <= {k}: binocdf = {round(binocdf(k, 20, 0.3), 4)}")
 ```
 
+## Choosing k, reading learning curves, and preparing data
+
+Added in v0.4.15. Each block below was run as written.
+
+**Pick the number of clusters by silhouette.** `silhouette_score` is the
+mean silhouette over all points; the `k` with the largest value fits best.
+Three blobs, so `k = 3` should win, and it does:
+
+```qu
+G = vstack(randn(40, 2, seed = 31) + 4,
+           randn(40, 2, seed = 32) - 4,
+           randn(40, 2, seed = 33))
+for k = 2:5
+    s = silhouette_score(G, kmeans(G, k, seed = 5))
+    print("k = {k}: silhouette = {round(s, 3)}")
+end for
+```
+
+```text
+k = 2: silhouette = 0.558
+k = 3: silhouette = 0.692
+k = 4: silhouette = 0.559
+k = 5: silhouette = 0.539
+```
+
+**A learning curve is two lines.** `learning_curve` takes what `cross_val`
+takes. A 1-nearest-neighbour model memorises its training rows (training
+R2 is exactly 1) but interpolates a straight line more crudely the fewer
+points it has, so only the validation curve moves:
+
+```qu
+xl = linspace(0, 10, 60)
+yl = 3 * xl + 1
+r = learning_curve(knn_model, xl, yl, 1, seed = 11)
+print("rows:       {r.sizes}")
+print("train R2:   {round(r.train_mean, 4)}")
+print("validation: {round(r.val_mean, 4)}")
+```
+
+```text
+rows:       [10, 19, 29, 38, 48]
+train R2:   [1, 1, 1, 1, 1]
+validation: [0.9394, 0.9832, 0.9917, 0.9936, 0.9949]
+```
+
+To draw it: `plot(r.sizes, r.train_mean)` and `plot(r.sizes, r.val_mean)`.
+
+**Encode string labels.** `label_encode` and `one_hot` sort the classes,
+and `label_decode` turns integer codes (for instance a model's
+predictions) back into the original strings:
+
+```qu
+colors = ("red", "green", "blue", "green", "red", "blue", "green", "red")
+e = label_encode(colors)
+print("classes: {e.classes}")
+print("codes:   {e.codes}")
+print("back:    {label_decode(e.codes, e.classes)}")
+oh = one_hot(colors)
+print("one_hot is {rows(oh.matrix)} x {cols(oh.matrix)}, columns = {oh.classes}")
+```
+
+```text
+classes: ("blue", "green", "red")
+codes:   [2, 1, 0, 1, 2, 0, 1, 2]
+back:    ("red", "green", "blue", "green", "red", "blue", "green", "red")
+one_hot is 8 x 3, columns = ("blue", "green", "red")
+```
+
+**Impute, then fit.** `impute` fills each column from its own observed
+values (here the column medians 4 and 14); `fillna` fills with a value you
+choose:
+
+```qu
+Xna = [1, 10; nan, 12; 3, nan; 5, 14; 7, 16; nan, 18]
+yna = [0, 0, 0, 1, 1, 1]
+Xf = impute(Xna, "median")
+print(Xf)
+m = logistic_model(Xf, yna)
+print("train accuracy: {round(m.score(Xf, yna), 3)}")
+print(fillna([1, nan, 3], 0))
+```
+
+```text
+[1, 10; 4, 12; 3, 14; 5, 14; 7, 16; 4, 18]
+train accuracy: 0.667
+[1, 0, 3]
+```
+
+**Sort by index, stably.** `sortperm` returns the indices; unlike
+`argsort(x, true)`, the descending order keeps equal elements in their
+original order:
+
+```qu
+xs = [3, 1, 2, 1, 3, 1]
+print(sortperm(xs))
+print(sortperm(xs, true))
+print(argsort(xs, true))
+print(xs[sortperm(xs)])
+print(sortperm(("pear", "fig", "apple")))
+```
+
+```text
+[1, 3, 5, 2, 0, 4]
+[0, 4, 2, 1, 3, 5]
+[4, 0, 2, 5, 3, 1]
+[1, 1, 1, 2, 3, 3]
+[2, 1, 0]
+```
+
 ## Putting it together
 
 Everything above shows one call at a time. Two things only make sense as a
@@ -1578,6 +1687,14 @@ training set did.
 | `cv_stability` | `cv_stability(X, y, [n_repeats=10], [cv_folds=5])` | Repeats cross-validation `n_repeats` times (integer, default 10) with `cv_folds` folds each (integer, default 5) on an `N`-row `X` and length-`N` `y`, reshuffling between repeats. Returns a length-`n_repeats` vector of the raw per-repeat scores (not just their average): `mean` and `std` of the result give the usual score-plus-variability summary, and a wide spread means the single number you were about to quote was luck. |
 | `cross_val` <br> *Added in v0.4.14* | `cross_val(fit, X, y, [extra...], [folds=5], [shuffle=true], [seed=], [metric="auto"])` | k-fold cross-validation of anything that fits a model. `fit` is a function you wrote, `fit(X, y, extra...)`, returning a model; or a model builder passed by name, such as `knn_model`, with its extra arguments after `y` (`cross_val(knn_model, X, y, 3)`). Each fold fits on the other folds and scores on the held-out one: by the model's own `score` for `metric="auto"`, else by the named metric, one of `accuracy`, `f1`, `precision`, `recall`, `r2`, `rmse`, `mae`, `mse`, `roc_auc`, `brier`, on `(actual, predict(X))`. Returns `{scores, mean, std, folds, metric}`; `std` is the population standard deviation. `seed=` fixes the folds. |
 | `grid_search` <br> *Added in v0.4.14* | `grid_search(fit, X, y, grid, [folds=5], [shuffle=true], [seed=], [metric="auto"])` | Cross-validates `fit(X, y, params)` over every combination of `grid`, a record of lists such as `{k = [1, 3, 5], tag = [10, 20]}` (a single value counts as a one-point list; the last name varies fastest; at most 10000 combinations). `params` is the record of one combination. Every combination is scored on the SAME folds, and error metrics (`rmse`, `mae`, `mse`, `brier`) are minimized while the others are maximized. Returns `{best_params, best_score, best_index, scores, results, folds, metric}`, where `results` is a list of `{params, mean, std}`. |
+| `silhouette` <br> *Added in v0.4.15* | `silhouette(X, labels)` | Per-sample silhouette values of a clustering, as a `Vec` with one value in `[-1, 1]` per row of `X`: `(b - a) / max(a, b)`, where `a` is the point's mean Euclidean distance to the other points of its own cluster and `b` the smallest mean distance to the points of any other cluster. Near `1` the point sits well inside its cluster, near `0` on a border, negative closer to another cluster than its own. `X` is an `N`-row matrix (a plain `Vec` is one feature); `labels` is a length-`N` numeric vector or list of strings, any values (the cluster ids from `kmeans` work as they are). A singleton cluster scores `0` (the scikit-learn convention), as does a point whose `a` and `b` are both `0`. The cost is `O(N^2)` distances. Errors: fewer than 2 clusters, as many clusters as points, a length mismatch, `NaN` in `X` or `labels`, complex input. |
+| `silhouette_score` <br> *Added in v0.4.15* | `silhouette_score(X, labels)` | The mean of `silhouette(X, labels)`, a number in `[-1, 1]`; the usual single figure for choosing the number of clusters `k` (largest wins). Same arguments and errors as `silhouette`. |
+| `learning_curve` <br> *Added in v0.4.15* | `learning_curve(fit, X, y, [extra...], [sizes=], [folds=5], [shuffle=true], [seed=], [metric="auto"])` | How a model's score changes with the amount of training data. Takes the same `fit`, `X`, `y`, `extra...`, `folds=`, `shuffle=`, `seed=` and `metric=` as `cross_val`, and deals the rows into folds the same way (same `seed=`, same folds). For each fold the model is fitted on the first `s` rows of the other folds, for each `s` in `sizes=` (the rows come in the shuffled order, so each training set contains the smaller ones), and scored on those `s` rows (training score) and on the held-out fold (validation score). `sizes=` is a vector: entries all at most `1` are fractions of the smallest training fold (`n - ceil(n / folds)` rows), the default being `[0.2, 0.4, 0.6, 0.8, 1.0]`; otherwise they are whole row counts no larger than that, the same for every fold (a fraction rounds to the nearest whole row, at least 1). Returns `{sizes, train_mean, train_std, val_mean, val_std, train_scores, val_scores, folds, metric}`: `sizes` the row counts actually used, the `*_mean` and `*_std` vectors one entry per size (population standard deviation over the folds), and `train_scores` / `val_scores` the `sizes x folds` matrices behind them, so `plot(r.sizes, r.train_mean)` and `plot(r.sizes, r.val_mean)` draw the curve. A large gap between the two that closes as `sizes` grows says more data would help; two low curves that meet say the model is too simple. Errors: `folds` outside `2..n`, a `sizes` entry that is not positive or larger than the smallest training fold, fractions mixed with row counts, an unknown `metric`. |
+| `one_hot` <br> *Added in v0.4.15* | `one_hot(labels)` | One-hot encoding of a length-`N` label vector (numbers or a list of strings) with one column per distinct label in sorted order (numbers ascending, strings in byte order). Returns a **record** `{matrix, classes}`, the shape the other multi-output builtins use: `matrix` is `N x K` of `0` and `1` (row `i` has its `1` in the column of `labels[i]`'s class) and `classes` the `K` labels in column order, a `Vec` for numbers and a list for strings. Errors: an empty vector, `NaN`, strings mixed with other values. |
+| `label_encode` <br> *Added in v0.4.15* | `label_encode(labels)` | Replaces each label by the 0-based index of its class in sorted class order. Returns a record `{codes, classes}`: `codes` a `Vec` of whole numbers and `classes` the sorted distinct labels (a `Vec` for numbers, a list for strings). `label_decode(codes, classes)` is its inverse. Errors: as `one_hot`. |
+| `label_decode` <br> *Added in v0.4.15* | `label_decode(codes, classes)` | The inverse of `label_encode`: the `classes` entry at each 0-based code, a `Vec` when `classes` is numeric and a list when it holds strings. Use it to turn a model's integer predictions back into the original labels. Errors: a code that is not a whole number or lies outside `0 .. K-1`. |
+| `fillna` <br> *Added in v0.4.15* | `fillna(x, value)` | Replaces every `NaN` (the missing-value marker) in a vector or matrix by `value`, leaving every other entry, `inf` included, untouched. For a matrix `value` is a single number or a vector with one number per column. A `Signal` keeps its `Fs`. For time series use `fill_missing`, which interpolates instead. Errors: a vector `x` with a vector `value`, a per-column `value` of the wrong length, complex input. |
+| `impute` <br> *Added in v0.4.15* | `impute(x, strategy)` | Replaces each `NaN` by a statistic of the observed (non-`NaN`) values of its own column (a vector is one column): `strategy` is `"mean"`, `"median"` (the mean of the two middle values for an even count), `"most_frequent"` (ties go to the smallest value) or `"zero"`. Columns with nothing missing are left as they are. The statistic comes from `x` itself: to impute a test set with training statistics, compute them on the training set and use `fillna`. Errors: an unknown strategy, and a column that is all `NaN` under `"mean"`, `"median"` or `"most_frequent"`, which has no statistic to use (`"zero"` still works). |
 | `roc_curve` <br> *Added in v0.4.14* | `roc_curve(actual, score)` | ROC curve of any real-valued `score` against 0/1 labels `actual`. Returns `{fpr, tpr, thresholds, auc}`: one point per distinct threshold (equal scores move together), starting at rate (0, 0) with threshold `inf`; `auc` is the trapezoid area and equals `roc_auc(actual, score)`. Errors if a label is not 0 or 1, a score is NaN, or only one class is present. |
 | `pr_curve` <br> *Added in v0.4.14* | `pr_curve(actual, score)` | Precision-recall curve of `score` against 0/1 labels `actual`. Returns `{precision, recall, thresholds, ap}`, one point per distinct threshold from high to low; `ap` is the average precision `sum (R_n - R_(n-1)) P_n`. Same errors as `roc_curve`. |
 | `ablation_study` | `ablation_study(X, y, [cv_folds=3])` | Computes one importance score per feature column of an `N`-row, `D`-column `X` and length-`N` `y`, using `cv_folds` folds (integer, default 3): the full model's cross-validated score minus the score of the same model refit without that column. Returns a length-`D` vector of importance scores — a report on each feature's contribution, not a selection of which to keep. |

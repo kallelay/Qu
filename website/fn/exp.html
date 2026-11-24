@@ -44,11 +44,6 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example"><pre class="hl"><code><span class="f">model</span>(x, p) := p[<span class="n">0</span>] * <span class="f">exp</span>(-p[<span class="n">1</span>] * x)
-fit = <span class="f">curve_fit</span>(<span class="s">"model"</span>, xdata, ydata, [<span class="n">1</span>, <span class="n">1</span>])   <span class="c"># initial guess [1, 1]</span>
-<span class="f">print</span>(<span class="s">"a = {fit.params[0]}, b = {fit.params[1]}, cost = {fit.cost}"</span>)
-</code></pre>
-</div><p class="fnfrom">from <a href="../docs/numerics-dsp.html">numerics-dsp</a></p>
 <div class="example hasout"><pre class="hl"><code>x = <span class="n">1</span> <span class="k">to</span> <span class="n">50</span>
 <span class="f">plot</span>(x, <span class="f">exp</span>(<span class="n">0.1</span> * x))
 axis scale y log
@@ -119,6 +114,13 @@ axis scale y log
 <text x="304.77" y="30.70" font-size="10.08" text-anchor="start" fill="#444444">(0, 1.9)</text>
 <text x="493.49" y="29.99" font-size="10.08" text-anchor="start" fill="#0e7c86">6 dB = 1 bit</text>
 </svg></figure></div><p class="fnfrom">from <a href="../docs/plotting.html">plotting</a></p>
+<div class="example hasout"><pre class="hl"><code><span class="f">model</span>(x, p) := p[<span class="n">0</span>] * <span class="f">exp</span>(-p[<span class="n">1</span>] * x)
+xdata = <span class="n">0</span> <span class="k">to</span> <span class="n">9</span>
+ydata = <span class="n">2.0</span> * <span class="f">exp</span>(-<span class="n">0.3</span> * xdata)    <span class="c"># noise-free data from a = 2, b = 0.3</span>
+fit = <span class="f">curve_fit</span>(<span class="s">"model"</span>, xdata, ydata, [<span class="n">1</span>, <span class="n">1</span>])   <span class="c"># initial guess [1, 1]</span>
+<span class="f">print</span>(<span class="s">"a = {fit.params[0]}, b = {fit.params[1]}, cost = {fit.cost}"</span>)
+</code></pre>
+<div class="out"><span class="lbl">output</span><pre>a = 2, b = 0.3, cost = 9.020498e-26</pre></div></div><p class="fnfrom">from <a href="../docs/numerics-dsp.html">numerics-dsp</a></p>
 <div class="example"><pre class="hl"><code><span class="f">wavy</span>(p) := -<span class="n">0.5</span>*<span class="f">exp</span>(-(p[<span class="n">0</span>]+<span class="n">2</span>)^<span class="n">2</span>) - <span class="n">2</span>*<span class="f">exp</span>(-(p[<span class="n">0</span>]-<span class="n">3</span>)^<span class="n">2</span>/<span class="n">2</span>)  <span class="c"># shallow local</span>
                                                             <span class="c"># min at -2,</span>
                                                             <span class="c"># deeper global</span>

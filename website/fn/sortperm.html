@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>sortperm — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>sortperm</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/collections-strings.html">Collections & strings</a></p>
+<pre class="fnsig"><code>sortperm(x, [desc])</code></pre>
+<p class="fnnote">Input: x, desc &middot; Output: no output</p>
+<h2>What it is</h2>
+<p>The 0-based indices that sort <code>x</code>, so <code>x[sortperm(x)]</code> is sorted. <code>x</code> is a numeric vector or a list of strings (byte order); <code>desc</code> is <code>true</code> or <code>false</code> (default <code>false</code>). The sort is <strong>stable in both directions</strong>: equal elements keep their original order, so <code>sortperm([3, 1, 2, 1], true)</code> is <code>[0, 2, 1, 3]</code>. <code>NaN</code> counts as the largest value (last ascending, first descending) and <code>0</code> equals <code>-0</code>. This differs from <code>argsort(x, true)</code>, which reverses the ascending order and so reverses ties as well (<code>[0, 2, 3, 1]</code> for the same input). Errors: a non-vector matrix, <code>desc</code> that is not a boolean.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>sortperm(x, [desc])</code></td><td><div class="ioitem"><code>x</code> <span class="iotype">vector or string</span><span class="iodesc"><code>x</code> is a numeric vector or a list of strings (byte order).</span></div>
+<div class="ioitem"><code>desc</code> <span class="iotype">optional</span><span class="iodesc"><code>desc</code> is <code>true</code> or <code>false</code> (default <code>false</code>).</span></div>
+</td><td><span class="ionone">not documented yet</span></td><td>The sort is <strong>stable in both directions</strong>: equal elements keep their original order, so <code>sortperm([3, 1, 2, 1], true)</code> is <code>[0, 2, 1, 3]</code>. <code>NaN</code> counts as the largest value (last ascending, first descending) and <code>0</code> equals <code>-0</code>.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example hasout"><pre class="hl"><code>xs = [<span class="n">3</span>, <span class="n">1</span>, <span class="n">2</span>, <span class="n">1</span>, <span class="n">3</span>, <span class="n">1</span>]
+<span class="f">print</span>(<span class="f">sortperm</span>(xs))
+<span class="f">print</span>(<span class="f">sortperm</span>(xs, <span class="k">true</span>))
+<span class="f">print</span>(<span class="f">argsort</span>(xs, <span class="k">true</span>))
+<span class="f">print</span>(xs[<span class="f">sortperm</span>(xs)])
+<span class="f">print</span>(<span class="f">sortperm</span>((<span class="s">"pear"</span>, <span class="s">"fig"</span>, <span class="s">"apple"</span>)))
+</code></pre>
+<div class="out"><span class="lbl">output</span><pre>[1, 3, 5, 2, 0, 4]
+[0, 4, 2, 1, 3, 5]
+[4, 0, 2, 5, 3, 1]
+[1, 1, 1, 2, 3, 3]
+[2, 1, 0]</pre></div></div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.3.0 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

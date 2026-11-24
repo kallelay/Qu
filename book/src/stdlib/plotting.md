@@ -1043,6 +1043,8 @@ keeps oscillating around it — a reminder that `scatterfit` will always draw
 *a* line, whether or not a polynomial is the right model for the data:
 
 ```qu
+t = linspace(0, 1, 500)    # the Example data again: earlier examples reuse these names
+y = sin(2 * pi * 5 * t) + 0.2 * randn(500, seed = 1)
 scatterfit(t, y, 2)   # degree-2 polynomial fit through the scatter
 xlabel("x")
 ylabel("y")

@@ -32,6 +32,10 @@ whole time. `with <module> ... end` opens a block in which a **leading**
 continuing something already written — is sugar for `<module>.function(...)`:
 
 ```qu
+# Make a small gradient picture first, so the example has a file to load.
+g = linspace(0, 255, 32)
+save_image("photo.png", image_from_matrix(ones(32, 1) * reshape(g, 1, 32)))
+
 with image
     img = .load("photo.png") |> .blur |> .sobel(direction="x")
 end
@@ -129,6 +133,10 @@ value is then cached in place so a second read never re-runs it. An ordinary
 before — `lazy` is an explicit opt-in, not a new default.
 
 ```qu
+function expensive_computation()
+    return sum(1 to 1000)
+end function
+
 lazy x = expensive_computation()   # nothing runs yet
 print("declared, nothing computed yet")
 y = x   # FIRST read: runs expensive_computation() now, caches the result

@@ -400,15 +400,14 @@ true
 <tr><td><code>load_svg</code></td><td><code>load_svg(path)</code></td><td>Reads an SVG file back. Returns a <code>Record</code> with fields <code>width</code>, <code>height</code> (from the <code>width</code>/<code>height</code> attributes, falling back to the <code>viewBox</code> when those are absent or a percentage; absolute CSS units <code>px</code>/<code>pt</code>/<code>pc</code>/<code>in</code>/<code>cm</code>/<code>mm</code> are converted to user units) and <code>shapes</code>, a <code>List</code> of shape records in document order. Reads the <strong>presentation attributes</strong> of <code>rect</code>, <code>circle</code>, <code>line</code>, <code>path</code> and <code>text</code>, descending into <code>&lt;g&gt;</code> groups. It does <strong>not</strong> apply <code>transform=</code>, resolve CSS (<code>&lt;style&gt;</code>, <code>style=</code>, <code>class=</code>), inherit styling from an ancestor group, or resolve <code>&lt;use&gt;</code>/<code>&lt;symbol&gt;</code>/gradients/patterns/masks/clip paths, and it skips <code>&lt;ellipse&gt;</code>/<code>&lt;polygon&gt;</code>/<code>&lt;polyline&gt;</code>/<code>&lt;image&gt;</code>. Unrecognized elements are skipped rather than rejected, so "loaded without error" does <strong>not</strong> mean "read everything in the file" — a round trip of a file <code>save_svg</code> wrote is exact, and that is the case it is built for. A file with no <code>&lt;svg&gt;</code> root is refused by name. Added in v0.3.0.</td></tr>
 </table></div>
 <h3>Drawing and reading back an SVG</h3>
-<div class="example"><pre class="hl"><code><span class="k">import</span> svg
+<div class="example hasout"><pre class="hl"><code><span class="k">import</span> svg
 
 shapes = [
   svg.<span class="f">rect</span>(<span class="n">10</span>, <span class="n">10</span>, <span class="n">100</span>, <span class="n">50</span>, <span class="a">fill</span> = <span class="s">"#e74c3c"</span>),
   svg.<span class="f">circle</span>(<span class="n">200</span>, <span class="n">60</span>, <span class="n">40</span>, <span class="a">fill</span> = <span class="s">"#3498db"</span>, <span class="a">stroke</span> = <span class="s">"#000000"</span>, <span class="a">stroke_width</span> = <span class="n">2</span>),
   svg.<span class="f">line</span>(<span class="n">0</span>, <span class="n">0</span>, <span class="n">300</span>, <span class="n">120</span>, <span class="a">stroke</span> = <span class="s">"#333333"</span>, <span class="a">stroke_width</span> = <span class="n">1.5</span>),
   svg.<span class="f">path</span>(<span class="s">"M 10 100 L 60 40 L 110 100 Z"</span>, <span class="a">stroke</span> = <span class="s">"#2ecc71"</span>, <span class="a">stroke_width</span> = <span class="n">2</span>),
-  svg.<span class="f">text</span>(<span class="n">20</span>, <span class="n">150</span>, <span class="s">"R&amp;D output"</span>, <span class="a">font_size</span> = <span class="n">16</span>, <span class="a">fill</span> = <span class="s">"#111111"</span>)
-]
+  svg.<span class="f">text</span>(<span class="n">20</span>, <span class="n">150</span>, <span class="s">"R&amp;D output"</span>, <span class="a">font_size</span> = <span class="n">16</span>, <span class="a">fill</span> = <span class="s">"#111111"</span>)]
 
 <span class="f">save_svg</span>(<span class="s">"drawing.svg"</span>, shapes, <span class="a">width</span> = <span class="n">320</span>, <span class="a">height</span> = <span class="n">180</span>)
 
@@ -418,7 +417,10 @@ doc = <span class="f">load_svg</span>(<span class="s">"drawing.svg"</span>)
 <span class="f">print</span>(doc.shapes[<span class="n">1</span>].kind)    <span class="c"># circle</span>
 <span class="f">print</span>(doc.shapes[<span class="n">1</span>].r)       <span class="c"># 40</span>
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>320
+5
+circle
+40</pre></div></div>
 <h2 id="s417">Examples</h2>
 <h3>Load, grayscale, and display</h3>
 <p><code>grayscale</code> is usually the first step in a CV pipeline that doesn't care about color: it collapses a loaded RGB image down to R=G=B luma so that every downstream filter (edge detection, thresholding, morphology) only has to reason about one intensity value per pixel instead of three. The example below loads a photo, converts it, and shows it inline — the resulting figure looks identical in shape and size to the original, but every trace of color is gone, leaving a flat grey rendition where only brightness carries information.</p>
@@ -622,10 +624,12 @@ M = <span class="f">affine_scale</span>(<span class="n">2</span>, <span class="n
 </svg></figure></div>
 <h3>Convolution filters: blur, sharpen, and a custom kernel</h3>
 <p><code>blur</code>/<code>sharpen</code> are fixed 3x3 kernels; <code>imfilter</code> takes any odd-sized kernel for cases those don't cover. The source image here is a tight stripe pattern (alternating dark and light pixels); <code>soft</code> visibly smears those stripes into softer, blended bands, <code>crisp</code> pushes the opposite way and exaggerates the contrast between adjacent stripes so the pattern looks harsher, and <code>custom</code> — built from an explicit unsharp kernel via <code>imfilter</code> — looks similar to <code>crisp</code> but demonstrates that the same effect can be hand-specified as a raw kernel matrix rather than relying on the built-in <code>sharpen</code>.</p>
-<div class="example"><pre class="hl"><code>m = [<span class="n">10</span>, <span class="n">200</span>, <span class="n">10</span>, <span class="n">200</span>, <span class="n">10</span>; <span class="n">200</span>, <span class="n">10</span>, <span class="n">200</span>, <span class="n">10</span>, <span class="n">200</span>; <span class="n">10</span>, <span class="n">200</span>, <span class="n">10</span>, <span class="n">200</span>, <span class="n">10</span>]
+<div class="example hasout"><pre class="hl"><code><span class="k">import</span> image          <span class="c"># blur is also a core builtin, so with the module open it is called qualified</span>
+
+m = [<span class="n">10</span>, <span class="n">200</span>, <span class="n">10</span>, <span class="n">200</span>, <span class="n">10</span>; <span class="n">200</span>, <span class="n">10</span>, <span class="n">200</span>, <span class="n">10</span>, <span class="n">200</span>; <span class="n">10</span>, <span class="n">200</span>, <span class="n">10</span>, <span class="n">200</span>, <span class="n">10</span>]
 img = <span class="f">image_from_matrix</span>(m)
 
-soft = <span class="f">blur</span>(img)
+soft = image.<span class="f">blur</span>(img)
 crisp = <span class="f">sharpen</span>(img)
 <span class="f">imshow</span>(soft)
 <span class="f">imshow</span>(crisp)
@@ -634,7 +638,12 @@ kernel = [<span class="n">0</span>, -<span class="n">1</span>, <span class="n">0
 custom = <span class="f">imfilter</span>(img, kernel)
 <span class="f">print</span>(soft.width, crisp.width, custom.width)
 </code></pre>
-</div>
+<div class="out"><span class="lbl">output</span><pre>5 5 5</pre></div><figure class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 600" width="900" height="600" font-family="'Inter', 'Latin Modern Math', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif">
+
+<rect x="0" y="0" width="900" height="600" fill="#ffffff"/>
+<image x="104.06" y="59.84" width="761.94" height="457.16" href="data:image/bmp;base64,Qk1mAAAAAAAAADYAAAAoAAAABQAAAAMAAAABABgAAAAAADAAAAATCwAAEwsAAAAAAAAAAAAAAAAA////AAAA////AAAAAP///wAAAP///wAAAP///wAAAAD///8AAAD///8AAAAA" preserveAspectRatio="none"/>
+<text x="485.03" y="30.00" font-size="21.599999999999998" text-anchor="middle" fill="#444" font-weight="700">a synthetic field with one bright patch</text>
+</svg></figure></div>
 <h3>Histogram equalization and synthetic noise</h3>
 <p><code>histeq</code> and <code>imequalize</code> are the same operation under two names. <code>imnoise</code> adds Gaussian or salt-and-pepper noise, handy for testing the filters above. The source matrix here is a low-contrast image with all values clustered tightly around 88; after equalization, <code>eq</code> spreads those near-identical grey values apart so the same pattern shows visibly more contrast between neighboring pixels. <code>noisy_sp</code> looks like the original image but with a scattering of pure-black and pure-white pixels speckled across it — the "salt and pepper" the name describes — while a Gaussian-noise version would instead show a subtler, grainy variation across every pixel rather than isolated extreme dots.</p>
 <div class="example hasout"><pre class="hl"><code>m = [<span class="n">80</span>, <span class="n">90</span>, <span class="n">85</span>, <span class="n">95</span>; <span class="n">88</span>, <span class="n">92</span>, <span class="n">84</span>, <span class="n">91</span>; <span class="n">86</span>, <span class="n">89</span>, <span class="n">93</span>, <span class="n">87</span>; <span class="n">90</span>, <span class="n">85</span>, <span class="n">88</span>, <span class="n">92</span>]

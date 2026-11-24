@@ -43,13 +43,6 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example"><pre class="hl"><code>timer.<span class="f">start</span>()               <span class="c"># same as tic()</span>
-<span class="f">heavy_computation</span>()
-mid = timer.<span class="f">elapsed</span>()       <span class="c"># peek — does NOT reset, callable again</span>
-<span class="f">more_work</span>()
-total = timer.<span class="f">stop</span>()        <span class="c"># same as toc() — also a non-resetting read</span>
-</code></pre>
-</div><p class="fnfrom">from <a href="../docs/repl-diagnostics.html">repl-diagnostics</a></p>
 <div class="example hasout"><pre class="hl"><code>timer.<span class="f">start</span>()
 acc = <span class="n">0</span>
 <span class="k">for</span> k = <span class="n">0</span> <span class="k">to</span> <span class="n">100000</span>
@@ -62,8 +55,22 @@ s = timer.<span class="f">stop</span>()
 <span class="f">print</span>(<span class="s">"done, acc = {acc}"</span>)
 </code></pre>
 <div class="out"><span class="lbl">output</span><pre>elapsed &gt;= 0: true
-stop returns: 0.000586
+stop returns: 0.000696
 done, acc = 5000050000</pre></div></div><p class="fnfrom">from <a href="../docs/tour.html">tour</a></p>
+<div class="example"><pre class="hl"><code><span class="k">function</span> <span class="f">heavy_computation</span>()
+    <span class="k">return</span> <span class="f">sum</span>(<span class="f">sin</span>(<span class="n">1</span> <span class="k">to</span> <span class="n">100000</span>))
+<span class="k">end</span> <span class="k">function</span>
+<span class="k">function</span> <span class="f">more_work</span>()
+    <span class="k">return</span> <span class="f">sum</span>(<span class="f">cos</span>(<span class="n">1</span> <span class="k">to</span> <span class="n">100000</span>))
+<span class="k">end</span> <span class="k">function</span>
+
+timer.<span class="f">start</span>()               <span class="c"># same as tic()</span>
+<span class="f">heavy_computation</span>()
+mid = timer.<span class="f">elapsed</span>()       <span class="c"># peek — does NOT reset, callable again</span>
+<span class="f">more_work</span>()
+total = timer.<span class="f">stop</span>()        <span class="c"># same as toc() — also a non-resetting read</span>
+</code></pre>
+</div><p class="fnfrom">from <a href="../docs/repl-diagnostics.html">repl-diagnostics</a></p>
 <h2>How it works</h2>
 <p><code>stop(t)</code> — freeze AND reset the count to zero (unlike <code>pause</code>, which keeps it). The handle stays valid and reusable: <code>start(t)</code> after <code>stop</code> begins a fresh count from zero. Also stops any <code>on elapsed(t)</code>/<code>on elapsedOnce(t)</code> registration from firing (checked live by <code>run_for</code>) until <code>start</code>ed again.</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

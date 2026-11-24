@@ -50,10 +50,6 @@
 <span class="f">print</span>(<span class="s">"{len(readings)} readings, average {mean(readings):.2f}"</span>)
 </code></pre>
 <div class="out"><span class="lbl">output</span><pre>5 readings, average 2.32</pre></div></div><p class="fnfrom">from <a href="../docs/start-here.html">start-here</a></p>
-<div class="example"><pre class="hl"><code>  h = <span class="f">spectral_entropy</span>(emg_signal, <span class="n">256</span>, <span class="n">128</span>)
-  <span class="f">print</span>(<span class="s">"mean spectral entropy: {mean(h)}"</span>)
-</code></pre>
-</div><p class="fnfrom">from <a href="../docs/numerics-dsp.html">numerics-dsp</a></p>
 <div class="example hasout"><pre class="hl"><code>x = <span class="f">chisquare</span>(<span class="n">4</span>, <span class="n">1000</span>, <span class="a">seed</span>=<span class="n">1</span>)
 <span class="f">print</span>(<span class="s">"sample mean: {mean(x)}"</span>)   <span class="c"># converges to k=4, the distribution's own mean</span>
 </code></pre>
@@ -73,6 +69,11 @@
       2     0.508    0.301
       3     0.377    0.219
 0.432333</pre></div></div><p class="fnfrom">from <a href="../docs/collections-strings.html">collections-strings</a></p>
+<div class="example hasout"><pre class="hl"><code>  emg_signal = <span class="f">randn</span>(<span class="n">2048</span>, <span class="a">seed</span> = <span class="n">3</span>)
+  h = <span class="f">spectral_entropy</span>(emg_signal, <span class="n">256</span>, <span class="n">128</span>)
+  <span class="f">print</span>(<span class="s">"mean spectral entropy: {mean(h)}"</span>)
+</code></pre>
+<div class="out"><span class="lbl">output</span><pre>mean spectral entropy: 0.916231</pre></div></div><p class="fnfrom">from <a href="../docs/numerics-dsp.html">numerics-dsp</a></p>
 </main>
 </div>
 <footer><div class="wrap">

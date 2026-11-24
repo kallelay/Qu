@@ -1,0 +1,50 @@
+name: umya-spreadsheet
+
+on:
+  push:
+    branches: [ "*" ]
+  pull_request:
+    branches: [ "*" ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        toolchain:
+          - "1.89.0"
+          - stable
+          - beta
+          - nightly
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ matrix.toolchain }}
+      - name: Install Rust
+        run: rustup component add clippy
+      - name: Check Rust version
+        run: |
+          rustc --version
+          cargo --version
+          cargo clippy --version
+      - name: Run Lint & Tests
+        run: |
+          cargo clippy -- -D warnings
+          cargo test
+  formatting:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@nightly
+      - name: Install Rust
+        run: rustup component add rustfmt
+      - name: Check Rust version
+        run: |
+          rustc +nightly --version
+          cargo +nightly fmt --version
+      - name: Check formatting
+        run: cargo +nightly fmt --all --check

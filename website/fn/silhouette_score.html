@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>silhouette_score — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>silhouette_score</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/statistics-ml.html">Statistics & ML</a></p>
+<pre class="fnsig"><code>silhouette_score(X, labels)</code></pre>
+<p class="fnnote">Input: X, labels &middot; Output: no output</p>
+<h2>What it is</h2>
+<p>The mean of <code>silhouette(X, labels)</code>, a number in <code>[-1, 1]</code>; the usual single figure for choosing the number of clusters <code>k</code> (largest wins). Same arguments and errors as <code>silhouette</code>.</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>silhouette_score(X, labels)</code></td><td><div class="ioitem"><code>X</code> <span class="iotype">number</span><span class="iogap">not documented yet</span></div>
+<div class="ioitem"><code>labels</code> <span class="iotype">number</span><span class="iogap">not documented yet</span></div>
+</td><td><span class="ionone">not documented yet</span></td><td>Same arguments and errors as <code>silhouette</code>.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example hasout"><pre class="hl"><code>G = <span class="f">vstack</span>(<span class="f">randn</span>(<span class="n">40</span>, <span class="n">2</span>, <span class="a">seed</span> = <span class="n">31</span>) + <span class="n">4</span>,
+           <span class="f">randn</span>(<span class="n">40</span>, <span class="n">2</span>, <span class="a">seed</span> = <span class="n">32</span>) - <span class="n">4</span>,
+           <span class="f">randn</span>(<span class="n">40</span>, <span class="n">2</span>, <span class="a">seed</span> = <span class="n">33</span>))
+<span class="k">for</span> k = <span class="n">2</span>:<span class="n">5</span>
+    s = <span class="f">silhouette_score</span>(G, <span class="f">kmeans</span>(G, k, <span class="a">seed</span> = <span class="n">5</span>))
+    <span class="f">print</span>(<span class="s">"k = {k}: silhouette = {round(s, 3)}"</span>)
+<span class="k">end</span> <span class="k">for</span>
+</code></pre>
+<div class="out"><span class="lbl">output</span><pre>k = 2: silhouette = 0.558
+k = 3: silhouette = 0.692
+k = 4: silhouette = 0.559
+k = 5: silhouette = 0.539</pre></div></div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.3.0 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

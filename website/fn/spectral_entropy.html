@@ -46,10 +46,11 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example"><pre class="hl"><code>  h = <span class="f">spectral_entropy</span>(emg_signal, <span class="n">256</span>, <span class="n">128</span>)
+<div class="example hasout"><pre class="hl"><code>  emg_signal = <span class="f">randn</span>(<span class="n">2048</span>, <span class="a">seed</span> = <span class="n">3</span>)
+  h = <span class="f">spectral_entropy</span>(emg_signal, <span class="n">256</span>, <span class="n">128</span>)
   <span class="f">print</span>(<span class="s">"mean spectral entropy: {mean(h)}"</span>)
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/numerics-dsp.html">numerics-dsp</a></p>
+<div class="out"><span class="lbl">output</span><pre>mean spectral entropy: 0.916231</pre></div></div><p class="fnfrom">from <a href="../docs/numerics-dsp.html">numerics-dsp</a></p>
 <h2>How it works</h2>
 <p><code>spectral_entropy(x, [nfft=256], [hop=nfft/2])</code> — the Shannon entropy of each <code>stft</code> frame's normalized power spectrum, scaled to <code>[0, 1]</code>: low when a frame's energy concentrates in a few frequency bins (a clean tone), high when it's spread across many (broadband noise, or a complex/mixed signal).</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

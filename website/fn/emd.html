@@ -48,7 +48,8 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example"><pre class="hl"><code>  e = <span class="f">emd</span>(signal)
+<div class="example"><pre class="hl"><code>  signal = <span class="f">sin</span>(<span class="n">2</span> * pi * <span class="n">10</span> * (<span class="n">0</span> <span class="k">to</span> <span class="n">999</span>) / <span class="n">1000</span>) + <span class="n">0.5</span> * <span class="f">sin</span>(<span class="n">2</span> * pi * <span class="n">80</span> * (<span class="n">0</span> <span class="k">to</span> <span class="n">999</span>) / <span class="n">1000</span>)
+  e = <span class="f">emd</span>(signal)
   recon = <span class="f">sum</span>(e.imfs, <span class="a">axis</span>=<span class="n">0</span>) + e.residual   <span class="c"># == signal, to floating precision</span>
   first_imf = e.imfs[<span class="n">0</span>, :]                    <span class="c"># the highest-frequency mode</span>
 </code></pre>

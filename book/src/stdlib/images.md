@@ -445,8 +445,7 @@ shapes = [
   svg.circle(200, 60, 40, fill = "#3498db", stroke = "#000000", stroke_width = 2),
   svg.line(0, 0, 300, 120, stroke = "#333333", stroke_width = 1.5),
   svg.path("M 10 100 L 60 40 L 110 100 Z", stroke = "#2ecc71", stroke_width = 2),
-  svg.text(20, 150, "R&D output", font_size = 16, fill = "#111111")
-]
+  svg.text(20, 150, "R&D output", font_size = 16, fill = "#111111")]
 
 save_svg("drawing.svg", shapes, width = 320, height = 180)
 
@@ -733,10 +732,12 @@ the same effect can be hand-specified as a raw kernel matrix rather than
 relying on the built-in `sharpen`.
 
 ```qu
+import image          # blur is also a core builtin, so with the module open it is called qualified
+
 m = [10, 200, 10, 200, 10; 200, 10, 200, 10, 200; 10, 200, 10, 200, 10]
 img = image_from_matrix(m)
 
-soft = blur(img)
+soft = image.blur(img)
 crisp = sharpen(img)
 imshow(soft)
 imshow(crisp)

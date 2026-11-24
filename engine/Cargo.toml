@@ -30,3 +30,11 @@ repository = "https://github.com/kallelay/Qu"
 opt-level = 3
 lto = "thin"
 codegen-units = 1
+
+# umya-spreadsheet 3.1.1 (latest) still depends on zip 8.6.0, which carries the
+# zip-cloaking advisory (GHSA-m665, fixed in 9.0.5) and the extract() symlink
+# advisories. This vendored copy differs from the published crate in two places only:
+# its Cargo.toml (zip "9") and zip_by_name in src/reader/driver.rs (zip 9's
+# ZipFile::name() returns a Result). Drop it when upstream moves.
+[patch.crates-io]
+umya-spreadsheet = { path = "vendor/umya-spreadsheet" }

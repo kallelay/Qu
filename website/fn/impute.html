@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>impute — Qu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/doc.css">
+</head>
+<body class="doc">
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="../index.html">Q<span>u</span></a>
+  <nav class="topnav">
+    <a href="../learn.html">Learn</a>
+    <a href="../docs.html">Docs</a>
+    <a href="../refs.html">Refs</a>
+    <a href="../demos.html">Demos</a>
+    <a href="../editors.html">Editors</a>
+    <a href="../agents.html">For AI agents</a>
+    <a href="../download.html">Download</a>
+    <a href="../changelog.html">Changelog</a>
+  </nav>
+  <button class="iconbtn" data-theme-toggle title="Light or dark">Theme</button>
+</div></div>
+
+<div class="doclayout">
+
+<main class="docmain">
+<h1>impute</h1>
+<nav class="onthispage"></nav>
+<p class="fnback"><a href="../docs/builtin-index.html">Builtin index</a> &middot; <a href="../docs/statistics-ml.html">Statistics & ML</a></p>
+<pre class="fnsig"><code>impute(x, strategy)</code></pre>
+<p class="fnnote">Input: x, strategy &middot; Output: no output</p>
+<h2>What it is</h2>
+<p>Replaces each <code>NaN</code> by a statistic of the observed (non-<code>NaN</code>) values of its own column (a vector is one column): <code>strategy</code> is <code>"mean"</code>, <code>"median"</code> (the mean of the two middle values for an even count), <code>"most_frequent"</code> (ties go to the smallest value) or <code>"zero"</code>. Columns with nothing missing are left as they are. The statistic comes from <code>x</code> itself: to impute a test set with training statistics, compute them on the training set and use <code>fillna</code>. Errors: an unknown strategy, and a column that is all <code>NaN</code> under <code>"mean"</code>, <code>"median"</code> or <code>"most_frequent"</code>, which has no statistic to use (<code>"zero"</code> still works).</p>
+<h2>Overloads</h2>
+<p class="fnnote">One call shape &mdash; this function is not overloaded.</p>
+<div class="tablewrap"><table class="iotable">
+<tr><td>Code</td><td>Input</td><td>Output</td><td>Description</td></tr>
+<tr><td class="iocode"><code>impute(x, strategy)</code></td><td><div class="ioitem"><code>x</code> <span class="iotype">&mdash;</span><span class="iodesc">The statistic comes from <code>x</code> itself: to impute a test set with training statistics, compute them on the training set and use <code>fillna</code>.</span></div>
+<div class="ioitem"><code>strategy</code> <span class="iotype">vector</span><span class="iodesc">Replaces each <code>NaN</code> by a statistic of the observed (non-<code>NaN</code>) values of its own column (a vector is one column): <code>strategy</code> is <code>"mean"</code>, <code>"median"</code> (the mean of the two middle values for an even count), <code>"most_frequent"</code> (ties go to the smallest value) or <code>"zero"</code>.</span></div>
+</td><td><span class="ionone">not documented yet</span></td><td>Columns with nothing missing are left as they are.</td></tr>
+</table></div>
+<h3>Examples</h3>
+<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
+<div class="example hasout"><pre class="hl"><code>Xna = [<span class="n">1</span>, <span class="n">10</span>; nan, <span class="n">12</span>; <span class="n">3</span>, nan; <span class="n">5</span>, <span class="n">14</span>; <span class="n">7</span>, <span class="n">16</span>; nan, <span class="n">18</span>]
+yna = [<span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">1</span>, <span class="n">1</span>, <span class="n">1</span>]
+Xf = <span class="f">impute</span>(Xna, <span class="s">"median"</span>)
+<span class="f">print</span>(Xf)
+m = <span class="f">logistic_model</span>(Xf, yna)
+<span class="f">print</span>(<span class="s">"train accuracy: {round(m.score(Xf, yna), 3)}"</span>)
+<span class="f">print</span>(<span class="f">fillna</span>([<span class="n">1</span>, nan, <span class="n">3</span>], <span class="n">0</span>))
+</code></pre>
+<div class="out"><span class="lbl">output</span><pre>[1, 10; 4, 12; 3, 14; 5, 14; 7, 16; 4, 18]
+train accuracy: 0.667
+[1, 0, 3]</pre></div></div><p class="fnfrom">from <a href="../docs/statistics-ml.html">statistics-ml</a></p>
+</main>
+</div>
+<footer><div class="wrap">
+  <div>Qu 0.3.0 &middot; Apache-2.0 (code) &#47; CC BY-SA 4.0 (docs) &middot; &copy; 2026 Ahmed Yahia Kallel</div>
+  <div><a href="../index.html">Home</a> &nbsp; <a href="../docs.html">Docs</a> &nbsp; <a href="../download.html">Download</a></div>
+</div></footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>

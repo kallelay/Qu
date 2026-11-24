@@ -47,11 +47,15 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example"><pre class="hl"><code>t = <span class="f">read_csv</span>(path, <span class="a">headers</span> = <span class="k">true</span>)
+<div class="example hasout"><pre class="hl"><code>t = <span class="f">read_csv</span>(path, <span class="a">headers</span> = <span class="k">true</span>)
 <span class="f">print</span>(<span class="s">"rows: {nrow(t)}"</span>)
 <span class="f">print</span>(<span class="f">head</span>(t, <span class="n">2</span>))
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/agent-guide.html">agent-guide</a></p>
+<div class="out"><span class="lbl">output</span><pre>rows: 3
+name  score
+----  -----
+a         1
+b         4</pre></div></div><p class="fnfrom">from <a href="../docs/agent-guide.html">agent-guide</a></p>
 <div class="example hasout"><pre class="hl"><code><span class="f">write_csv</span>(df, <span class="s">"data.csv"</span>)
 df2 = <span class="f">read_csv</span>(<span class="s">"data.csv"</span>)
 <span class="f">print</span>(df2)

@@ -46,7 +46,11 @@
 </table></div>
 <h3>Examples</h3>
 <p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example"><pre class="hl"><code>model = <span class="f">hmm</span>(transition, emission, initial)
+<div class="example"><pre class="hl"><code>transition = [<span class="n">0.9</span>, <span class="n">0.1</span>; <span class="n">0.2</span>, <span class="n">0.8</span>]    <span class="c"># a small 2-state model standing in for the benchmark's</span>
+emission = [<span class="n">0.7</span>, <span class="n">0.3</span>; <span class="n">0.1</span>, <span class="n">0.9</span>]
+initial = [<span class="n">0.5</span>, <span class="n">0.5</span>]
+obs = [<span class="n">0</span>, <span class="n">0</span>, <span class="n">1</span>, <span class="n">1</span>, <span class="n">1</span>, <span class="n">0</span>, <span class="n">1</span>, <span class="n">1</span>]
+model = <span class="f">hmm</span>(transition, emission, initial)
 path = model.<span class="f">viterbi</span>(obs)          <span class="c"># one call, entire 8000-step decode</span>
 </code></pre>
 </div><p class="fnfrom">from <a href="../docs/tour.html">tour</a></p>

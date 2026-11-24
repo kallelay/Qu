@@ -43,20 +43,7 @@
 </td><td>Returns a new <code>Image</code>, the same dimensions as <code>img</code>.</td></tr>
 </table></div>
 <h3>Examples</h3>
-<p class="fnnote">From the documentation, and run by the build -- the output and the figure below are what the engine actually produced. Simplest first.</p>
-<div class="example"><pre class="hl"><code>m = [<span class="n">10</span>, <span class="n">200</span>, <span class="n">10</span>, <span class="n">200</span>, <span class="n">10</span>; <span class="n">200</span>, <span class="n">10</span>, <span class="n">200</span>, <span class="n">10</span>, <span class="n">200</span>; <span class="n">10</span>, <span class="n">200</span>, <span class="n">10</span>, <span class="n">200</span>, <span class="n">10</span>]
-img = <span class="f">image_from_matrix</span>(m)
-
-soft = <span class="f">blur</span>(img)
-crisp = <span class="f">sharpen</span>(img)
-<span class="f">imshow</span>(soft)
-<span class="f">imshow</span>(crisp)
-
-kernel = [<span class="n">0</span>, -<span class="n">1</span>, <span class="n">0</span>; -<span class="n">1</span>, <span class="n">5</span>, -<span class="n">1</span>; <span class="n">0</span>, -<span class="n">1</span>, <span class="n">0</span>]      <span class="c"># explicit unsharp kernel</span>
-custom = <span class="f">imfilter</span>(img, kernel)
-<span class="f">print</span>(soft.width, crisp.width, custom.width)
-</code></pre>
-</div><p class="fnfrom">from <a href="../docs/images.html">images</a></p>
+<p class="fnnote">No documentation example calls this form yet. The <a href="../docs/images.html">Images</a> chapter is where one belongs.</p>
 <h2>How it works</h2>
 <p><code>blur(img)</code> / <code>sharpen(img)</code> — the two required convolution filters (3x3 box-average blur, 3x3 unsharp-mask sharpen); see <code>image::Image</code>'s doc comments for the exact kernels. <code>edge_detect(img)</code> — a bonus third (3x3 discrete Laplacian). <code>imfilter(img, kernel)</code> — the generic escape hatch: an arbitrary odd-sized square <code>Matrix</code> kernel, direct 2-D convolution with edge-clamped borders (see <code>image::Image::convolve</code>'s doc comment for why this is a small from-scratch 2-D convolution rather than a forced reuse of <code>qu_core::transforms::conv</code>, which is 1-D only).</p>
 <p class="fnnote">From the note above this builtin in the interpreter, where the reasoning was written down as it was built.</p>

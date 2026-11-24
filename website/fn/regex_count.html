@@ -60,14 +60,81 @@
 12.4
 ("sensor_1: 12.4", "sensor_2: 9.8", "sensor_3: 15.0")
 3</pre></div></div><p class="fnfrom">from <a href="../docs/collections-strings.html">collections-strings</a></p>
-<div class="example"><pre class="hl"><code><span class="f">figure</span>()
+<div class="example hasout"><pre class="hl"><code><span class="f">figure</span>()
 <span class="f">polygon</span>([<span class="n">0.0</span>, <span class="n">1.0</span>, <span class="n">1.0</span>], [<span class="n">0.0</span>, <span class="n">0.0</span>, <span class="n">1.0</span>], <span class="a">fill</span> = <span class="s">"#00ff00"</span>, <span class="a">alpha</span> = <span class="n">1.0</span>)
 <span class="f">figure_size</span>(<span class="n">200</span>, <span class="n">150</span>, <span class="a">unit</span> = <span class="s">"mm"</span>)
 <span class="f">polygon</span>([<span class="n">2.0</span>, <span class="n">3.0</span>, <span class="n">3.0</span>], [<span class="n">0.0</span>, <span class="n">0.0</span>, <span class="n">1.0</span>], <span class="a">fill</span> = <span class="s">"#0000ff"</span>, <span class="a">alpha</span> = <span class="n">1.0</span>)
 <span class="f">savefig</span>(tmp_svg)
 <span class="f">print</span>(<span class="f">regex_count</span>(<span class="f">read_all_text</span>(tmp_svg), <span class="s">"&lt;polygon"</span>))   <span class="c"># 2, not 1</span>
 </code></pre>
-</div><p class="fnfrom">from <a href="../docs/agent-guide.html">agent-guide</a></p>
+<div class="out"><span class="lbl">output</span><pre>· savefig &lt;tmp&gt;.svg
+  note: fonts render using whatever is installed on the viewer's machine (none are embedded) -- pass embed_fonts=true (fontfamily preset only) or export .tikz for guaranteed appearance
+2</pre></div><figure class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2000 1500" width="2000" height="1500" font-family="'Inter', 'Latin Modern Math', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif">
+
+<rect x="0" y="0" width="2000" height="1500" fill="#ffffff"/>
+<line x1="209.25" y1="1363.88" x2="1966.00" y2="1363.88" stroke="#e6e6e6" stroke-width="1.8181818181818183"/>
+<line x1="199.25" y1="1363.88" x2="209.25" y2="1363.88" stroke="#333333" stroke-width="1.8181818181818183"/>
+<text x="184.25" y="1376.47" font-size="36" text-anchor="end" fill="#4d4d4d">0</text>
+<line x1="209.25" y1="1242.05" x2="1966.00" y2="1242.05" stroke="#e6e6e6" stroke-width="1.8181818181818183"/>
+<line x1="199.25" y1="1242.05" x2="209.25" y2="1242.05" stroke="#333333" stroke-width="1.8181818181818183"/>
+<text x="184.25" y="1254.65" font-size="36" text-anchor="end" fill="#4d4d4d">0.1</text>
+<line x1="209.25" y1="1120.22" x2="1966.00" y2="1120.22" stroke="#e6e6e6" stroke-width="1.8181818181818183"/>
+<line x1="199.25" y1="1120.22" x2="209.25" y2="1120.22" stroke="#333333" stroke-width="1.8181818181818183"/>
+<text x="184.25" y="1132.82" font-size="36" text-anchor="end" fill="#4d4d4d">0.2</text>
+<line x1="209.25" y1="998.39" x2="1966.00" y2="998.39" stroke="#e6e6e6" stroke-width="1.8181818181818183"/>
+<line x1="199.25" y1="998.39" x2="209.25" y2="998.39" stroke="#333333" stroke-width="1.8181818181818183"/>
+<text x="184.25" y="1010.99" font-size="36" text-anchor="end" fill="#4d4d4d">0.3</text>
+<line x1="209.25" y1="876.56" x2="1966.00" y2="876.56" stroke="#e6e6e6" stroke-width="1.8181818181818183"/>
+<line x1="199.25" y1="876.56" x2="209.25" y2="876.56" stroke="#333333" stroke-width="1.8181818181818183"/>
+<text x="184.25" y="889.16" font-size="36" text-anchor="end" fill="#4d4d4d">0.4</text>
+<line x1="209.25" y1="754.73" x2="1966.00" y2="754.73" stroke="#e6e6e6" stroke-width="1.8181818181818183"/>
+<line x1="199.25" y1="754.73" x2="209.25" y2="754.73" stroke="#333333" stroke-width="1.8181818181818183"/>
+<text x="184.25" y="767.33" font-size="36" text-anchor="end" fill="#4d4d4d">0.5</text>
+<line x1="209.25" y1="632.90" x2="1966.00" y2="632.90" stroke="#e6e6e6" stroke-width="1.8181818181818183"/>
+<line x1="199.25" y1="632.90" x2="209.25" y2="632.90" stroke="#333333" stroke-width="1.8181818181818183"/>
+<text x="184.25" y="645.50" font-size="36" text-anchor="end" fill="#4d4d4d">0.6</text>
+<line x1="209.25" y1="511.07" x2="1966.00" y2="511.07" stroke="#e6e6e6" stroke-width="1.8181818181818183"/>
+<line x1="199.25" y1="511.07" x2="209.25" y2="511.07" stroke="#333333" stroke-width="1.8181818181818183"/>
+<text x="184.25" y="523.67" font-size="36" text-anchor="end" fill="#4d4d4d">0.7</text>
+<line x1="209.25" y1="389.24" x2="1966.00" y2="389.24" stroke="#e6e6e6" stroke-width="1.8181818181818183"/>
+<line x1="199.25" y1="389.24" x2="209.25" y2="389.24" stroke="#333333" stroke-width="1.8181818181818183"/>
+<text x="184.25" y="401.84" font-size="36" text-anchor="end" fill="#4d4d4d">0.8</text>
+<line x1="209.25" y1="267.41" x2="1966.00" y2="267.41" stroke="#e6e6e6" stroke-width="1.8181818181818183"/>
+<line x1="199.25" y1="267.41" x2="209.25" y2="267.41" stroke="#333333" stroke-width="1.8181818181818183"/>
+<text x="184.25" y="280.01" font-size="36" text-anchor="end" fill="#4d4d4d">0.9</text>
+<line x1="209.25" y1="145.58" x2="1966.00" y2="145.58" stroke="#e6e6e6" stroke-width="1.8181818181818183"/>
+<line x1="199.25" y1="145.58" x2="209.25" y2="145.58" stroke="#333333" stroke-width="1.8181818181818183"/>
+<text x="184.25" y="158.18" font-size="36" text-anchor="end" fill="#4d4d4d">1.0</text>
+<line x1="209.25" y1="84.67" x2="209.25" y2="1363.88" stroke="#e6e6e6" stroke-width="1.8181818181818183"/>
+<line x1="209.25" y1="1363.88" x2="209.25" y2="1373.88" stroke="#333333" stroke-width="1.8181818181818183"/>
+<text x="209.25" y="1408.88" font-size="36" text-anchor="middle" fill="#4d4d4d">0</text>
+<line x1="488.10" y1="84.67" x2="488.10" y2="1363.88" stroke="#e6e6e6" stroke-width="1.8181818181818183"/>
+<line x1="488.10" y1="1363.88" x2="488.10" y2="1373.88" stroke="#333333" stroke-width="1.8181818181818183"/>
+<text x="488.10" y="1408.88" font-size="36" text-anchor="middle" fill="#4d4d4d">0.5</text>
+<line x1="766.95" y1="84.67" x2="766.95" y2="1363.88" stroke="#e6e6e6" stroke-width="1.8181818181818183"/>
+<line x1="766.95" y1="1363.88" x2="766.95" y2="1373.88" stroke="#333333" stroke-width="1.8181818181818183"/>
+<text x="766.95" y="1408.88" font-size="36" text-anchor="middle" fill="#4d4d4d">1.0</text>
+<line x1="1045.80" y1="84.67" x2="1045.80" y2="1363.88" stroke="#e6e6e6" stroke-width="1.8181818181818183"/>
+<line x1="1045.80" y1="1363.88" x2="1045.80" y2="1373.88" stroke="#333333" stroke-width="1.8181818181818183"/>
+<text x="1045.80" y="1408.88" font-size="36" text-anchor="middle" fill="#4d4d4d">1.5</text>
+<line x1="1324.65" y1="84.67" x2="1324.65" y2="1363.88" stroke="#e6e6e6" stroke-width="1.8181818181818183"/>
+<line x1="1324.65" y1="1363.88" x2="1324.65" y2="1373.88" stroke="#333333" stroke-width="1.8181818181818183"/>
+<text x="1324.65" y="1408.88" font-size="36" text-anchor="middle" fill="#4d4d4d">2.0</text>
+<line x1="1603.50" y1="84.67" x2="1603.50" y2="1363.88" stroke="#e6e6e6" stroke-width="1.8181818181818183"/>
+<line x1="1603.50" y1="1363.88" x2="1603.50" y2="1373.88" stroke="#333333" stroke-width="1.8181818181818183"/>
+<text x="1603.50" y="1408.88" font-size="36" text-anchor="middle" fill="#4d4d4d">2.5</text>
+<line x1="1882.35" y1="84.67" x2="1882.35" y2="1363.88" stroke="#e6e6e6" stroke-width="1.8181818181818183"/>
+<line x1="1882.35" y1="1363.88" x2="1882.35" y2="1373.88" stroke="#333333" stroke-width="1.8181818181818183"/>
+<text x="1882.35" y="1408.88" font-size="36" text-anchor="middle" fill="#4d4d4d">3.0</text>
+<line x1="209.25" y1="1363.88" x2="1966.00" y2="1363.88" stroke="#333333" stroke-width="1.8181818181818183"/>
+<line x1="209.25" y1="84.67" x2="209.25" y2="1363.88" stroke="#333333" stroke-width="1.8181818181818183"/>
+<line x1="209.25" y1="84.67" x2="1966.00" y2="84.67" stroke="#333333" stroke-width="1.8181818181818183"/>
+<line x1="1966.00" y1="84.67" x2="1966.00" y2="1363.88" stroke="#333333" stroke-width="1.8181818181818183"/>
+<clipPath id="qu-clip-20925-8467-175675-127921"><rect x="209.25" y="84.67" width="1756.75" height="1279.21"/></clipPath><g clip-path="url(#qu-clip-20925-8467-175675-127921)">
+<polygon points="209.25,1363.88 766.95,1363.88 766.95,145.58" fill="#00ff00" stroke="none" stroke-width="1.40" opacity="1"/>
+<polygon points="1324.65,1363.88 1882.35,1363.88 1882.35,145.58" fill="#0000ff" stroke="none" stroke-width="1.40" opacity="1"/>
+</g>
+</svg></figure></div><p class="fnfrom">from <a href="../docs/agent-guide.html">agent-guide</a></p>
 </main>
 </div>
 <footer><div class="wrap">

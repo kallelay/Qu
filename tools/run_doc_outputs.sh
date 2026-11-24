@@ -121,6 +121,12 @@ for f in $(ls "$WORK"/*.body 2>/dev/null | sort -V); do
   fi
   ok=$((ok + 1))
 
+  # An example that writes to `tmp_file()` makes `savefig` and friends print
+  # an absolute scratch path with a process id and a timestamp in it. That
+  # would put the author's home directory on a public page and make every
+  # regeneration differ, so it is replaced before the prefix comparison below.
+  out=$(printf '%s' "$out" | sed -E "s#[^[:space:]\"'(]*qu_tmp_[0-9_]+\\.tmp#<tmp>#g")
+
   # Which figure belongs to this block is not a matter of counting them.
   # Consecutive blocks in a plotting chapter usually add to the SAME figure
   # -- a `plot`, then an `xlabel`, then a `legend`, each its own block --

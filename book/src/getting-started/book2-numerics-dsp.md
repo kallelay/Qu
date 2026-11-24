@@ -103,7 +103,8 @@ round-trip err = 9.86e-32
   spectrogram; default hop is 50% overlap:
 
   ```qu
-  S = stft(x, 256, 128)
+  sig = sin(2 * pi * 50 * (0 to 1023) / 1000)   # 1024 samples: enough for several frames
+  S = stft(sig, 256, 128)
   spectrogram = abs(S)
   ```
 
@@ -127,6 +128,7 @@ round-trip err = 9.86e-32
   ```qu
   fs = 8000
   tone_hz = 941                  # one DTMF tone
+  samples = sin(2 * pi * tone_hz * (0 to 799) / fs)   # 0.1 s of the tone
   strength = abs(goertzel_freq(samples, fs, tone_hz))
   ```
 
@@ -139,6 +141,9 @@ round-trip err = 9.86e-32
   scores close to `2.0` at its own frequency and far lower elsewhere:
 
   ```qu
+  k = 0 to 99
+  t = 0.02 * k + 0.008 * sin(7 * k)       # uneven sample times
+  x = sin(2 * pi * 3 * t)                 # a 3 Hz sinusoid
   power = vanicek(t, x, [1, 3, 5, 8, 12])   # t need not be evenly spaced
   ```
 
@@ -152,7 +157,9 @@ round-trip err = 9.86e-32
 
   ```qu
   y = conv([1, 2, 3], [0, 1, 0.5])                  # [0, 1, 2.5, 4, 1.5]
-  filtered = conv(signal, kernel, mode="same")       # same length as signal
+  sig = [1, 2, 4, 8, 4, 2, 1]
+  kernel = [1, 1, 1] / 3                            # 3-point moving average
+  filtered = conv(sig, kernel, mode="same")          # same length as sig
   ```
 
 - **`xcorr(x, [y])`** — cross-correlation over the full lag range
@@ -162,6 +169,8 @@ round-trip err = 9.86e-32
   energy) — the peak an autocorrelation is guaranteed to hit:
 
   ```qu
+  a = sin(2 * pi * 5 * (0 to 199) / 200)
+  b = sin(2 * pi * 5 * (0 to 199) / 200 + 0.5)
   r = xcorr(x)             # autocorrelation
   lag = xcorr(a, b)        # cross-correlation between two signals
   ```
@@ -171,6 +180,7 @@ round-trip err = 9.86e-32
   `imag(hilbert(x))` is the Hilbert transform of `x` itself:
 
   ```qu
+  am_signal = (1 + 0.5 * sin(2 * pi * 2 * (0 to 999) / 1000)) .* sin(2 * pi * 100 * (0 to 999) / 1000)
   envelope = abs(hilbert(am_signal))   # recovers an AM envelope
   ```
 
@@ -183,6 +193,7 @@ round-trip err = 9.86e-32
   a much taller peak, for instance):
 
   ```qu
+  spectrum = abs(rfft(sin(2 * pi * 40 * (0 to 999) / 1000)))   # one clear peak
   peaks = find_peaks(spectrum, min_height=0.1, min_distance=5)
   ```
 
@@ -221,6 +232,7 @@ round-trip err = 9.86e-32
   when you just need an onset/energy estimate):
 
   ```qu
+  signal = sin(2 * pi * 10 * (0 to 999) / 1000)
   e = energy(signal)
   instant_energy = tkeo(signal)   # length(signal) - 2 (needs a neighbor each side)
   ```
@@ -233,6 +245,7 @@ round-trip err = 9.86e-32
   e.g. muscle-activation onsets in an EMG recording:
 
   ```qu
+  emg_signal = randn(2048, seed = 3)
   e_t = ste(emg_signal, 200, 100)   # energy per 200-sample frame, 50% overlap
   ```
 
@@ -245,6 +258,7 @@ round-trip err = 9.86e-32
   tracks *how tonal vs. noisy* it is:
 
   ```qu
+  emg_signal = randn(2048, seed = 3)
   h = spectral_entropy(emg_signal, 256, 128)
   print("mean spectral entropy: {mean(h)}")
   ```
@@ -267,6 +281,7 @@ nonlinear signals) rather than staying fixed.
   only ever subtracts, so reconstruction is exact by construction:
 
   ```qu
+  signal = sin(2 * pi * 10 * (0 to 999) / 1000) + 0.5 * sin(2 * pi * 80 * (0 to 999) / 1000)
   e = emd(signal)
   recon = sum(e.imfs, axis=0) + e.residual   # == signal, to floating precision
   first_imf = e.imfs[0, :]                    # the highest-frequency mode
@@ -282,6 +297,7 @@ nonlinear signals) rather than staying fixed.
   converged frequency normalized to cycles/sample):
 
   ```qu
+  signal = sin(2 * pi * 10 * (0 to 999) / 1000) + 0.5 * sin(2 * pi * 80 * (0 to 999) / 1000)
   v = vmd(signal, 2)                 # exactly 2 modes
   freqs_hz = v.center_freqs .* fs    # convert to Hz
   ```
@@ -319,6 +335,7 @@ or are receiving samples one at a time:
   analysis, at double the effective filter order):
 
   ```qu
+  signal = sin(2 * pi * 10 * (0 to 999) / 1000) + 0.3 * randn(1000, seed = 1)   # 1 s at fs = 1000
   filtered = sosfilt(lp, signal)
   zero_phase = filtfilt(lp, signal)
   ```
@@ -543,6 +560,7 @@ s = sine(1 kHz, 48 kHz, 4800)             # a single tone
 c = chirp(20, 20000, 48 kHz, 48000)       # linear sweep, 20Hz to 20kHz
 lc = chirp(20, 20000, 48 kHz, 48000, method="logarithmic")
 sq = square(100, 1000, 1000, duty=0.3)    # bipolar (+-1) pulse train
+modulator = 0.5 + 0.4 * sin(2 * pi * 50 * (0 to 999) / 48000)   # slow sine, 0..1
 p = pwm(modulator, 5000, 48000)           # natural-sampling PWM against
                                            # a triangle carrier (duty
                                            # follows the modulator's value)
@@ -843,6 +861,8 @@ Jacobian (Qu has no automatic differentiation):
 
 ```qu
 model(x, p) := p[0] * exp(-p[1] * x)
+xdata = 0 to 9
+ydata = 2.0 * exp(-0.3 * xdata)    # noise-free data from a = 2, b = 0.3
 fit = curve_fit("model", xdata, ydata, [1, 1])   # initial guess [1, 1]
 print("a = {fit.params[0]}, b = {fit.params[1]}, cost = {fit.cost}")
 ```

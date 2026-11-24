@@ -43,10 +43,11 @@ turn on **`type explicit`** mode at the top of a script:
 
 ```qu
 type explicit
-x as vector(3)      # declare: x is a 3-element vector
-x = [1, 2, 3]        # now assignment is allowed
-print("x = {x}")
-# y = 5              # would ERROR: `y` is not declared
+v as vector(3)      # declare: v is a 3-element vector
+v = [1, 2, 3]        # now assignment is allowed
+print("v = {v}")
+# w = 5              # would ERROR: `w` is not declared
+type implicit        # back to the default for the rest of the book
 ```
 
 Switch back with `type implicit` (or just don't write `type explicit` at all —
@@ -349,6 +350,7 @@ ceremony):
 ```qu
 square(x) := x^2
 print("square(5) = {square(5)}")
+v = 1 to 5
 print("square(v) = {square(v)}")
 ```
 ```

@@ -442,8 +442,8 @@ end function
 
 print("add(2,3) = {add(2,3)}")
 
-square(x) := x^2
-print("square(5) = {square(5)}")
+sq(x) := x^2
+print("sq(5) = {sq(5)}")
 
 function describe(x: num)
     return "num: {x}"
@@ -461,7 +461,7 @@ Output:
 
 ```
 add(2,3) = 5
-square(5) = 25
+sq(5) = 25
 num: 5
 str: hi
 ```
@@ -490,22 +490,22 @@ numeric `+` and errors with `expected a number, found record`.) The
 `__type` — not a `kind` field, and not any structural/duck-typed match.
 
 > **MISMATCH — found and fixed same-day (commit `f77713c`).** This pass
-> originally found `function butter(x, order = 4, ...)` failing to parse
+> originally found `function scaled(x, order = 4, ...)` failing to parse
 > at all (`expected ')', found Op("=")`, since `Param` had no default-value
 > slot). Default parameters are now real:
 > ```qu
-> function butter(x, order = 4, cutoff = 1000)
+> function scaled(x, order = 4, cutoff = 1000)
 >     return "x={x} order={order} cutoff={cutoff}"
 > end function
-> print(butter(99))               # x=99 order=4 cutoff=1000
-> print(butter(99, 2, 500))       # x=99 order=2 cutoff=500
+> print(scaled(99))               # x=99 order=4 cutoff=1000
+> print(scaled(99, 2, 500))       # x=99 order=2 cutoff=500
 > ```
 > The default expression is re-evaluated fresh on every call (not
 > computed once at definition time) and may reference an earlier
 > parameter (`function f(x, y = x * 2)` works). **A real behavior change
 > discovered along the way**: named-argument calling on a user-defined
-> function is NOT supported — `butter(99, cutoff=500)` is a clear error
-> (`` `butter` is a user-defined function -- named arguments... are not
+> function is NOT supported — `scaled(99, cutoff=500)` is a clear error
+> (`` `scaled` is a user-defined function -- named arguments... are not
 > supported when calling one``), verified live. Only builtins accept
 > `name=value` calling syntax; pass every argument to a user function
 > positionally. There is no separate `optional`/`is_present()` mechanism
@@ -754,7 +754,7 @@ grp  mean_v
 `df[mask]` does **not** work — bracket indexing on a table is single-key row
 lookup only, with a very explicit error pointing at the fix:
 
-```qu
+```qu,ignore
 mask = df.x > 0
 bad = df[mask]
 ```
@@ -956,7 +956,7 @@ returned a hardcoded `(0,0)` instead of the real shape.
 
 A real uncaught runtime error:
 
-```qu
+```qu,ignore
 y = [1,2] + [1,2,3]
 ```
 ```
@@ -1049,7 +1049,7 @@ resource limits and a policy), `queue()` (a deferred-job list), and
 `run <queue> on <pool>` (dispatch every queued job across the pool):
 
 ```qu
-function square(x)
+function sq_job(x)
     return x * x
 end function
 
@@ -1060,7 +1060,7 @@ end pool
 
 q = queue()
 for i in 0 to 9
-    q.push("square", i)         # enqueue a deferred call by name + args
+    q.push("sq_job", i)         # enqueue a deferred call by name + args
 end for
 
 results = run q on workers
@@ -1096,9 +1096,9 @@ addresses, dispatch jobs to them by function name, get results back.
 On the listening machine (or a second terminal on the same machine, for
 trying this out locally over the loopback interface):
 
-```qu
-square(x) := x * x
-listen_pool(9000, allow=("square"))   # blocks forever, serving requests
+```qu,ignore
+sq_job(x) := x * x
+listen_pool(9000, allow=("sq_job"))   # blocks forever, serving requests
 ```
 
 `allow=(...)` is a hard requirement, not an option — a listener only ever
@@ -1113,8 +1113,8 @@ functions the listening SCRIPT itself already chose to expose.
 On the calling machine, name that address as a `remote` resource alongside
 (or instead of) local `cpu` workers:
 
-```qu
-square(x) := x * x                    # still needed locally: `run` validates
+```qu,ignore
+sq_job(x) := x * x                    # still needed locally: `run` validates
                                        # every queued function name against
                                        # the CALLING script's own functions
                                        # before dispatching anything, even a
@@ -1125,7 +1125,7 @@ end pool
 
 q = queue()
 for i in 0 to 9
-    q.push("square", i)
+    q.push("sq_job", i)
 end for
 
 results = run q on workers            # some jobs run locally, some remote —
@@ -1694,7 +1694,7 @@ Live-confirmed footgun: piping a whole `Vec` into `square` as if it were an
 elementwise operation silently produced a meaningless 1-sample signal
 instead of any kind of error:
 
-```qu
+```qu,ignore
 x = [1, 2, 3, 4, 5]
 y = x |> square |> sum
 print(y)
@@ -2143,7 +2143,7 @@ registration-then-fire shape as the pre-existing `every`/`after`/`at ...
 end` timers (§12's `timer.` sugar is a different feature — this is the
 statement-level `Timer`/`OnElapsed` machinery those use under the hood):
 
-```qu
+```qu,ignore
 watch file(path) [do]
     ...
 end
@@ -2189,7 +2189,7 @@ A script that wants repeated checking drives it itself, typically pairing
 `pump_watches()` with the pre-existing `sleep(ms)` and `wait until ... end
 until`:
 
-```qu
+```qu,ignore
 n = 0
 watch file("data.csv") do
     n = n + 1
@@ -2271,7 +2271,7 @@ baseline is one real fetch performed at `watch url(...)` registration
 time, so whatever the endpoint returns *before* you started watching is
 never itself treated as a change.
 
-```qu
+```qu,ignore
 watch url("https://example.com/status", interval_seconds=30) do
     print("status page changed")
 end
@@ -2313,6 +2313,10 @@ depends on the previous one — this is the case where Qu's advantage is
 structural, not incidental.
 
 ```qu
+transition = [0.9, 0.1; 0.2, 0.8]    # a small 2-state model standing in for the benchmark's
+emission = [0.7, 0.3; 0.1, 0.9]
+initial = [0.5, 0.5]
+obs = [0, 0, 1, 1, 1, 0, 1, 1]
 model = hmm(transition, emission, initial)
 path = model.viterbi(obs)          # one call, entire 8000-step decode
 ```
@@ -2365,6 +2369,9 @@ they were originally written, since the fix (§26.2.1) is only meaningful
 in contrast to what it replaced.
 
 ```qu
+N = 500                          # a small stand-in for the benchmark's tracking data
+dt = 0.1
+measured = 0.5 * dt * (0 to N - 1) + 0.4 * randn(N, seed = 5)
 pf = particle_filter(50000, [0, 0], process_noise=0.08, obs_noise=0.4, spread=2.0, seed=3)
 for k = 0 to N - 1
     pf = pf.move(dt)

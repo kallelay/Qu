@@ -304,9 +304,12 @@ lines are headers is the normal case. When you expected the line to fit,
 `must_match=true` says which part of the shape was missing instead:
 
 ```qu
-scan("12 goodbye world", "%d hello world", must_match=true)
-# error: scan: `%d hello world` did not match `12 goodbye world`
-#        -- expected ` hello world` after %d
+try
+    scan("12 goodbye world", "%d hello world", must_match=true)
+catch e
+    print(e.message)
+end try
+# scan: `%d hello world` did not match `12 goodbye world` -- expected ` hello world` after %d
 ```
 
 **A limit worth stating.** Qu cannot tell you at parse time that a template
@@ -424,6 +427,7 @@ place — Qu values are immutable by convention everywhere else.
 | `unique` | `unique(x)` | `x` is a numeric `Vec`. Returns a `Vec`: a sorted, de-duplicated copy. |
 | `sort` | `sort(x, [descending])` | `x` is a numeric `Vec` or `List` of `Str`; optional `descending` (`bool`, default `false`). Returns the same type as `x`, ascending by default; uses a proper total order (`f64::total_cmp`) so a stray `NaN` cannot corrupt the ordering of the other elements around it. |
 | `argsort` | `argsort(x, [descending])` | `x` is a numeric `Vec`; optional `descending` (`bool`, default `false`). Returns a `Vec` of `number` (0-based indices): the permutation that would sort `x` — the index-returning sibling of `sort`, same convention as `argmin`/`argmax`. |
+| `sortperm` <br> *Added in v0.4.15* | `sortperm(x, [desc])` | The 0-based indices that sort `x`, so `x[sortperm(x)]` is sorted. `x` is a numeric vector or a list of strings (byte order); `desc` is `true` or `false` (default `false`). The sort is **stable in both directions**: equal elements keep their original order, so `sortperm([3, 1, 2, 1], true)` is `[0, 2, 1, 3]`. `NaN` counts as the largest value (last ascending, first descending) and `0` equals `-0`. This differs from `argsort(x, true)`, which reverses the ascending order and so reverses ties as well (`[0, 2, 3, 1]` for the same input). Errors: a non-vector matrix, `desc` that is not a boolean. |
 | `cumsum` | `cumsum(x)` | `x` is a numeric `Vec` or `Signal`; a boolean mask counts as 0/1, so `cumsum(x > c)` is a running count. Returns the running sum, same type/length as `x`; a `Signal` input stays a `Signal` with the same `Fs`. |
 | `diff` | `diff(x)` | `x` is a numeric `Vec` or `Signal` of length N. Returns the first difference (`x[i+1] - x[i]`), length N-1, same base type as `x`; a `Signal` input stays a `Signal` with the same `Fs`. |
 
